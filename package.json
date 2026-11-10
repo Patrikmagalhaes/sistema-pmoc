@@ -21,6 +21,7 @@
     "db:seed": "tsx --conditions=react-server db/seed/index.ts"
   },
   "dependencies": {
+    "better-auth": "1.7.10",
     "drizzle-orm": "0.45.4",
     "next": "16.4.2",
     "postgres": "3.4.9",

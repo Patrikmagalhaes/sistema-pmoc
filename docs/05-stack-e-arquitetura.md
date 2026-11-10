@@ -970,6 +970,22 @@ Observação: a Lei 14.063/2020 define assinatura simples, avançada e qualifica
 | S-05 | RLS com contexto `set_config(..., true)` no pooler do Supabase (modo transação) e desempenho com o cliente grande e a escala da DEC-34 emendada (AF-12) | Testes de isolamento passam; listas do portal < 2 s (RNF-16) | ADR-05 |
 | S-06 | PWA no iPhone: instalar, câmera, HEIC → JPEG, 300 MB de fotos, `persist()`, offline 3 dias | Nada perdido; envio completo ao reconectar | RF-21, RF-22 |
 
+**Resultado do S-04 (Better Auth 1.7.10, teste `tests/spikes/s04.test.ts`, Postgres 16, biblioteca rodando como `app_rw`): APROVADO nos 7 critérios.** O que o spike fixou (confirma os `[A VALIDAR no S-04]` de 03 §2.1, 05 §3.3 e 06 SEG-02, 10, 15, 68):
+
+| Item | Resultado |
+|---|---|
+| Sem cadastro público | `emailAndPassword.disableSignUp: true`: `POST /sign-up/email` devolve 400 e não cria linha. |
+| Criação pelo ADM | `POST /admin/create-user` funciona para `ADM` e é negado (4xx) para `TECNICO`. Com `role` no corpo exige a permissão `set-role`. Como o ADM **não** a tem (B6; DFT-04), criar **sem** `role` (vale `defaultRole`) e gravar o perfil no servidor com `internalAdapter.updateUser`. A fonte de verdade continua `app_user.role`. |
+| Troca de perfil | Papéis definidos com `createAccessControl` sem `set-role` para `ADM`; `/admin/set-role` devolve 403. `adminRoles: ["ADM"]`. |
+| Nomes `auth_*` | `modelName` em `user`, `session`, `account`, `verification` e `twoFactorTable: "auth_two_factor"`. No adaptador Drizzle, as **chaves** do objeto `schema` devem ser os nomes das tabelas (`auth_user`, ...), senão a biblioteca acusa "Missing tables". `auth_rate_limit` só existe se o rate limit usar o banco (decidir na Etapa 2). |
+| Colunas | `auth_user` ganha `image`, `role`, `banned`, `ban_reason`, `ban_expires`, `two_factor_enabled`; `auth_session` (`token`, `expires_at`, `ip_address`, `user_agent`, `user_id`, `impersonated_by`); `auth_account` (`password` guarda o hash scrypt); `auth_verification`; `auth_two_factor` (`secret`, `backup_codes`, `user_id`, `verified`, `failed_verification_count`, `locked_until`). `app_rw` precisa de `GRANT SELECT, INSERT, UPDATE, DELETE` nas novas tabelas. |
+| TOTP do ADM | `twoFactor` gera 10 códigos de recuperação; o segredo fica **cifrado** no banco (não precisa de cifra extra, 06 §segredos); login com 2FA devolve `twoFactorRedirect: true` e **nenhuma sessão** até o código; código errado é recusado; código de recuperação funciona. A regra "ADM sem 2FA só acessa TL-004" **não é da biblioteca**: fica no `RequestContext` (ADM com `two_factor_enabled` falso ou sessão sem 2º fator → só TL-004). |
+| Sessão por perfil (SEG-10) | A biblioteca tem uma duração global. Por perfil: gancho `databaseHooks.session.create.before` define `expiresAt` (ADM/CLIENTE 12 h, TECNICO 30 dias) e `updateAge` desliza a expiração a cada uso. O **limite absoluto de 7 dias** (web) não existe na biblioteca: checar `created_at` no `RequestContext`. |
+| Usuário `INATIVO` | O mesmo gancho lê `app_user` com `withTransaction(SISTEMA)` e recusa a sessão (401, nenhuma linha em `auth_session`). Banir + `revoke-user-sessions` derruba a sessão ativa (`get-session` passa a `null`); login de banido: 403 `BANNED_USER`. |
+| IP (SEG-68) | `advanced.ipAddress.ipAddressHeaders: ["x-real-ip"]` grava o IP em `auth_session.ip_address`. Na Vercel, conferir qual cabeçalho a plataforma garante antes do go-live. |
+| Links de senha (SEG-15) | `resetPasswordTokenExpiresIn` é global (30 min, uso único confirmado). O token **não** é guardado como hash: vai em `auth_verification.identifier` como `reset-password:<token>`. Aceito pelo padrão de SEG-15 (validade curta). O link de **72 h** da senha inicial exige criar o registro de verificação à parte (`internalAdapter.createVerificationValue`) ou outra rota; decidir na Etapa 2. |
+| Senha vazada (SEG-02) | Existe o plugin `haveIBeenPwned` (`better-auth/plugins/haveibeenpwned`), que consulta API externa. **Não foi exercitado** (sem rede no teste): validar na Etapa 2; se a consulta externa não for aceita, usar a lista local de SEG-02. |
+
 ---
 
 ## 11. Fontes (consultadas em 17/10/2026)
