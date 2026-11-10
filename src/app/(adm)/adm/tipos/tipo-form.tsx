@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { Conflito } from "@/components/conflito";
 import { chamarAcao } from "@/lib/chamar-acao";
 import { useHidratado } from "@/lib/use-hidratado";
 import { atualizarTipoAction, criarTipoAction } from "./actions";
@@ -160,17 +161,5 @@ export function TipoForm({ tipo }: { tipo?: TipoEditavel }) {
         {enviando ? "Salvando…" : "Salvar"}
       </button>
     </form>
-  );
-}
-
-/** UF-07. */
-export function Conflito() {
-  return (
-    <div className="alerta erro" role="status">
-      Este registro foi alterado por outra pessoa. Recarregue para ver a versão atual.{" "}
-      <button type="button" className="botao secundario" onClick={() => window.location.reload()}>
-        Recarregar
-      </button>
-    </div>
   );
 }

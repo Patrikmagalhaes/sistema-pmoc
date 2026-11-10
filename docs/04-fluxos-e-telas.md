@@ -1066,6 +1066,13 @@ Aba Usuários: lista (nome, e-mail, estado) + "Novo usuário" → TL-107 com per
 | Vazio | Aba Locais: "Nenhum local. Cadastre o primeiro local deste cliente." Aba Usuários: "Nenhum usuário. O cliente não terá acesso ao portal até ter um usuário." |
 | Carregando / Erro | Por aba, padrão §1.2. |
 
+**Implementação (Etapa 3):**
+- **Abas:** cada aba é um link com `?aba=dados|locais|usuarios`.
+- **E-04.2:** a mensagem traz a razão social do cliente existente e o link "Abrir o cliente existente".
+- **Exclusão:** o motivo é opcional (UF-10) e vai para `deletion_reason`.
+- **Busca da TL-108:** o CNPJ é aceito com ou sem máscara.
+- **Aba Usuários:** mostra os usuários `CLIENTE` do cliente, em qualquer estado. "Novo usuário" abre `/adm/usuarios/novo?cliente={id}`.
+
 #### TL-110 – Local
 - **Objetivo:** dados do local, equipamentos e contratos (RF-06, RF-07, RF-09). Abas: **Dados**, **Equipamentos**, **Contratos e PMOC**.
 
@@ -1092,6 +1099,11 @@ Aba Contratos e PMOC: lista de contratos (início, fim, meses, ART, TH-revisão,
 |---|---|
 | Vazio | Equipamentos: "Nenhum equipamento." Contratos: "Nenhum contrato. Cadastre o contrato para criar o PMOC." |
 | Carregando / Erro | Por aba, padrão §1.2. |
+
+**Implementação (Etapa 3):**
+- **Rotas:** o local novo abre em `/adm/locais/novo?cliente={id}`.
+- **Código (DM-19, `[A VALIDAR]`):** o trigger `site_code` da migração 0011 gera `L` + 3 dígitos pela sequência `site_code_seq`, e de L1000 em diante, sem cortar. Códigos já usados são pulados. O trigger `site_code_immutable` impede mudar o código (RN-047; CA-06.2).
+- **Abas Equipamentos e Contratos e PMOC:** entram junto com a TL-111 e a TL-112.
 
 #### TL-111 – Equipamento
 | Campo | Controle | Obrig. | Validação | Coluna |
