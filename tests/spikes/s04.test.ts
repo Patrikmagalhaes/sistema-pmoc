@@ -3,7 +3,6 @@
  * + sessões revogáveis, com tabelas auth_* (AF-04). Roda no Postgres do global-setup, usando o papel app_rw.
  */
 import { createHmac } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createAccessControl } from "better-auth/plugins/access";
@@ -14,8 +13,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createDatabase } from "../../src/server/db";
+import { authSchema as schema } from "../../src/server/db/schema/auth";
 import { ensureSeed, SEED, sysCtx } from "../integration/helpers";
-import * as tables from "./s04-schema";
 
 const BASE = "http://localhost:3000";
 const H = { "content-type": "application/json", origin: BASE };
@@ -49,13 +48,6 @@ const hookCalls: string[] = [];
 function makeAuth(url: string) {
   const pg = postgres(url, { prepare: false, max: 2, onnotice: () => {} });
   // Achado: com modelName customizado, as chaves do schema são os nomes das tabelas.
-  const schema = {
-    auth_user: tables.user,
-    auth_session: tables.session,
-    auth_account: tables.account,
-    auth_verification: tables.verification,
-    auth_two_factor: tables.twoFactor,
-  };
   const db = drizzle(pg, { schema });
   const auth = betterAuth({
     baseURL: BASE,
@@ -90,7 +82,7 @@ function makeAuth(url: string) {
             );
             const row = (rows as unknown as { role: string; status: string }[])[0];
             hookCalls.push(`${s.userId}:${row?.status}`);
-            if (!row || row.status !== "ATIVO") return false;
+            if (row?.status !== "ATIVO") return false;
             return {
               data: {
                 ...s,
@@ -194,10 +186,6 @@ const admTotp = (jar: Jar) => call("/two-factor/verify-totp", { code: totp(admSe
 
 beforeAll(async () => {
   owner = postgres(inject("dbOwnerUrl"), { max: 1, onnotice: () => {} });
-  await owner.unsafe(readFileSync(new URL("./s04.sql", import.meta.url), "utf8"));
-  await owner.unsafe(
-    "GRANT SELECT, INSERT, UPDATE, DELETE ON auth_session, auth_account, auth_verification, auth_two_factor TO app_rw",
-  );
   appDb = createDatabase(inject("dbAppUrl"), { max: 2 });
   await ensureSeed(appDb);
   lib = makeAuth(inject("dbAppUrl")); // a biblioteca roda como app_rw, como em produção

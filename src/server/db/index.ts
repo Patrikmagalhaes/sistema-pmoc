@@ -8,6 +8,11 @@ export type { Tx };
 
 export interface Database {
   withTransaction: ReturnType<typeof createWithTransaction>;
+  /**
+   * Conexão sem contexto, **só** para o adaptador do Better Auth nas tabelas `auth_*` (exceção da AF-04:
+   * sem auditoria e sem RLS). Qualquer outra tabela passa por `withTransaction`.
+   */
+  authDrizzle: PostgresJsDatabase;
   close(): Promise<void>;
 }
 
@@ -18,7 +23,7 @@ export interface Database {
 export function createDatabase(url: string, options: { max?: number } = {}): Database {
   const client = postgres(url, { prepare: false, max: options.max ?? 10, onnotice: () => {} });
   const db: PostgresJsDatabase = drizzle(client);
-  return { withTransaction: createWithTransaction(db), close: () => client.end() };
+  return { withTransaction: createWithTransaction(db), authDrizzle: db, close: () => client.end() };
 }
 
 let shared: Database | undefined;
