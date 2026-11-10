@@ -12,7 +12,7 @@
       "!tests/.tmp-mod02"
     ]
   },
-  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
+  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 100, "lineEnding": "auto" },
   "linter": {
     "enabled": true,
     "rules": {
