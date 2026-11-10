@@ -1000,6 +1000,8 @@ Estados: Vazio "Nenhum usuário encontrado." (sempre existe ao menos o ADM logad
 
 Não existe "Excluir" (RN-141).
 
+**Implementação (Etapa 2):** na edição, o e-mail fica somente leitura até existir a troca com reautenticação (06 SEG-12; pendente). A lista "Visitas para reatribuir" ao inativar técnico (RN-074, CA-02.4) entra na Etapa 5, junto com as visitas. "Cliente" vem do módulo `clientes` (lista de seleção; o cadastro é da Etapa 3).
+
 | Estado | Comportamento |
 |---|---|
 | Vazio | Novo usuário: formulário vazio. |
@@ -1611,7 +1613,7 @@ Estas telas foram decididas pelo usuário na rodada 2 e desenhadas na auditoria 
 
 Passo 0 – confirmar a senha (implementação, Etapa 2): o plugin `twoFactor` exige a senha para ativar e para gerar novos códigos; vale como a reautenticação da SEG-12.
 
-Passo 1 – ler o QR code (**pendente**: nenhuma biblioteca de QR code na stack, 05 §3.0; até a decisão, a tela mostra a chave para digitar e o link `otpauth://`, que abre o aplicativo no celular [A VALIDAR]):
+Passo 1 – ler o QR code (gerado no navegador com `qrcode` 1.5.4, aprovado pelo usuário em 10/11/2026; o segredo não sai do aparelho):
 
 | Campo | Controle | Obrig. | Validação | Coluna |
 |---|---|---|---|---|

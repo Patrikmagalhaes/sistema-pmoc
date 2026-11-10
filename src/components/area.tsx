@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { BotaoSair } from "./botao-sair";
 
@@ -5,10 +6,12 @@ import { BotaoSair } from "./botao-sair";
 export function Area({
   titulo,
   nome,
+  menu = [],
   children,
 }: {
   titulo: string;
   nome: string;
+  menu?: { href: string; rotulo: string }[];
   children: ReactNode;
 }) {
   return (
@@ -24,7 +27,16 @@ export function Area({
           borderBottom: "1px solid var(--border)",
         }}
       >
-        <strong>{titulo}</strong>
+        <span style={{ display: "flex", gap: 24, alignItems: "center" }}>
+          <strong>{titulo}</strong>
+          <nav className="menu">
+            {menu.map((m) => (
+              <Link key={m.href} href={m.href}>
+                {m.rotulo}
+              </Link>
+            ))}
+          </nav>
+        </span>
         <span style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <span>{nome}</span>
           <BotaoSair />

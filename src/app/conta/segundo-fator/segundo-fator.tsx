@@ -1,7 +1,23 @@
 "use client";
-import { type FormEvent, useState } from "react";
+import QRCode from "qrcode";
+import { type FormEvent, useEffect, useState } from "react";
 import { authClient, mensagemDeLogin } from "@/lib/auth-client";
 import { useHidratado } from "@/lib/use-hidratado";
+
+/** QR code do URI `otpauth://`, gerado no navegador: o segredo não vai a nenhum serviço externo. */
+function QrCode({ uri }: { uri: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    QRCode.toDataURL(uri, { margin: 1, width: 200 }).then(setSrc, () => setSrc(null));
+  }, [uri]);
+  // Carregando: esqueleto do QR code (TL-004).
+  return src ? (
+    // biome-ignore lint/performance/noImgElement: imagem gerada localmente (data URL), sem otimização
+    <img src={src} width={200} height={200} alt="QR code para o aplicativo autenticador" />
+  ) : (
+    <div className="esqueleto" style={{ width: 200, height: 200 }} />
+  );
+}
 
 type Passo =
   | { nome: "senha" }
@@ -128,11 +144,8 @@ export function SegundoFator({ ativo, ativoDesde }: { ativo: boolean; ativoDesde
     return (
       <form onSubmit={confirmar} noValidate>
         <Alerta texto={erro} />
-        <p>
-          No aplicativo autenticador, adicione uma conta pela chave abaixo
-          {/* [A VALIDAR] QR code: nenhuma biblioteca de QR na stack (05 §3.0). */} ou, no celular,{" "}
-          <a href={passo.uri}>abra o link no aplicativo</a>.
-        </p>
+        <p>Leia o QR code com o aplicativo autenticador. Se preferir, digite a chave abaixo.</p>
+        <QrCode uri={passo.uri} />
         <div className="linha">
           <span className="chave" style={{ flex: 1 }}>
             {passo.chave}
