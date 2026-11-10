@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 
 /** Itens do menu lateral do ADM (04 §1.1); cresce a cada etapa. */
 const MENU = [
+  { href: "/adm/clientes", rotulo: "Clientes" },
   { href: "/adm/usuarios", rotulo: "Usuários" },
   { href: "/adm/tipos", rotulo: "Tipos de equipamento" },
 ];

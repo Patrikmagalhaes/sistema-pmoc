@@ -29,6 +29,27 @@ export function mascararTelefone(v: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
+/** CNPJ cru (14, alfanumérico, DM-13) → 12.ABC.345/01DE-35; na digitação, até onde houver. */
+export function mascararCnpj(v: string | null | undefined): string {
+  const c = (v ?? "")
+    .toUpperCase()
+    .replace(/[^0-9A-Z]/g, "")
+    .slice(0, 14);
+  const partes = [c.slice(0, 2), c.slice(2, 5), c.slice(5, 8), c.slice(8, 12), c.slice(12)];
+  let r = partes[0] ?? "";
+  if (c.length > 2) r += `.${partes[1]}`;
+  if (c.length > 5) r += `.${partes[2]}`;
+  if (c.length > 8) r += `/${partes[3]}`;
+  if (c.length > 12) r += `-${partes[4]}`;
+  return r;
+}
+
+/** CEP cru (8 dígitos) → 01001-000; na digitação, até onde houver. */
+export function mascararCep(v: string | null | undefined): string {
+  const d = (v ?? "").replace(/\D/g, "").slice(0, 8);
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+}
+
 /** Rótulos (04 §1.5; (UI)). */
 export const ROTULO_PERFIL = {
   ADM: "Administrador",
@@ -36,6 +57,22 @@ export const ROTULO_PERFIL = {
   CLIENTE: "Cliente",
 } as const;
 export const ROTULO_SITUACAO = { ATIVO: "Ativo", INATIVO: "Inativo" } as const;
+export const ROTULO_PMOC: Record<string, string> = {
+  RASCUNHO: "Rascunho",
+  EMITIDO: "Aguardando assinatura do cliente",
+  ASSINADO_CLIENTE: "Assinado",
+  HISTORICO: "Histórico",
+};
+export const ROTULO_CONTRATO: Record<string, string> = {
+  A_INICIAR: "A iniciar",
+  VIGENTE: "Vigente",
+  ENCERRADO: "Encerrado",
+  CANCELADO: "Cancelado",
+};
+
+/** Data de negócio `YYYY-MM-DD` (sem fuso) → dd/mm/aaaa. */
+export const formatarDataIso = (d: string | null | undefined) =>
+  d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "—";
 
 /** TL-005 "navegador e sistema (do User-Agent)": leitura aproximada, só para exibição. */
 export function descreverDispositivo(ua: string | null | undefined): string {

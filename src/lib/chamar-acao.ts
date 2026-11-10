@@ -8,7 +8,13 @@ type Falha = { ok: false; codigo: string; mensagem: string; campos?: Record<stri
 export type Desfecho<D> =
   | { tipo: "ok"; dados: Extract<D, { ok: true }> }
   | { tipo: "conflito" }
-  | { tipo: "erro"; mensagem: string; campos?: Record<string, string> };
+  | {
+      tipo: "erro";
+      mensagem: string;
+      campos?: Record<string, string>;
+      /** A falha completa, para campos extras da action (ex.: E-04.2 `existenteId`). */
+      falha?: Extract<D, { ok: false }>;
+    };
 
 export async function chamarAcao<D extends { ok: true } | Falha>(
   p: Promise<{ data?: D; serverError?: string } | undefined>,
@@ -28,7 +34,12 @@ export async function chamarAcao<D extends { ok: true } | Falha>(
   if (d.ok === false) {
     const f = d as Falha;
     if (f.codigo === "ALTERADO_POR_OUTRO") return { tipo: "conflito" };
-    return { tipo: "erro", mensagem: f.mensagem, campos: f.campos };
+    return {
+      tipo: "erro",
+      mensagem: f.mensagem,
+      campos: f.campos,
+      falha: d as Extract<D, { ok: false }>,
+    };
   }
   return { tipo: "ok", dados: d as Extract<D, { ok: true }> };
 }

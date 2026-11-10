@@ -165,7 +165,15 @@ test("isolamento: CLIENTE e TECNICO não abrem a gestão de usuários (CA-01.3)"
     const u = usuario(perfil);
     await entrar(page, u.email, perfil === "CLIENTE" ? "nova frase da cliente" : u.senha);
     await expect(page).not.toHaveURL(/\/login/);
-    for (const rota of ["/adm/usuarios", "/adm/usuarios/novo", "/adm/tipos", "/adm/tipos/novo"]) {
+    for (const rota of [
+      "/adm/usuarios",
+      "/adm/usuarios/novo",
+      "/adm/tipos",
+      "/adm/tipos/novo",
+      "/adm/clientes",
+      "/adm/clientes/novo",
+      "/adm/locais/novo",
+    ]) {
       const r = await page.goto(rota);
       expect(r?.status(), `${perfil} ${rota}`).toBe(403);
     }
@@ -223,6 +231,7 @@ test("ADM cria técnico; o link inicial define a senha e o técnico entra (FL-05
   await page.getByLabel("Nova senha").fill("frase do rafael novo");
   await page.getByLabel("Repetir senha").fill("frase do rafael novo");
   await page.getByRole("button", { name: "Salvar senha" }).click();
+  await expect(page).toHaveURL(/\/login\?senha=alterada/); // espera gravar antes de sair da página
   await entrar(page, "rafael.novo@exemplo.test", "frase do rafael novo");
   await expect(page).toHaveURL(/\/tecnico$/);
 });
@@ -382,4 +391,83 @@ test("FL-03: ADM cria tipo com grupo, inclui atividades e inativa (CA-08.1, E-03
   await page.getByLabel("Mostrar inativos").check();
   await page.getByRole("button", { name: "Aplicar" }).click();
   await expect(page.getByRole("link", { name: "Janela E2E" })).toBeVisible();
+});
+
+// ---- Etapa 3 – TL-108 a TL-110 – clientes e locais (FL-04; RF-05, RF-06) -----------------------
+
+test("FL-04: ADM cria cliente e local; código gerado; exclusão bloqueada com motivo (E-04.1, E-04.2, E-04.7)", async ({
+  page,
+}) => {
+  test.skip(!segredoAdm, "depende do segundo fator do ADM");
+  await entrarAdm(page);
+  await page.getByRole("link", { name: "Clientes" }).click();
+  await page.getByRole("link", { name: "Novo cliente" }).first().click();
+
+  await page.getByLabel("Razão social").fill("Clínica E2E Ltda");
+  await page.getByLabel("CNPJ").fill("11222333000181"); // já é do Cliente A (seed)
+  await page.getByLabel("Logradouro").fill("Rua das Flores");
+  await page.getByLabel("s/n").check();
+  await expect(page.getByLabel("Número")).toBeDisabled();
+  await page.getByLabel("Cidade").fill("Florianópolis");
+  await page.getByLabel("UF").selectOption("SC");
+  await page.getByLabel("CEP").fill("8802030");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("O CEP tem 8 dígitos.")).toBeVisible(); // CA-05.3
+  await page.getByLabel("CEP").fill("88020300");
+  await expect(page.getByLabel("CEP")).toHaveValue("88020-300");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.locator(".alerta.erro")).toContainText(
+    "Já existe cliente com este CNPJ: Clínica Alfa Ltda.",
+  );
+  await expect(page.getByRole("link", { name: "Abrir o cliente existente" })).toBeVisible();
+
+  await page.getByLabel("CNPJ").fill("12345678000196");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("CNPJ inválido.")).toBeVisible(); // E-04.1
+  await page.getByLabel("CNPJ").fill("12ABC34501DE35");
+  await expect(page.getByLabel("CNPJ")).toHaveValue("12.ABC.345/01DE-35");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByRole("heading", { name: "Clínica E2E Ltda" })).toBeVisible();
+  await expect(page.getByText("Cliente criado.")).toBeVisible();
+
+  // Aba Locais: novo local com código gerado (DM-19)
+  await page.getByRole("link", { name: "Locais" }).click();
+  await expect(
+    page.getByText("Nenhum local. Cadastre o primeiro local deste cliente."),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Novo local" }).click();
+  await page.getByLabel("Nome do local").fill("Unidade Centro");
+  await page.getByLabel("Logradouro").fill("Av. Beira-Mar");
+  await page.getByLabel("Número", { exact: true }).fill("500");
+  await page.getByLabel("Cidade").fill("Florianópolis");
+  await page.getByLabel("UF").selectOption("SC");
+  await page.getByLabel("CEP").fill("88015000");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText(/Local criado com o código L\d{3,}\./)).toBeVisible();
+  const codigo = await page.getByLabel("Código").inputValue();
+  expect(codigo).toMatch(/^L\d{3,}$/);
+
+  // E-04.7: cliente com local vivo não pode ser excluído
+  await page.getByRole("link", { name: "Clínica E2E Ltda" }).click();
+  await page.getByRole("link", { name: "Dados" }).click();
+  await expect(page.getByRole("button", { name: "Excluir cliente" })).toBeDisabled();
+  await expect(page.getByText("Exclua antes os locais deste cliente.")).toBeVisible();
+
+  // Local sem contrato nem equipamento: exclui com motivo opcional
+  await page.getByRole("link", { name: "Locais" }).click();
+  await expect(page.locator("tbody")).toContainText(codigo);
+  await page.getByRole("link", { name: "Unidade Centro" }).click();
+  await page.getByRole("button", { name: "Excluir local" }).click();
+  await page.getByLabel("Motivo (opcional)").fill("cadastro de teste");
+  await page.getByRole("button", { name: "Confirmar exclusão" }).click();
+  await expect(
+    page.getByText("Nenhum local. Cadastre o primeiro local deste cliente."),
+  ).toBeVisible();
+
+  // Aba Usuários: "Novo usuário" abre a TL-107 com perfil e cliente travados (FL-04 passo 4)
+  await page.getByRole("link", { name: "Usuários" }).last().click();
+  await expect(page.getByText("Nenhum usuário. O cliente não terá acesso ao portal")).toBeVisible();
+  await page.getByRole("link", { name: "Novo usuário" }).click();
+  await expect(page.getByLabel("Perfil")).toBeDisabled();
+  await expect(page.getByLabel("Perfil")).toHaveValue("CLIENTE");
 });
