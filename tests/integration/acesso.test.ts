@@ -8,18 +8,23 @@ import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   type AcessoDeps,
+  atualizarUsuario,
   criarUsuario,
   ErroAcesso,
   ganchosAuth,
   hashEmail,
   inativarUsuario,
+  listarUsuarios,
+  obterUsuario,
+  reativarUsuario,
+  reenviarLinkSenha,
   resolverSessao,
 } from "../../src/modules/acesso";
 import { type Auth, createAuth } from "../../src/server/auth/config";
 import type { RequestContext } from "../../src/server/context";
 import type { Database } from "../../src/server/db";
 import { memoryEmailSender } from "../../src/server/email";
-import { appDatabase, ensureSeed, technicianCtx } from "./helpers";
+import { appDatabase, clientCtx, ensureSeed, technicianCtx } from "./helpers";
 
 const BASE = "http://localhost:3000";
 const IP_HEADERS = ["x-real-ip"];
@@ -471,5 +476,138 @@ describe("pedido de link de recuperação (FL-01; SEG-08, SEG-61)", () => {
 
   it("e-mail inexistente responde igual (não revela cadastro)", async () => {
     expect((await pedir("nao-existe@x.test")).status).toBe(200);
+  });
+});
+
+describe("gestão de usuários pelo ADM (TL-106, TL-107; FL-05)", () => {
+  it("lista com filtros, busca literal e paginação no servidor (UL-01)", async () => {
+    const todos = await listarUsuarios(admCtx, {}, deps);
+    expect(todos.porPagina).toBe(25);
+    expect(todos.total).toBeGreaterThan(3);
+    const tecnicos = await listarUsuarios(admCtx, { perfil: "TECNICO" }, deps);
+    expect(tecnicos.linhas.every((u) => u.perfil === "TECNICO")).toBe(true);
+    const inativos = await listarUsuarios(admCtx, { situacao: "INATIVO" }, deps);
+    expect(inativos.linhas.map((u) => u.email)).toContain("rita@empresa.test");
+    const busca = await listarUsuarios(admCtx, { busca: "CLIENTEX" }, deps);
+    expect(busca.linhas.map((u) => u.email)).toEqual(["carla@clientex.test"]);
+    // % e _ são literais, não curingas
+    expect((await listarUsuarios(admCtx, { busca: "%" }, deps)).total).toBe(0);
+    const doCliente = await listarUsuarios(admCtx, { clientId: CLIENTE_X }, deps);
+    expect(doCliente.linhas.map((u) => u.email)).toEqual(["carla@clientex.test"]);
+    const carla = busca.linhas[0];
+    expect(carla?.ultimoLogin).toBeInstanceOf(Date); // último LOGIN_OK (03 §2.1 regra 7)
+    // filtro inválido vindo da URL é ignorado
+    expect((await listarUsuarios(admCtx, { perfil: "XYZ", pagina: "-3" }, deps)).pagina).toBe(1);
+  });
+
+  it("isolamento: CLIENTE e TECNICO não listam, não abrem e não alteram usuários (SEG-25)", async () => {
+    const [u] =
+      (await owner`SELECT id, row_version FROM app_user WHERE email = 'carla@clientex.test'`) as unknown as [
+        { id: string; row_version: number },
+      ];
+    for (const ctx of [clientCtx("A"), technicianCtx()]) {
+      await expect(listarUsuarios(ctx, {}, deps)).rejects.toMatchObject({
+        codigo: "SEM_PERMISSAO",
+      });
+      await expect(obterUsuario(ctx, u.id, deps)).rejects.toMatchObject({
+        codigo: "SEM_PERMISSAO",
+      });
+      await expect(
+        atualizarUsuario(ctx, { id: u.id, rowVersion: u.row_version, nome: "X" }, deps),
+      ).rejects.toMatchObject({ codigo: "SEM_PERMISSAO" });
+      await expect(reenviarLinkSenha(ctx, u.id, deps)).rejects.toMatchObject({
+        codigo: "SEM_PERMISSAO",
+      });
+    }
+  });
+
+  it("edita nome e telefone com row_version; versão antiga é recusada (UF-07)", async () => {
+    const [u] =
+      (await owner`SELECT id, row_version FROM app_user WHERE email = 'carla@clientex.test'`) as unknown as [
+        { id: string; row_version: number },
+      ];
+    await atualizarUsuario(
+      admCtx,
+      { id: u.id, rowVersion: u.row_version, nome: "Carla Xavier", telefone: "(11) 98888-7777" },
+      deps,
+    );
+    const d = await obterUsuario(admCtx, u.id, deps);
+    expect(d).toMatchObject({ nome: "Carla Xavier", telefone: "11988887777", perfil: "CLIENTE" });
+    const [a] =
+      await owner`SELECT a.name FROM auth_user a JOIN app_user u ON u.auth_user_id = a.id WHERE u.id = ${u.id}`;
+    expect(a?.name).toBe("Carla Xavier");
+    await expect(
+      atualizarUsuario(admCtx, { id: u.id, rowVersion: u.row_version, nome: "Outra" }, deps),
+    ).rejects.toMatchObject({ codigo: "ALTERADO_POR_OUTRO" });
+    // auditoria da edição (03 §5.3)
+    const [{ n }] = (await owner`SELECT count(*)::int AS n FROM audit_log
+      WHERE table_name = 'app_user' AND record_id = ${u.id} AND action = 'UPDATE'`) as unknown as [
+      { n: number },
+    ];
+    expect(n).toBeGreaterThanOrEqual(1);
+  });
+
+  it("id inexistente ou malformado vira NAO_ENCONTRADO (RN-162)", async () => {
+    expect(await obterUsuario(admCtx, randomUUID(), deps)).toBeNull();
+    expect(await obterUsuario(admCtx, "nao-e-uuid", deps)).toBeNull();
+  });
+
+  it("ADM não inativa a si mesmo (E-05.2)", async () => {
+    const [me] =
+      (await owner`SELECT row_version FROM app_user WHERE id = ${admCtx.userId}`) as unknown as [
+        { row_version: number },
+      ];
+    await expect(
+      inativarUsuario(
+        admCtx,
+        { id: admCtx.userId as string, rowVersion: me.row_version },
+        adm1Login.jar.headers(),
+        deps,
+      ),
+    ).rejects.toMatchObject({ codigo: "PROPRIO_USUARIO" });
+  });
+
+  it("reativar devolve o acesso; reenviar link só para ATIVO", async () => {
+    const [u] =
+      (await owner`SELECT id, row_version FROM app_user WHERE email = 'rita@empresa.test'`) as unknown as [
+        { id: string; row_version: number },
+      ];
+    await expect(reenviarLinkSenha(admCtx, u.id, deps)).rejects.toMatchObject({
+      codigo: "NAO_ATIVO",
+    });
+    await reativarUsuario(
+      admCtx,
+      { id: u.id, rowVersion: u.row_version },
+      adm1Login.jar.headers(),
+      deps,
+    );
+    const jar = new Jar();
+    expect(
+      (
+        await call(
+          "/sign-in/email",
+          { email: "rita@empresa.test", password: "lua de verão calma" },
+          jar,
+        )
+      ).status,
+    ).toBe(200);
+    expect((await resolverSessao(jar.headers(), deps)).estado).toBe("OK");
+    const antes = email.sent.length;
+    await reenviarLinkSenha(admCtx, u.id, deps);
+    expect(email.sent.length).toBe(antes + 1);
+  });
+
+  it("e-mail que falha não desfaz a criação (E-04.8)", async () => {
+    const falha = { ...deps, email: { send: async () => Promise.reject(new Error("smtp fora")) } };
+    const r = await criarUsuario(
+      admCtx,
+      { nome: "Sem Email", email: "sem.email@empresa.test", perfil: "TECNICO" },
+      adm1Login.jar.headers(),
+      falha,
+    );
+    expect(r.emailEnviado).toBe(false);
+    expect(await obterUsuario(admCtx, r.id, deps)).toMatchObject({
+      email: "sem.email@empresa.test",
+    });
   });
 });

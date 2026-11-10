@@ -26,3 +26,18 @@ export const alterarSituacaoSchema = z.object({
   id: z.uuid(),
   rowVersion: z.number().int().min(1),
 });
+
+/** TL-107 na edição: nome e telefone (perfil fixo, RN-179). */
+export const atualizarUsuarioSchema = z.object({
+  id: z.uuid(),
+  rowVersion: z.number().int().min(1),
+  nome: z.string().trim().min(1, "Informe o nome."),
+  telefone: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .refine((v) => v === "" || /^[0-9]{10,11}$/.test(v), "Telefone com 10 ou 11 dígitos.")
+    .transform((v) => (v === "" ? null : v))
+    .nullish(),
+});
+
+export type AtualizarUsuarioInput = z.input<typeof atualizarUsuarioSchema>;

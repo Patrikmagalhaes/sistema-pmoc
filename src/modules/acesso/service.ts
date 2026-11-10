@@ -14,7 +14,13 @@ import { bloqueadaAte } from "./domain/bloqueio";
 import { validarSenha } from "./domain/senha";
 import { avaliarSessao, LIMITES_SESSAO, type Perfil } from "./domain/sessao";
 import * as repo from "./repo";
-import { alterarSituacaoSchema, type CriarUsuarioInput, criarUsuarioSchema } from "./schemas";
+import {
+  type AtualizarUsuarioInput,
+  alterarSituacaoSchema,
+  atualizarUsuarioSchema,
+  type CriarUsuarioInput,
+  criarUsuarioSchema,
+} from "./schemas";
 
 /** Erro de regra do módulo; `codigo` é estável para a tela escolher a mensagem (04 E-xx). */
 export class ErroAcesso extends Error {
@@ -24,7 +30,9 @@ export class ErroAcesso extends Error {
       | "NAO_ENCONTRADO"
       | "EMAIL_EM_USO"
       | "ALTERADO_POR_OUTRO"
-      | "MINIMO_DE_ADMS",
+      | "MINIMO_DE_ADMS"
+      | "PROPRIO_USUARIO"
+      | "NAO_ATIVO",
     message: string,
   ) {
     super(message);
@@ -267,11 +275,11 @@ export async function criarUsuario(
   input: CriarUsuarioInput,
   headers: Headers,
   deps: AcessoDeps,
-): Promise<{ id: string }> {
+): Promise<{ id: string; emailEnviado: boolean }> {
   exigir(ctx);
   const v = criarUsuarioSchema.parse(input);
   const existente = await deps.db.withTransaction(ctx, (tx) => repo.buscarPorEmail(tx, v.email));
-  if (existente) throw new ErroAcesso("EMAIL_EM_USO", "Já existe um usuário com este e-mail.");
+  if (existente) throw new ErroAcesso("EMAIL_EM_USO", "Este e-mail já está em uso.");
 
   const criado = await deps.auth.api.createUser({
     headers,
@@ -296,8 +304,16 @@ export async function criarUsuario(
     await c.internalAdapter.deleteUser(authUserId); // compensação (AF-04)
     throw e;
   }
-  await enviarLinkSenhaInicial(deps, { authUserId, email: v.email, nome: v.nome });
-  return { id };
+  // E-04.8: o usuário fica criado mesmo se o e-mail falhar; a tela oferece "Reenviar link".
+  const emailEnviado = await enviarLinkSenhaInicial(deps, {
+    authUserId,
+    email: v.email,
+    nome: v.nome,
+  }).then(
+    () => true,
+    () => false,
+  );
+  return { id, emailEnviado };
 }
 
 /**
@@ -312,6 +328,9 @@ export async function inativarUsuario(
 ): Promise<void> {
   exigir(ctx);
   const v = alterarSituacaoSchema.parse(input);
+  if (v.id === ctx.userId) {
+    throw new ErroAcesso("PROPRIO_USUARIO", "Você não pode inativar o próprio usuário."); // E-05.2
+  }
   const alvo = await deps.db.withTransaction(ctx, async (tx) => {
     const u = await repo.buscarPorId(tx, v.id);
     if (!u) throw new ErroAcesso("NAO_ENCONTRADO", "Usuário não encontrado.");
@@ -340,6 +359,121 @@ export async function inativarUsuario(
     body: { userId: alvo.authUserId, banReason: "INATIVADO" },
   });
   await deps.auth.api.revokeUserSessions({ headers, body: { userId: alvo.authUserId } });
+}
+
+/** Reativar (RN-141, exceção inferida; FL-05): `INATIVO` → `ATIVO` e retira o banimento. */
+export async function reativarUsuario(
+  ctx: RequestContext,
+  input: { id: string; rowVersion: number },
+  headers: Headers,
+  deps: AcessoDeps,
+): Promise<void> {
+  exigir(ctx);
+  const v = alterarSituacaoSchema.parse(input);
+  const alvo = await deps.db.withTransaction(ctx, async (tx) => {
+    const u = await repo.buscarPorId(tx, v.id);
+    if (!u) throw new ErroAcesso("NAO_ENCONTRADO", "Usuário não encontrado.");
+    if (!(await repo.alterarSituacao(tx, v.id, "ATIVO", v.rowVersion))) {
+      throw new ErroAcesso(
+        "ALTERADO_POR_OUTRO",
+        "Este usuário foi alterado por outra pessoa. Recarregue.",
+      );
+    }
+    return u;
+  });
+  await deps.auth.api.unbanUser({ headers, body: { userId: alvo.authUserId } });
+}
+
+export interface FiltroUsuariosInput {
+  perfil?: string | null;
+  situacao?: string | null;
+  clientId?: string | null;
+  busca?: string | null;
+  pagina?: number | string | null;
+}
+
+/** UL-01: 25 por página (decisão C2). */
+export const USUARIOS_POR_PAGINA = 25;
+
+/** TL-106. Filtros inválidos (vindos da URL) são ignorados, nunca quebram a tela. */
+export async function listarUsuarios(
+  ctx: RequestContext,
+  f: FiltroUsuariosInput,
+  deps: Pick<AcessoDeps, "db">,
+) {
+  exigir(ctx);
+  const perfil = ["ADM", "TECNICO", "CLIENTE"].includes(f.perfil ?? "")
+    ? (f.perfil as Perfil)
+    : null;
+  const situacao =
+    f.situacao === "ATIVO" || f.situacao === "INATIVO" ? (f.situacao as "ATIVO" | "INATIVO") : null;
+  const clientId = f.clientId && /^[0-9a-f-]{36}$/i.test(f.clientId) ? f.clientId : null;
+  const busca = f.busca?.trim() ? f.busca.trim().slice(0, 100) : null;
+  const pagina = Math.max(1, Math.trunc(Number(f.pagina) || 1));
+  const r = await deps.db.withTransaction(ctx, (tx) =>
+    repo.listarUsuarios(tx, {
+      perfil,
+      situacao,
+      clientId,
+      busca,
+      pagina,
+      porPagina: USUARIOS_POR_PAGINA,
+    }),
+  );
+  return { ...r, pagina, porPagina: USUARIOS_POR_PAGINA };
+}
+
+/** TL-107 aberto: `null` vira o estado `NAO_ENCONTRADO`. */
+export async function obterUsuario(
+  ctx: RequestContext,
+  id: string,
+  deps: Pick<AcessoDeps, "db">,
+): Promise<repo.LinhaUsuario | null> {
+  exigir(ctx);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  return deps.db.withTransaction(ctx, (tx) => repo.buscarDetalhe(tx, id));
+}
+
+/** TL-107 "Salvar" na edição. O nome também vai para o `auth_user` (cópia, 03 §2.1 regra 3). */
+export async function atualizarUsuario(
+  ctx: RequestContext,
+  input: AtualizarUsuarioInput,
+  deps: AcessoDeps,
+): Promise<void> {
+  exigir(ctx);
+  const v = atualizarUsuarioSchema.parse(input);
+  const u = await deps.db.withTransaction(ctx, async (tx) => {
+    const atual = await repo.buscarPorId(tx, v.id);
+    if (!atual) throw new ErroAcesso("NAO_ENCONTRADO", "Usuário não encontrado.");
+    const ok = await repo.atualizarDados(
+      tx,
+      v.id,
+      { nome: v.nome, telefone: v.telefone ?? null },
+      v.rowVersion,
+    );
+    if (!ok) {
+      throw new ErroAcesso(
+        "ALTERADO_POR_OUTRO",
+        "Este registro foi alterado por outra pessoa. Recarregue para ver a versão atual.",
+      );
+    }
+    return atual;
+  });
+  const c = await deps.auth.$context;
+  await c.internalAdapter.updateUser(u.authUserId, { name: v.nome });
+}
+
+/** TL-107 "Reenviar link de senha" (só `ATIVO`): novo link inicial de 72 h (DFT-01; E-04.8). */
+export async function reenviarLinkSenha(
+  ctx: RequestContext,
+  id: string,
+  deps: AcessoDeps,
+): Promise<void> {
+  exigir(ctx);
+  const u = await deps.db.withTransaction(ctx, (tx) => repo.buscarPorId(tx, id));
+  if (!u) throw new ErroAcesso("NAO_ENCONTRADO", "Usuário não encontrado.");
+  if (u.situacao !== "ATIVO") throw new ErroAcesso("NAO_ATIVO", "Só usuário ativo recebe o link.");
+  await enviarLinkSenhaInicial(deps, { authUserId: u.authUserId, email: u.email, nome: u.nome });
 }
 
 // ---------------------------------------------------------------------------------------------

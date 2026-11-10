@@ -84,6 +84,7 @@ test("RN-194: ADM sem segundo fator só acessa TL-004; ativa e recebe 10 código
 
   await page.getByLabel("Confirme sua senha").fill(u.senha);
   await page.getByRole("button", { name: "Continuar" }).click();
+  await expect(page.getByAltText("QR code para o aplicativo autenticador")).toBeVisible();
   segredoAdm = (await page.locator(".chave").textContent()) ?? "";
   expect(segredoAdm).toMatch(/^[A-Z2-7]+=*$/);
 
@@ -147,4 +148,119 @@ test("E-01.4: link inválido mostra só 'Pedir novo link'", async ({ page }) => 
   await expect(page.getByText("Link inválido ou expirado.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Pedir novo link" })).toBeVisible();
   await expect(page.getByLabel("Nova senha")).toHaveCount(0);
+});
+
+// ---- TL-106 / TL-107 – gestão de usuários pelo ADM (FL-05) ------------------------------------
+
+async function entrarAdm(page: Page) {
+  const u = usuario("ADM");
+  await entrar(page, u.email, u.senha);
+  await page.getByLabel("Código do aplicativo autenticador").fill(totp(segredoAdm));
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(page).toHaveURL(/\/adm$/);
+}
+
+test("isolamento: CLIENTE e TECNICO não abrem a gestão de usuários (CA-01.3)", async ({ page }) => {
+  for (const perfil of ["CLIENTE", "TECNICO"] as const) {
+    const u = usuario(perfil);
+    await entrar(page, u.email, perfil === "CLIENTE" ? "nova frase da cliente" : u.senha);
+    await expect(page).not.toHaveURL(/\/login/);
+    for (const rota of ["/adm/usuarios", "/adm/usuarios/novo"]) {
+      const r = await page.goto(rota);
+      expect(r?.status(), `${perfil} ${rota}`).toBe(403);
+    }
+    await page
+      .getByRole("button", { name: "Ir para o início" })
+      .or(page.getByRole("link", { name: "Ir para o início" }))
+      .click();
+    await page.getByRole("button", { name: "Sair" }).click();
+    await expect(page).toHaveURL(/\/login$/);
+  }
+});
+
+test("ADM cria técnico; o link inicial define a senha e o técnico entra (FL-05, DFT-01)", async ({
+  page,
+}) => {
+  test.skip(!segredoAdm, "depende do segundo fator do ADM");
+  await entrarAdm(page);
+  await page.getByRole("link", { name: "Usuários" }).click();
+  await expect(page).toHaveURL(/\/adm\/usuarios$/);
+  await page.getByRole("link", { name: "Novo usuário" }).click();
+
+  await page.getByRole("button", { name: "Salvar" }).click(); // UF-01: valida antes de enviar
+  await expect(page.getByText("Informe o nome.")).toBeVisible();
+
+  await page.getByLabel("Nome").fill("Rafael Técnico Novo");
+  await page.getByLabel("E-mail").fill("rafael.novo@exemplo.test");
+  await page.getByLabel("Perfil").selectOption("TECNICO");
+  await page.getByLabel("Telefone (opcional)").fill("11987654321");
+  await expect(page.getByLabel("Telefone (opcional)")).toHaveValue("(11) 98765-4321"); // UF-03
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(
+    page.getByText("Usuário criado. Enviamos o link para definir a senha."),
+  ).toBeVisible();
+  await expect(page.getByLabel("Perfil")).toBeDisabled(); // RN-179
+
+  // E-mail repetido (E-05.1)
+  await page.goto("/adm/usuarios/novo");
+  await page.getByLabel("Nome").fill("Duplicado");
+  await page.getByLabel("E-mail").fill("rafael.novo@exemplo.test");
+  await page.getByLabel("Perfil").selectOption("TECNICO");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.locator(".campo .erro")).toHaveText("Este e-mail já está em uso.");
+
+  // Lista com busca (UL-02: filtro na URL)
+  await page.goto("/adm/usuarios");
+  await page.getByLabel("Buscar").fill("rafael.novo");
+  await page.getByRole("button", { name: "Filtrar" }).click();
+  await expect(page).toHaveURL(/busca=rafael\.novo/);
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+
+  // O técnico define a senha pelo link e entra
+  await page.getByRole("button", { name: "Sair" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.goto(ultimoLink());
+  await page.getByLabel("Nova senha").fill("frase do rafael novo");
+  await page.getByLabel("Repetir senha").fill("frase do rafael novo");
+  await page.getByRole("button", { name: "Salvar senha" }).click();
+  await entrar(page, "rafael.novo@exemplo.test", "frase do rafael novo");
+  await expect(page).toHaveURL(/\/tecnico$/);
+});
+
+test("ADM inativa com confirmação; o usuário perde o acesso; reativar devolve (RN-141, UF-09)", async ({
+  page,
+}) => {
+  test.skip(!segredoAdm, "depende do segundo fator do ADM");
+  await entrarAdm(page);
+  await page.goto("/adm/usuarios?busca=rafael.novo");
+  await page.getByRole("link", { name: "Rafael Técnico Novo" }).click();
+  await page.getByRole("button", { name: "Inativar" }).click();
+  await expect(page.getByText(/O usuário perde o acesso na hora/)).toBeVisible();
+  await page.getByRole("button", { name: "Confirmar inativação" }).click();
+  await expect(
+    page.getByText("Usuário inativado. As sessões dele foram encerradas."),
+  ).toBeVisible();
+  await expect(page.locator(".titulo-pagina .etiqueta")).toContainText("Inativo");
+
+  // Inativo some da lista padrão (UL-03) e aparece com o filtro
+  await page.goto("/adm/usuarios?busca=rafael.novo");
+  await expect(page.getByText("Nenhum resultado para os filtros.")).toBeVisible();
+  await page.goto("/adm/usuarios?busca=rafael.novo&situacao=INATIVO");
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+
+  // Próprio ADM: "Inativar" desabilitado (E-05.2)
+  await page.goto(`/adm/usuarios?busca=${encodeURIComponent(usuario("ADM").email)}&situacao=TODOS`);
+  await page.getByRole("link", { name: usuario("ADM").nome }).click();
+  await expect(page.getByRole("button", { name: "Inativar" })).toBeDisabled();
+
+  await page.getByRole("button", { name: "Sair" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await entrar(page, "rafael.novo@exemplo.test", "frase do rafael novo");
+  await expect(page.locator(".alerta.erro")).toHaveText("E-mail ou senha incorretos."); // E-01.2
+
+  await entrarAdm(page);
+  await page.goto("/adm/usuarios?busca=rafael.novo&situacao=INATIVO");
+  await page.getByRole("link", { name: "Rafael Técnico Novo" }).click();
+  await page.getByRole("button", { name: "Reativar" }).click();
+  await expect(page.getByText("Usuário reativado.")).toBeVisible();
 });

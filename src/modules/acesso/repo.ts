@@ -150,3 +150,83 @@ export async function ultimoEvento(
   const em = (r[0] as { em: string | Date | null } | undefined)?.em;
   return em ? new Date(em) : null;
 }
+
+export interface FiltroUsuarios {
+  perfil: Perfil | null;
+  situacao: "ATIVO" | "INATIVO" | null;
+  clientId: string | null;
+  /** Busca por nome ou e-mail (contém, sem diferenciar maiúsculas). */
+  busca: string | null;
+  pagina: number;
+  porPagina: number;
+}
+
+export interface LinhaUsuario extends UsuarioAcesso {
+  telefone: string | null;
+  inativadoEm: Date | null;
+  /** 03 §2.1 regra 7: último `LOGIN_OK` em `security_event`. */
+  ultimoLogin: Date | null;
+}
+
+/** Escapa `\`, `%` e `_` para o `ILIKE` (busca literal, "contém"). */
+const like = (v: string) => `%${v.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
+/** TL-106: lista paginada no servidor (UL-01), ordenada por nome. */
+export async function listarUsuarios(
+  tx: Tx,
+  f: FiltroUsuarios,
+): Promise<{ linhas: LinhaUsuario[]; total: number }> {
+  const conds = [sql`TRUE`];
+  if (f.perfil) conds.push(sql`u.role = ${f.perfil}`);
+  if (f.situacao) conds.push(sql`u.status = ${f.situacao}`);
+  if (f.clientId) conds.push(sql`u.client_id = ${f.clientId}`);
+  if (f.busca)
+    conds.push(sql`(u.name ILIKE ${like(f.busca)} OR u.email::text ILIKE ${like(f.busca)})`);
+  const where = sql.join(conds, sql` AND `);
+  const total = (
+    (await tx.execute(sql`SELECT count(*)::int AS n FROM app_user u WHERE ${where}`))[0] as {
+      n: number;
+    }
+  ).n;
+  const r = await tx.execute(sql`SELECT u.id, u.auth_user_id AS "authUserId", u.name AS nome,
+      u.email::text AS email, u.role AS perfil, u.client_id AS "clientId", u.status AS situacao,
+      u.row_version AS "rowVersion", u.phone AS telefone, u.inactivated_at AS "inativadoEm",
+      (SELECT max(e.occurred_at) FROM security_event e
+        WHERE e.user_id = u.id AND e.event_type = 'LOGIN_OK') AS "ultimoLogin"
+    FROM app_user u WHERE ${where}
+    ORDER BY u.name, u.id
+    LIMIT ${f.porPagina} OFFSET ${(f.pagina - 1) * f.porPagina}`);
+  const linhas = (r as unknown as LinhaUsuario[]).map((l) => ({
+    ...l,
+    inativadoEm: l.inativadoEm ? new Date(l.inativadoEm) : null,
+    ultimoLogin: l.ultimoLogin ? new Date(l.ultimoLogin) : null,
+  }));
+  return { linhas, total };
+}
+
+export async function buscarDetalhe(tx: Tx, id: string): Promise<LinhaUsuario | null> {
+  const r =
+    await tx.execute(sql`SELECT ${colunas}, phone AS telefone, inactivated_at AS "inativadoEm",
+      (SELECT max(e.occurred_at) FROM security_event e
+        WHERE e.user_id = app_user.id AND e.event_type = 'LOGIN_OK') AS "ultimoLogin"
+    FROM app_user WHERE id = ${id}`);
+  const l = r[0] as LinhaUsuario | undefined;
+  if (!l) return null;
+  return {
+    ...l,
+    inativadoEm: l.inativadoEm ? new Date(l.inativadoEm) : null,
+    ultimoLogin: l.ultimoLogin ? new Date(l.ultimoLogin) : null,
+  };
+}
+
+/** TL-107 "Salvar" na edição: nome e telefone (perfil fixo, RN-179; e-mail só pelo fluxo próprio, SEG-12). */
+export async function atualizarDados(
+  tx: Tx,
+  id: string,
+  d: { nome: string; telefone: string | null },
+  rowVersion: number,
+): Promise<boolean> {
+  const r = await tx.execute(sql`UPDATE app_user SET name = ${d.nome}, phone = ${d.telefone}
+    WHERE id = ${id} AND row_version = ${rowVersion} RETURNING id`);
+  return r.length === 1;
+}
