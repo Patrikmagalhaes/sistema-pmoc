@@ -44,6 +44,9 @@ export const hashEmail = (email: string) =>
 
 const sistema = (motivo: string) => systemContext(randomUUID(), motivo);
 
+/** SEG-61: 3 pedidos de link de recuperação por hora por e-mail. */
+const LIMITE_LINK_POR_EMAIL = { janelaMs: 60 * 60 * 1000, max: 3 } as const;
+
 /** Janela de leitura das tentativas para o bloqueio (SEG-07) [A VALIDAR: "seguidas" sem prazo no doc]. */
 const JANELA_TENTATIVAS_MS = 24 * 60 * 60 * 1000;
 
@@ -124,6 +127,15 @@ export function ganchosAuth(db: Database): GanchosAuth {
         repo.buscarPorAuthId(tx, authUserId),
       );
       await evento(tipo, u?.id ?? null, null, o);
+    },
+
+    async podeEnviarLinkRecuperacao(authUserId, email) {
+      return db.withTransaction(sistema("link de recuperação"), async (tx) => {
+        const u = await repo.buscarPorAuthId(tx, authUserId);
+        if (u?.situacao !== "ATIVO") return false;
+        const { janelaMs, max } = LIMITE_LINK_POR_EMAIL;
+        return repo.consumirLimite(tx, `link-senha:${hashEmail(email)}`, janelaMs, max);
+      });
     },
 
     problemaSenha(senha, email) {
@@ -328,4 +340,69 @@ export async function inativarUsuario(
     body: { userId: alvo.authUserId, banReason: "INATIVADO" },
   });
   await deps.auth.api.revokeUserSessions({ headers, body: { userId: alvo.authUserId } });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Definir senha (TL-003; FL-01 passos 3–4). Público: o token é a credencial.
+// ---------------------------------------------------------------------------------------------
+
+/** E-01.4: o link existe, não foi usado e não venceu. */
+export async function linkDeSenhaValido(
+  token: string,
+  deps: Pick<AcessoDeps, "auth">,
+): Promise<boolean> {
+  if (!/^[\w-]{16,128}$/.test(token)) return false;
+  const c = await deps.auth.$context;
+  const v = await c.internalAdapter.findVerificationValue(`reset-password:${token}`);
+  return Boolean(v && new Date(v.expiresAt) > new Date());
+}
+
+export type ResultadoDefinirSenha =
+  | { ok: true }
+  | { ok: false; erro: "LINK_INVALIDO" }
+  | { ok: false; erro: "SENHA"; mensagem: string };
+
+const codigoDoErro = (e: unknown): string | undefined =>
+  (e as { body?: { code?: string } } | null)?.body?.code;
+
+export async function definirSenha(
+  token: string,
+  novaSenha: string,
+  deps: Pick<AcessoDeps, "auth">,
+): Promise<ResultadoDefinirSenha> {
+  try {
+    await deps.auth.api.resetPassword({ body: { token, newPassword: novaSenha } });
+    return { ok: true };
+  } catch (e) {
+    const codigo = codigoDoErro(e);
+    if (codigo === "INVALID_TOKEN" || codigo === "USER_NOT_FOUND")
+      return { ok: false, erro: "LINK_INVALIDO" };
+    if (codigo === "SENHA_FORA_DA_POLITICA") {
+      return { ok: false, erro: "SENHA", mensagem: (e as Error).message };
+    }
+    if (codigo === "PASSWORD_TOO_SHORT") {
+      return { ok: false, erro: "SENHA", mensagem: "A senha precisa ter pelo menos 8 caracteres." };
+    }
+    if (codigo === "PASSWORD_TOO_LONG") {
+      return { ok: false, erro: "SENHA", mensagem: "A senha pode ter no máximo 128 caracteres." };
+    }
+    if (codigo === "PASSWORD_COMPROMISED") {
+      return {
+        ok: false,
+        erro: "SENHA",
+        mensagem: "Esta senha aparece em vazamentos conhecidos. Escolha outra.",
+      };
+    }
+    throw e;
+  }
+}
+
+/** TL-004 "Segundo fator ativo desde {data}": só o próprio usuário. */
+export async function segundoFatorAtivoDesde(
+  ctx: RequestContext,
+  deps: Pick<AcessoDeps, "db">,
+): Promise<Date | null> {
+  if (!ctx.userId) return null;
+  const userId = ctx.userId;
+  return deps.db.withTransaction(ctx, (tx) => repo.ultimoEvento(tx, userId, "MFA_ATIVADO"));
 }

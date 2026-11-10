@@ -37,3 +37,12 @@ export function memoryEmailSender(): EmailSender & { sent: EmailMessage[] } {
     },
   };
 }
+
+/** Produção sem provedor configurado: falha no envio (nunca descarta o e-mail em silêncio). */
+export function unconfiguredEmailSender(): EmailSender {
+  return {
+    async send() {
+      throw new Error("Envio de e-mail de produção ainda não configurado (Resend, doc 05 §3.10).");
+    },
+  };
+}

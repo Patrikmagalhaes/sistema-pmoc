@@ -1609,7 +1609,9 @@ Estas telas foram decididas pelo usuário na rodada 2 e desenhadas na auditoria 
 #### TL-004 – Configurar segundo fator (ADM)
 - **Objetivo:** ativar o TOTP obrigatório do ADM (RN-194; 06 SEG-05, SEG-06). **Rota:** `/conta/segundo-fator`. **Permissão:** `ADM` logado. Enquanto o ADM não ativar, qualquer outra rota redireciona para cá (exceto "Sair"). **Dados:** `auth_two_factor` (03 §2.1); evento `security_event` `MFA_ATIVADO`.
 
-Passo 1 – ler o QR code:
+Passo 0 – confirmar a senha (implementação, Etapa 2): o plugin `twoFactor` exige a senha para ativar e para gerar novos códigos; vale como a reautenticação da SEG-12.
+
+Passo 1 – ler o QR code (**pendente**: nenhuma biblioteca de QR code na stack, 05 §3.0; até a decisão, a tela mostra a chave para digitar e o link `otpauth://`, que abre o aplicativo no celular [A VALIDAR]):
 
 | Campo | Controle | Obrig. | Validação | Coluna |
 |---|---|---|---|---|

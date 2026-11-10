@@ -1,7 +1,7 @@
 import "server-only";
 import { type AcessoDeps, ganchosAuth } from "@/modules/acesso";
 import { getDatabase } from "../db";
-import { fileEmailSender } from "../email";
+import { fileEmailSender, unconfiguredEmailSender } from "../email";
 import { getEnv } from "../env";
 import { type Auth, createAuth } from "./config";
 
@@ -15,19 +15,16 @@ export function getAuth() {
     const env = getEnv();
     const db = getDatabase();
     const ipHeaders = env.AUTH_IP_HEADERS.split(",").map((h) => h.trim().toLowerCase());
+    // Envio real (Resend, 05 §3.10) entra com as notificações; até lá, produção recusa o envio.
     const production = process.env.NODE_ENV === "production";
-    if (production) {
-      // Envio real (Resend) entra com as notificações; até lá, produção não sobe sem ele.
-      throw new Error("Envio de e-mail de produção ainda não configurado (Resend, doc 05 §3.10).");
-    }
-    const email = fileEmailSender();
+    const email = production ? unconfiguredEmailSender() : fileEmailSender(env.EMAIL_DEV_DIR);
     const auth = createAuth({
       db,
       secret: env.BETTER_AUTH_SECRET,
       baseURL: env.APP_URL,
       email,
       ganchos: ganchosAuth(db),
-      checarSenhaVazada: true,
+      checarSenhaVazada: production || env.AUTH_CHECAR_SENHA_VAZADA === "true",
       limitarTentativas: true,
       ipHeaders,
     });

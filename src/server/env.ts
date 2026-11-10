@@ -10,6 +10,10 @@ const schema = z.object({
   APP_URL: z.url(),
   /** SEG-68: cabeçalhos de IP confiáveis, separados por vírgula [A VALIDAR na Vercel]. */
   AUTH_IP_HEADERS: z.string().default("x-real-ip"),
+  /** SEG-02 (senha vazada, API externa). Só `false` em teste sem rede; em produção é sempre ligada. */
+  AUTH_CHECAR_SENHA_VAZADA: z.enum(["true", "false"]).default("true"),
+  /** Pasta dos e-mails gravados em desenvolvimento (fora do git). */
+  EMAIL_DEV_DIR: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

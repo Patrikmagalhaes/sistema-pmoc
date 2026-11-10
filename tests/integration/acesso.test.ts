@@ -449,3 +449,27 @@ describe("inativar (RN-141; SEG-17)", () => {
     ).rejects.toMatchObject({ codigo: "MINIMO_DE_ADMS" });
   });
 });
+
+describe("pedido de link de recuperação (FL-01; SEG-08, SEG-61)", () => {
+  const pedir = (mail: string) =>
+    call("/request-password-reset", { email: mail, redirectTo: "/senha/definir" });
+  const enviadosPara = (mail: string) => email.sent.filter((m) => m.to === mail).length;
+
+  it("usuário INATIVO recebe a mesma resposta, mas nenhum e-mail", async () => {
+    const antes = enviadosPara("rita@empresa.test"); // inativada no bloco anterior
+    const r = await pedir("rita@empresa.test");
+    expect(r.status).toBe(200);
+    expect(enviadosPara("rita@empresa.test")).toBe(antes);
+  });
+
+  it("no máximo 3 links por hora por e-mail; o 4º pedido responde igual e não envia", async () => {
+    const mail = "carla@clientex.test";
+    const antes = enviadosPara(mail);
+    for (let i = 0; i < 4; i++) expect((await pedir(mail)).status).toBe(200);
+    expect(enviadosPara(mail) - antes).toBe(3);
+  });
+
+  it("e-mail inexistente responde igual (não revela cadastro)", async () => {
+    expect((await pedir("nao-existe@x.test")).status).toBe(200);
+  });
+});
