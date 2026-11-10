@@ -261,3 +261,181 @@ export async function atualizarLocal(
     WHERE id = ${id} AND row_version = ${rowVersion} AND deleted_at IS NULL RETURNING id`);
   return r.length === 1;
 }
+
+// ---- contrato -----------------------------------------------------------------------------------
+
+export type EstadoContratoDb = "A_INICIAR" | "VIGENTE" | "ENCERRADO" | "CANCELADO";
+
+export interface LinhaContrato {
+  id: string;
+  inicio: string;
+  fim: string;
+  meses: number;
+  art: string;
+  th: string | null;
+  revisao: string | null;
+  situacao: EstadoContratoDb;
+  /** Estado do PMOC do contrato (texto do enum), se houver. */
+  estadoPmoc: string | null;
+}
+
+const colunasContrato = sql.raw(`k.id, to_char(k.start_date, 'YYYY-MM-DD') AS inicio,
+  to_char(k.end_date, 'YYYY-MM-DD') AS fim, k.month_count AS meses, k.art_number AS art,
+  k.th_code AS th, k.revision AS revisao, k.status AS situacao`);
+
+/** TL-110 aba Contratos e PMOC: contratos vivos do local, do mais recente ao mais antigo. */
+export async function listarContratos(tx: Tx, localId: string): Promise<LinhaContrato[]> {
+  const r = await tx.execute(sql`SELECT ${colunasContrato},
+      (SELECT p.status FROM pmoc p WHERE p.contract_id = k.id AND p.deleted_at IS NULL) AS "estadoPmoc"
+    FROM contract k WHERE k.site_id = ${localId} AND k.deleted_at IS NULL
+    ORDER BY k.start_date DESC, k.id`);
+  return r as unknown as LinhaContrato[];
+}
+
+export interface Contrato extends LinhaContrato {
+  rowVersion: number;
+  localId: string;
+  localNome: string;
+  localCodigo: string;
+  clienteId: string;
+  canceladoEm: string | null;
+  motivoCancelamento: string | null;
+  anteriorId: string | null;
+  anteriorInicio: string | null;
+  anteriorFim: string | null;
+  renovacaoConfirmadaEm: Date | null;
+  renovacaoConfirmadaPor: string | null;
+  /** RN-145: o PMOC já foi emitido alguma vez (datas travadas). */
+  pmocEmitido: boolean;
+  /** Há PMOC vivo (qualquer estado). */
+  temPmoc: boolean;
+  /** RF-15: o local já tem contrato posterior vivo e não cancelado (não renova de novo). */
+  temPosterior: boolean;
+}
+
+export async function buscarContrato(tx: Tx, id: string): Promise<Contrato | null> {
+  const r = await tx.execute(sql`SELECT ${colunasContrato}, k.row_version AS "rowVersion",
+      k.site_id AS "localId", s.name AS "localNome", s.code AS "localCodigo", s.client_id AS "clienteId",
+      to_char(k.cancelled_on, 'YYYY-MM-DD') AS "canceladoEm", k.cancellation_reason AS "motivoCancelamento",
+      k.previous_contract_id AS "anteriorId",
+      to_char(a.start_date, 'YYYY-MM-DD') AS "anteriorInicio", to_char(a.end_date, 'YYYY-MM-DD') AS "anteriorFim",
+      k.renewal_confirmed_at AS "renovacaoConfirmadaEm", u.name AS "renovacaoConfirmadaPor",
+      p.status AS "estadoPmoc", (p.first_issued_at IS NOT NULL) AS "pmocEmitido", (p.id IS NOT NULL) AS "temPmoc",
+      EXISTS (SELECT 1 FROM contract o WHERE o.site_id = k.site_id AND o.id <> k.id
+        AND o.deleted_at IS NULL AND o.status <> 'CANCELADO' AND o.start_date > k.start_date) AS "temPosterior"
+    FROM contract k
+    JOIN site s ON s.id = k.site_id
+    LEFT JOIN contract a ON a.id = k.previous_contract_id
+    LEFT JOIN app_user u ON u.id = k.renewal_confirmed_by_user_id
+    LEFT JOIN pmoc p ON p.contract_id = k.id AND p.deleted_at IS NULL
+    WHERE k.id = ${id} AND k.deleted_at IS NULL AND s.deleted_at IS NULL`);
+  const c = r[0] as (Contrato & { pmocEmitido: boolean | null }) | undefined;
+  if (!c) return null;
+  return {
+    ...c,
+    pmocEmitido: Boolean(c.pmocEmitido),
+    renovacaoConfirmadaEm: c.renovacaoConfirmadaEm ? new Date(c.renovacaoConfirmadaEm) : null,
+  };
+}
+
+/** E-06.2 / RN-143: contrato vivo e não cancelado do local que sobrepõe o período. */
+export async function contratoSobreposto(
+  tx: Tx,
+  localId: string,
+  inicio: string,
+  fim: string,
+  proprioId: string | null,
+): Promise<{ inicio: string; fim: string } | null> {
+  const r = await tx.execute(sql`SELECT to_char(start_date, 'YYYY-MM-DD') AS inicio,
+      to_char(end_date, 'YYYY-MM-DD') AS fim
+    FROM contract
+    WHERE site_id = ${localId} AND deleted_at IS NULL AND status <> 'CANCELADO'
+      AND id IS DISTINCT FROM ${proprioId}::uuid
+      AND daterange(start_date, end_date, '[]') && daterange(${inicio}::date, ${fim}::date, '[]')
+    ORDER BY start_date LIMIT 1`);
+  return (r[0] as { inicio: string; fim: string } | undefined) ?? null;
+}
+
+export interface DadosContrato {
+  inicio: string;
+  fim: string;
+  art: string;
+  th: string | null;
+  revisao: string | null;
+}
+
+export async function inserirContrato(
+  tx: Tx,
+  localId: string,
+  c: DadosContrato,
+  situacao: EstadoContratoDb,
+  anteriorId: string | null,
+): Promise<string> {
+  const r = await tx.execute(sql`INSERT INTO contract (site_id, start_date, end_date, art_number,
+      th_code, revision, status, previous_contract_id)
+    VALUES (${localId}, ${c.inicio}::date, ${c.fim}::date, ${c.art}, ${c.th}, ${c.revisao},
+      ${situacao}, ${anteriorId})
+    RETURNING id`);
+  return (r[0] as { id: string }).id;
+}
+
+export async function atualizarContrato(
+  tx: Tx,
+  id: string,
+  c: DadosContrato,
+  situacao: EstadoContratoDb,
+  rowVersion: number,
+): Promise<boolean> {
+  const r = await tx.execute(sql`UPDATE contract SET start_date = ${c.inicio}::date,
+      end_date = ${c.fim}::date, art_number = ${c.art}, th_code = ${c.th}, revision = ${c.revisao},
+      status = ${situacao}
+    WHERE id = ${id} AND row_version = ${rowVersion} AND deleted_at IS NULL RETURNING id`);
+  return r.length === 1;
+}
+
+/** RN-144: contrato → `CANCELADO` com data e motivo. */
+export async function cancelarContrato(
+  tx: Tx,
+  id: string,
+  data: string,
+  motivo: string,
+  rowVersion: number,
+): Promise<boolean> {
+  const r = await tx.execute(sql`UPDATE contract SET status = 'CANCELADO',
+      cancelled_on = ${data}::date, cancellation_reason = ${motivo}
+    WHERE id = ${id} AND row_version = ${rowVersion} AND deleted_at IS NULL RETURNING id`);
+  return r.length === 1;
+}
+
+/** RN-192: grava quem confirmou a renovação e quando. */
+export async function confirmarRenovacao(
+  tx: Tx,
+  id: string,
+  usuarioId: string,
+  rowVersion: number,
+): Promise<boolean> {
+  const r = await tx.execute(sql`UPDATE contract SET renewal_confirmed_at = now(),
+      renewal_confirmed_by_user_id = ${usuarioId}
+    WHERE id = ${id} AND row_version = ${rowVersion} AND deleted_at IS NULL
+      AND renewal_confirmed_at IS NULL RETURNING id`);
+  return r.length === 1;
+}
+
+/** Trava a linha do local: dois contratos novos no mesmo local não passam juntos pela checagem. */
+export async function travarLocal(tx: Tx, id: string): Promise<void> {
+  await tx.execute(sql`SELECT id FROM site WHERE id = ${id} FOR UPDATE`);
+}
+
+/** Exclusão lógica do contrato (EL-2), com motivo opcional (UF-10). */
+export async function excluirContrato(
+  tx: Tx,
+  id: string,
+  usuarioId: string | null,
+  motivo: string | null,
+  rowVersion: number,
+): Promise<boolean> {
+  const r = await tx.execute(sql`UPDATE contract
+    SET deleted_at = now(), deleted_by_user_id = ${usuarioId}, deletion_reason = ${motivo}
+    WHERE id = ${id} AND row_version = ${rowVersion} AND deleted_at IS NULL RETURNING id`);
+  return r.length === 1;
+}

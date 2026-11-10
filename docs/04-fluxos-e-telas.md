@@ -1163,6 +1163,14 @@ Aba Contratos e PMOC: lista de contratos (início, fim, meses, ART, TH-revisão,
 | Carregando / Erro | Padrão §1.2. |
 | `CANCELADO` | Tudo somente leitura; faixa "Contrato cancelado em {data}: {motivo}". |
 
+**Implementação (Etapa 3):**
+- **Rotas:** `/adm/contratos/novo?local={id}`; renovação com `&anterior={id}`.
+- **Estado:** é calculado ao salvar (RN-142, hoje em `America/Sao_Paulo`). O recálculo diário é do job da Etapa 5.
+- **Triggers (migração 0012):** garantem `CANCELADO` final (E-06.7), `ENCERRADO` não cancelável e as datas travadas depois da 1ª emissão (`pmoc.first_issued_at`; RN-145).
+- **Cancelar:** contrato → `CANCELADO` e PMOC → `HISTORICO`, na mesma transação. Visitas e ocorrências só existem depois da emissão (Etapa 4). Até a Etapa 5 implementar RN-076, E-06.5 e E-06.6, o contrato com PMOC já emitido **não** é cancelado; a tela mostra "O cancelamento de contrato com PMOC emitido ainda não está disponível."
+- **"Criar PMOC" e "Abrir PMOC":** entram com a TL-120 (Etapa 4).
+- **"Excluir":** só sem PMOC, porque a exclusão lógica não tem cascata (EL-7). Com PMOC em rascunho, o PMOC é excluído antes; essa exclusão vem com a Etapa 4.
+
 #### TL-120 – PMOC
 - **Objetivo:** montar o plano, conferir o cronograma, emitir, acompanhar versões e assinaturas (RF-10 a RF-16). **Fluxos:** FL-08, FL-09.
 - Cabeçalho fixo: cliente, local, vigência (início–fim, RN-005), TH-revisão (RN-010), estado do PMOC, versão atual.

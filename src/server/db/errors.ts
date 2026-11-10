@@ -1,5 +1,5 @@
 /**
- * Nome da restrição violada (SQLSTATE 23505 `UNIQUE` ou 23514 `CHECK`), procurando também em `cause`
+ * Nome da restrição violada (SQLSTATE 23505 `UNIQUE`, 23514 `CHECK` ou 23P01 `EXCLUDE`), procurando também em `cause`
  * (o Drizzle embrulha o erro do driver). `null` se o erro não é desse tipo.
  */
 export function restricaoViolada(e: unknown): string | null {
@@ -8,7 +8,8 @@ export function restricaoViolada(e: unknown): string | null {
     x && i < 5;
     i++
   ) {
-    if ((x.code === "23505" || x.code === "23514") && x.constraint_name) return x.constraint_name;
+    if (["23505", "23514", "23P01"].includes(x.code ?? "") && x.constraint_name)
+      return x.constraint_name;
     x = x.cause as typeof x;
   }
   return null;

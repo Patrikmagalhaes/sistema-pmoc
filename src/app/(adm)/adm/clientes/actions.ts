@@ -4,11 +4,16 @@ import { z } from "zod";
 import { UFS } from "@/lib/endereco";
 import {
   atualizarCliente,
+  atualizarContrato,
   atualizarLocal,
+  cancelarContrato,
+  confirmarRenovacao,
   criarCliente,
+  criarContrato,
   criarLocal,
   ErroClientes,
   excluirCliente,
+  excluirContrato,
   excluirLocal,
 } from "@/modules/clientes";
 import { sessionAction } from "@/server/action";
@@ -31,6 +36,7 @@ async function executar<T extends object>(fn: () => Promise<T>): Promise<Resulta
     const r = await fn();
     revalidatePath("/adm/clientes");
     revalidatePath("/adm/locais");
+    revalidatePath("/adm/contratos");
     return { ok: true, ...r };
   } catch (e) {
     if (e instanceof ErroClientes) {
@@ -120,4 +126,57 @@ export const excluirLocalAction = sessionAction
   .inputSchema(excluir)
   .action(async ({ parsedInput, ctx }) =>
     executar(() => excluirLocal(ctx.req, parsedInput, deps())),
+  );
+
+// ---- contrato (TL-112; FL-06) -------------------------------------------------------------------
+
+const dadosContrato = {
+  inicio: z.string(),
+  fim: z.string(),
+  art: z.string(),
+  th: z.string().nullish(),
+  revisao: z.string().nullish(),
+};
+
+/** TL-112 "Salvar" (criação e renovação, com `anteriorId`). */
+export const criarContratoAction = sessionAction
+  .inputSchema(z.object({ localId: z.uuid(), anteriorId: z.uuid().nullish(), ...dadosContrato }))
+  .action(async ({ parsedInput, ctx }) =>
+    executar(() => criarContrato(ctx.req, parsedInput, deps())),
+  );
+
+export const atualizarContratoAction = sessionAction
+  .inputSchema(z.object({ ...comVersao, ...dadosContrato }))
+  .action(async ({ parsedInput, ctx }) =>
+    executar(async () => {
+      await atualizarContrato(ctx.req, parsedInput, deps());
+      return {};
+    }),
+  );
+
+/** TL-112 "Cancelar contrato" (RN-144): data e motivo obrigatório. */
+export const cancelarContratoAction = sessionAction
+  .inputSchema(z.object({ ...comVersao, data: z.string(), motivo: z.string() }))
+  .action(async ({ parsedInput, ctx }) =>
+    executar(async () => {
+      await cancelarContrato(ctx.req, parsedInput, deps());
+      return {};
+    }),
+  );
+
+/** TL-112 "Confirmar renovação" (RN-192). */
+export const confirmarRenovacaoAction = sessionAction
+  .inputSchema(z.object(comVersao))
+  .action(async ({ parsedInput, ctx }) =>
+    executar(async () => {
+      await confirmarRenovacao(ctx.req, parsedInput, deps());
+      return {};
+    }),
+  );
+
+/** TL-112 "Excluir". */
+export const excluirContratoAction = sessionAction
+  .inputSchema(excluir)
+  .action(async ({ parsedInput, ctx }) =>
+    executar(() => excluirContrato(ctx.req, parsedInput, deps())),
   );
