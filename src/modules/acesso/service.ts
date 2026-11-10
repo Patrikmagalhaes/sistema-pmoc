@@ -32,7 +32,10 @@ export class ErroAcesso extends Error {
       | "ALTERADO_POR_OUTRO"
       | "MINIMO_DE_ADMS"
       | "PROPRIO_USUARIO"
-      | "NAO_ATIVO",
+      | "NAO_ATIVO"
+      | "MOTIVO_OBRIGATORIO"
+      | "SEM_SEGUNDO_FATOR"
+      | "JA_EXISTE_ADM",
     message: string,
   ) {
     super(message);
@@ -69,6 +72,27 @@ const AVISO_SEGURANCA: Partial<Record<repo.TipoEventoSeguranca, string>> = {
   MFA_ATIVADO: "O segundo fator (aplicativo autenticador) da sua conta foi ativado.",
   MFA_REMOVIDO: "O segundo fator (aplicativo autenticador) da sua conta foi removido.",
 };
+
+/** O e-mail não pode desfazer a mudança: falha de envio é ignorada. */
+async function avisarSeguranca(
+  email: EmailSender,
+  u: { email: string; nome: string },
+  tipo: repo.TipoEventoSeguranca,
+) {
+  const aviso = AVISO_SEGURANCA[tipo];
+  if (!aviso) return;
+  await email
+    .send({
+      to: u.email,
+      subject: "Aviso de segurança da sua conta",
+      text: `Olá, ${u.nome}.
+
+${aviso}
+
+Se não foi você, fale com o administrador do sistema imediatamente.`,
+    })
+    .catch(() => {});
+}
 
 export function ganchosAuth(db: Database, email: EmailSender): GanchosAuth {
   const evento = (
@@ -143,21 +167,7 @@ export function ganchosAuth(db: Database, email: EmailSender): GanchosAuth {
         repo.buscarPorAuthId(tx, authUserId),
       );
       await evento(tipo, u?.id ?? null, null, o);
-      const aviso = AVISO_SEGURANCA[tipo];
-      if (u && aviso) {
-        // O e-mail não pode desfazer a troca: falha de envio é ignorada aqui.
-        await email
-          .send({
-            to: u.email,
-            subject: "Aviso de segurança da sua conta",
-            text: `Olá, ${u.nome}.
-
-${aviso}
-
-Se não foi você, fale com o administrador do sistema imediatamente.`,
-          })
-          .catch(() => {});
-      }
+      if (u) await avisarSeguranca(email, u, tipo);
     },
 
     async podeEnviarLinkRecuperacao(authUserId, email) {
@@ -340,6 +350,53 @@ export async function criarUsuario(
 }
 
 /**
+ * Primeiro ADM de um banco novo (runbook `docs/runbooks/primeiro-adm.md`): não há ADM para usar a
+ * TL-107, então o operador roda `pnpm adm:primeiro`. Só funciona enquanto não existe nenhum ADM
+ * (ativo ou inativo); depois disso, ADM novo só pela TL-107 e recuperação só pela SEG-17/SEG-18.
+ * Não recebe senha: envia o mesmo link inicial de 72 h (DFT-01) e, no primeiro login, a TL-004.
+ */
+export async function criarPrimeiroAdm(
+  input: { nome: string; email: string; telefone?: string | null },
+  deps: AcessoDeps,
+): Promise<{ id: string }> {
+  const v = criarUsuarioSchema.parse({ ...input, perfil: "ADM" });
+  const ctx = sistema("primeiro ADM (runbook)");
+  if (await deps.db.withTransaction(ctx, (tx) => repo.existeAdm(tx))) {
+    throw new ErroAcesso(
+      "JA_EXISTE_ADM",
+      "Já existe administrador. Crie novos pela tela de usuários ou siga o runbook de acesso de emergência.",
+    );
+  }
+  if (await deps.db.withTransaction(ctx, (tx) => repo.buscarPorEmail(tx, v.email))) {
+    throw new ErroAcesso("EMAIL_EM_USO", "Este e-mail já está em uso.");
+  }
+  const c = await deps.auth.$context;
+  const a = await c.internalAdapter.createUser(
+    { email: v.email, name: v.nome, emailVerified: true, role: "ADM" },
+    { method: "admin" },
+  );
+  try {
+    // Aqui o e-mail é obrigatório e vem antes do `app_user`: se não sair, nada fica criado e o
+    // operador roda de novo (o `app_user` não tem exclusão física, EL-8).
+    await enviarLinkSenhaInicial(deps, { authUserId: a.id, email: v.email, nome: v.nome });
+    const id = await deps.db.withTransaction(ctx, (tx) =>
+      repo.inserirUsuario(tx, {
+        authUserId: a.id,
+        nome: v.nome,
+        email: v.email,
+        perfil: "ADM",
+        clientId: null,
+        telefone: v.telefone ?? null,
+      }),
+    );
+    return { id };
+  } catch (e) {
+    await c.internalAdapter.deleteUser(a.id); // compensação (AF-04); um link já enviado deixa de valer
+    throw e;
+  }
+}
+
+/**
  * Inativa (RN-141; CA-01.2): `app_user` → INATIVO, depois banir + revogar todas as sessões.
  * SEG-17: não deixa o sistema com menos de 2 ADMs ativos com segundo fator.
  */
@@ -451,7 +508,7 @@ export async function obterUsuario(
   ctx: RequestContext,
   id: string,
   deps: Pick<AcessoDeps, "db">,
-): Promise<repo.LinhaUsuario | null> {
+): Promise<repo.DetalheUsuario | null> {
   exigir(ctx);
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
   return deps.db.withTransaction(ctx, (tx) => repo.buscarDetalhe(tx, id));
@@ -497,6 +554,71 @@ export async function reenviarLinkSenha(
   if (!u) throw new ErroAcesso("NAO_ENCONTRADO", "Usuário não encontrado.");
   if (u.situacao !== "ATIVO") throw new ErroAcesso("NAO_ATIVO", "Só usuário ativo recebe o link.");
   await enviarLinkSenhaInicial(deps, { authUserId: u.authUserId, email: u.email, nome: u.nome });
+}
+
+/** Tamanho máximo do motivo da redefinição do segundo fator [A VALIDAR: o doc não fixa]. */
+export const MOTIVO_MAX = 500;
+
+/**
+ * TL-107 "Redefinir segundo fator" (SEG-17; RN-194): outro ADM apaga o TOTP e os códigos de
+ * recuperação de um ADM que perdeu o aplicativo, com motivo obrigatório gravado no `audit_log`.
+ * As sessões do alvo são encerradas; no próximo login ele só vê a TL-004 (RN-194).
+ * Não aplica o mínimo de 2 ADMs: o alvo já não consegue usar o segundo fator, e bloquear aqui
+ * impediria justamente a recuperação que a regra quer garantir.
+ */
+export async function redefinirSegundoFator(
+  ctx: RequestContext,
+  input: { id: string; motivo: string },
+  origem: Origem,
+  deps: AcessoDeps,
+): Promise<void> {
+  exigir(ctx);
+  const motivo = input.motivo.trim();
+  if (!motivo || motivo.length > MOTIVO_MAX) {
+    throw new ErroAcesso("MOTIVO_OBRIGATORIO", `Informe o motivo (até ${MOTIVO_MAX} caracteres).`);
+  }
+  if (input.id === ctx.userId) {
+    // Com acesso, o próprio ADM gera novos códigos na TL-004; sem acesso, precisa de outro ADM.
+    throw new ErroAcesso(
+      "PROPRIO_USUARIO",
+      "Você não pode redefinir o próprio segundo fator. Peça a outro administrador.",
+    );
+  }
+  const c = await deps.auth.$context;
+  const alvo = await deps.db.withTransaction({ ...ctx, reason: motivo }, async (tx) => {
+    const u = /^[0-9a-f-]{36}$/i.test(input.id) ? await repo.buscarPorId(tx, input.id) : null;
+    if (!u) throw new ErroAcesso("NAO_ENCONTRADO", "Usuário não encontrado.");
+    if (
+      u.perfil !== "ADM" ||
+      u.situacao !== "ATIVO" ||
+      !(await repo.segundoFatorLigado(tx, u.authUserId))
+    ) {
+      throw new ErroAcesso(
+        "SEM_SEGUNDO_FATOR",
+        "Só um administrador ativo com segundo fator pode ter o segundo fator redefinido.",
+      );
+    }
+    await repo.auditarRedefinicaoSegundoFator(tx, u.authUserId);
+    // Dentro da transação: se a biblioteca falhar, a linha de auditoria não fica sem a mudança.
+    await c.adapter.deleteMany({
+      model: "twoFactor",
+      where: [{ field: "userId", value: u.authUserId }],
+    });
+    await c.internalAdapter.updateUser(u.authUserId, { twoFactorEnabled: false });
+    await c.internalAdapter.deleteUserSessions(u.authUserId);
+    for (const tipo of ["MFA_REMOVIDO", "SESSAO_REVOGADA"] as const) {
+      await repo.inserirEventoSeguranca(tx, {
+        tipo,
+        userId: u.id,
+        emailHash: null,
+        ip: origem.ip,
+        userAgent: origem.userAgent,
+        requestId: ctx.requestId,
+      });
+    }
+    return u;
+  });
+  await avisarSeguranca(deps.email, alvo, "MFA_REMOVIDO"); // SEG-19
 }
 
 // ---------------------------------------------------------------------------------------------

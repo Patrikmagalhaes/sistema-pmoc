@@ -1,12 +1,13 @@
 export { BLOQUEIO } from "./domain/bloqueio";
 export { SENHA_MAX, SENHA_MIN } from "./domain/senha";
 export { LIMITES_SESSAO, type Perfil } from "./domain/sessao";
-export type { LinhaUsuario, UsuarioAcesso } from "./repo";
+export type { DetalheUsuario, LinhaUsuario, UsuarioAcesso } from "./repo";
 export type { AtualizarUsuarioInput, CriarUsuarioInput } from "./schemas";
 export {
   type AcessoDeps,
   atualizarMeusDados,
   atualizarUsuario,
+  criarPrimeiroAdm,
   criarUsuario,
   definirSenha,
   ErroAcesso,
@@ -18,11 +19,13 @@ export {
   linkDeSenhaValido,
   listarUsuarios,
   type MinhaSessao,
+  MOTIVO_MAX,
   minhaConta,
   minhasSessoes,
   obterUsuario,
   type ResultadoDefinirSenha,
   reativarUsuario,
+  redefinirSegundoFator,
   reenviarLinkSenha,
   resolverSessao,
   type SessaoResolvida,

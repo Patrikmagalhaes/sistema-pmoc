@@ -49,6 +49,7 @@ Módulos: `acesso autorizacao empresa clientes biblioteca equipamentos pmoc cron
 | Migrar | `pnpm db:migrate` (drizzle-kit + SQL à mão, em ordem) | docs/05 §3.2 |
 | Gerar migração | `drizzle-kit generate` | docs/05 §3.2 |
 | Auditoria de deps | `pnpm audit --prod --audit-level=high` | docs/06 SEG-84 |
+| Primeiro ADM | `pnpm adm:primeiro --nome "..." --email ...` (só com banco sem ADM) | docs/runbooks/primeiro-adm.md |
 
 ## Convenções de código e nomes
 - Banco: tabelas e colunas em inglês `snake_case` (`app_user`, `visit_report`); PK `id uuid`; FK `{entidade}_id`; enum = `text` + `CHECK`; valores de enum em português maiúsculo (`PREVISTA`, `EM_ANDAMENTO`).

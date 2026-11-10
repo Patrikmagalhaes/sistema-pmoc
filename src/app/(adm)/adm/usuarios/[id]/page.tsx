@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatarDataHora, ROTULO_SITUACAO } from "@/lib/formato";
-import { obterUsuario } from "@/modules/acesso";
+import { MOTIVO_MAX, obterUsuario } from "@/modules/acesso";
 import { listarClientesParaSelecao } from "@/modules/clientes";
 import { getAuth } from "@/server/auth";
 import { exigirArea } from "@/server/auth/sessao";
 import { UsuarioForm } from "../usuario-form";
 import { AcoesUsuario } from "./acoes";
+import { RedefinirSegundoFator } from "./segundo-fator";
 
 export const metadata = { title: "Usuário – Sistema PMOC" };
 
@@ -69,6 +70,12 @@ export default async function UsuarioPage({
         situacao={u.situacao}
         proprio={u.id === s.ctx.userId}
       />
+      {u.perfil === "ADM" &&
+        u.situacao === "ATIVO" &&
+        u.segundoFatorAtivo &&
+        u.id !== s.ctx.userId && (
+          <RedefinirSegundoFator id={u.id} nome={u.nome} motivoMax={MOTIVO_MAX} />
+        )}
     </section>
   );
 }
