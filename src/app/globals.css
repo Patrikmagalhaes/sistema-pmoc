@@ -314,3 +314,52 @@ a {
   display: flex;
   gap: 16px;
 }
+
+.campo textarea {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+}
+
+.campo textarea[aria-invalid="true"],
+.campo select[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+/* Caixa de seleção com o rótulo ao lado (filtro "Mostrar inativos", "Exige foto"). */
+.caixa {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+}
+
+.secao {
+  margin-top: 32px;
+}
+
+.secao h2 {
+  font-size: 1.15rem;
+  margin: 0 0 8px;
+}
+
+.tabela .acoes-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tabela .acoes-linha .botao {
+  width: auto;
+  padding: 6px 10px;
+}
+
+.grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0 12px;
+}

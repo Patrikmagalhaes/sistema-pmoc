@@ -165,7 +165,7 @@ test("isolamento: CLIENTE e TECNICO não abrem a gestão de usuários (CA-01.3)"
     const u = usuario(perfil);
     await entrar(page, u.email, perfil === "CLIENTE" ? "nova frase da cliente" : u.senha);
     await expect(page).not.toHaveURL(/\/login/);
-    for (const rota of ["/adm/usuarios", "/adm/usuarios/novo"]) {
+    for (const rota of ["/adm/usuarios", "/adm/usuarios/novo", "/adm/tipos", "/adm/tipos/novo"]) {
       const r = await page.goto(rota);
       expect(r?.status(), `${perfil} ${rota}`).toBe(403);
     }
@@ -311,4 +311,75 @@ test("TL-005: técnico corrige os dados, vê as sessões e troca a senha (LG-21,
   await entrar(pagina2, u.email, "frase nova do tecnico");
   await expect(pagina2).toHaveURL(/\/tecnico$/);
   await outro.close();
+});
+
+// ---- Etapa 3 – TL-104 / TL-105 – biblioteca (FL-03; RF-08) ------------------------------------
+
+test("FL-03: ADM cria tipo com grupo, inclui atividades e inativa (CA-08.1, E-03.2, E-03.5, RN-051)", async ({
+  page,
+}) => {
+  test.skip(!segredoAdm, "depende do segundo fator do ADM");
+  await entrarAdm(page);
+  await page.getByRole("link", { name: "Tipos de equipamento" }).click();
+  await page.getByRole("link", { name: "Novo tipo" }).first().click();
+
+  await page.getByLabel("Nome", { exact: true }).fill("Janela E2E");
+  await page.getByLabel("Sigla").fill("jne");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Inclua ao menos um grupo.")).toBeVisible(); // E-03.2
+  await page.getByLabel("Grupo 1").fill("Parede");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByRole("heading", { name: "Janela E2E (JNE)" })).toBeVisible();
+  await expect(page.getByText("Tipo criado.")).toBeVisible();
+
+  // CA-08.1: medição sem unidade é recusada
+  await page.getByRole("button", { name: "Nova atividade" }).click();
+  await page.getByLabel("Título").fill("Medir tensão");
+  await page.getByLabel("Periodicidade padrão").selectOption("MT");
+  await page.getByLabel("Natureza").selectOption("MEDICAO");
+  await page.getByRole("button", { name: "Incluir atividade" }).click();
+  await expect(page.getByText("Informe a unidade da medição.")).toBeVisible();
+  await page.getByLabel("Unidade").fill("V");
+  await page.getByLabel("Exige foto").check();
+  await page.getByRole("button", { name: "Incluir atividade" }).click();
+  await expect(page.getByText("Atividade incluída.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Nova atividade" }).click();
+  await page.getByLabel("Título").fill("Limpar filtro");
+  await page.getByLabel("Periodicidade padrão").selectOption("MM");
+  await page.getByLabel("Natureza").selectOption("VERIFICACAO");
+  await page.getByRole("button", { name: "Incluir atividade" }).click();
+  await expect(page.getByText("Atividade incluída.")).toBeVisible();
+
+  // RN-051: mensal antes de trimestral
+  const tabela = page
+    .locator(".secao")
+    .filter({ hasText: "Atividades padrão" })
+    .locator("tbody tr");
+  await expect(tabela.nth(0)).toContainText("Limpar filtro");
+  await expect(tabela.nth(1)).toContainText("Medir tensão");
+  await expect(tabela.nth(1)).toContainText("Medição (V)");
+
+  // E-03.5: mudar a periodicidade avisa que PMOCs criados não mudam
+  await tabela.nth(0).getByRole("button", { name: "Editar" }).click();
+  await page.getByLabel("Periodicidade padrão").selectOption("MS");
+  await page.getByRole("button", { name: "Salvar atividade" }).click();
+  await expect(page.getByText("A nova periodicidade não altera PMOCs já criados.")).toBeVisible();
+
+  // E-03.2: o único grupo de tipo ativo não pode ser inativado
+  const grupos = page.locator(".secao").filter({ hasText: "Grupos permitidos" });
+  await grupos.getByRole("button", { name: "Inativar" }).click();
+  await grupos.getByRole("button", { name: "Confirmar inativação" }).click();
+  await expect(grupos.getByText("Inclua ao menos um grupo.")).toBeVisible();
+  await grupos.getByRole("button", { name: "Voltar" }).click();
+
+  // Tipo sem uso: inativar (UF-09) e ver na lista só com o filtro (UL-03)
+  await page.locator(".acoes").first().getByRole("button", { name: "Inativar" }).click();
+  await page.getByRole("button", { name: "Confirmar inativação" }).click();
+  await expect(page.locator(".titulo-pagina .etiqueta")).toHaveText("Inativo");
+  await page.goto("/adm/tipos");
+  await expect(page.getByRole("link", { name: "Janela E2E" })).toHaveCount(0);
+  await page.getByLabel("Mostrar inativos").check();
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await expect(page.getByRole("link", { name: "Janela E2E" })).toBeVisible();
 });

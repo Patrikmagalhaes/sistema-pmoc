@@ -5,7 +5,10 @@ import { exigirArea } from "@/server/auth/sessao";
 export const runtime = "nodejs";
 
 /** Itens do menu lateral do ADM (04 §1.1); cresce a cada etapa. */
-const MENU = [{ href: "/adm/usuarios", rotulo: "Usuários" }];
+const MENU = [
+  { href: "/adm/usuarios", rotulo: "Usuários" },
+  { href: "/adm/tipos", rotulo: "Tipos de equipamento" },
+];
 
 /** Área Administração: só ADM (04 §1.1; CA-01.3). */
 export default async function Layout({ children }: { children: ReactNode }) {
