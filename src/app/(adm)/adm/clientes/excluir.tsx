@@ -3,10 +3,10 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { chamarAcao } from "@/lib/chamar-acao";
 import { useHidratado } from "@/lib/use-hidratado";
-import { excluirClienteAction, excluirLocalAction } from "./actions";
+import { excluirClienteAction, excluirContratoAction, excluirLocalAction } from "./actions";
 
 /**
- * "Excluir cliente" (TL-109) e "Excluir local" (TL-110): exclusão lógica com motivo opcional
+ * "Excluir cliente" (TL-109), "Excluir local" (TL-110) e "Excluir" do contrato (TL-112): exclusão lógica com motivo opcional
  * (UF-10). Com filhos vivos, o botão fica desabilitado com a dica do motivo (E-04.7; EL-7).
  */
 export function Excluir({
@@ -17,7 +17,7 @@ export function Excluir({
   bloqueio,
   depois,
 }: {
-  alvo: "cliente" | "local";
+  alvo: "cliente" | "local" | "contrato";
   id: string;
   rowVersion: number;
   nome: string;
@@ -40,7 +40,9 @@ export function Excluir({
     const r =
       alvo === "cliente"
         ? await chamarAcao(excluirClienteAction(entrada))
-        : await chamarAcao(excluirLocalAction(entrada));
+        : alvo === "local"
+          ? await chamarAcao(excluirLocalAction(entrada))
+          : await chamarAcao(excluirContratoAction(entrada));
     setEnviando(false);
     if (r.tipo === "conflito")
       return setErro("Este registro foi alterado por outra pessoa. Recarregue a página.");

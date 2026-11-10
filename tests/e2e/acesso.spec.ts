@@ -173,6 +173,7 @@ test("isolamento: CLIENTE e TECNICO não abrem a gestão de usuários (CA-01.3)"
       "/adm/clientes",
       "/adm/clientes/novo",
       "/adm/locais/novo",
+      "/adm/contratos/novo",
     ]) {
       const r = await page.goto(rota);
       expect(r?.status(), `${perfil} ${rota}`).toBe(403);
@@ -449,6 +450,7 @@ test("FL-04: ADM cria cliente e local; código gerado; exclusão bloqueada com m
 
   // E-04.7: cliente com local vivo não pode ser excluído
   await page.getByRole("link", { name: "Clínica E2E Ltda" }).click();
+  await expect(page).toHaveURL(/\/adm\/clientes\/[0-9a-f-]+\?aba=locais/); // o local também tem aba "Dados"
   await page.getByRole("link", { name: "Dados" }).click();
   await expect(page.getByRole("button", { name: "Excluir cliente" })).toBeDisabled();
   await expect(page.getByText("Exclua antes os locais deste cliente.")).toBeVisible();
@@ -470,4 +472,67 @@ test("FL-04: ADM cria cliente e local; código gerado; exclusão bloqueada com m
   await page.getByRole("link", { name: "Novo usuário" }).click();
   await expect(page.getByLabel("Perfil")).toBeDisabled();
   await expect(page.getByLabel("Perfil")).toHaveValue("CLIENTE");
+});
+
+// ---- Etapa 3 – TL-112 – contratos (FL-06; RF-07, RF-15; RN-143, RN-144, RN-192) ---------------
+
+/** Seed: local "Unidade Alfa Centro" (L001) com contrato 01/01/2026–31/12/2026 e PMOC em rascunho. */
+const LOCAL_SEED_A = "00000000-0000-4000-8000-0000000000e1";
+const CONTRATO_SEED_A = "00000000-0000-4000-8000-0000000000f1";
+
+test("FL-06: sobreposição, renovar, confirmar renovação e cancelar (CA-07.1, CA-07.2, RN-192, RN-144)", async ({
+  page,
+}) => {
+  test.skip(!segredoAdm, "depende do segundo fator do ADM");
+  await entrarAdm(page);
+  await page.goto(`/adm/locais/${LOCAL_SEED_A}?aba=contratos`);
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+
+  // CA-07.1: período sobreposto
+  await page.getByRole("link", { name: "Novo contrato" }).click();
+  await page.getByLabel("Data de início").fill("2026-06-01");
+  await page.getByLabel("Data de fim").fill("2027-05-31");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Informe o nº da ART.")).toBeVisible(); // CA-07.2
+  await page.getByLabel("Nº da ART").fill("ART-E2E-1");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.locator(".campo .erro")).toHaveText(
+    "Período sobrepõe o contrato 01/01/2026–31/12/2026.",
+  );
+
+  // Renovar: início sugerido no dia seguinte ao fim
+  await page.goto(`/adm/contratos/${CONTRATO_SEED_A}`);
+  await page.getByRole("link", { name: "Renovar" }).click();
+  await expect(page.getByRole("heading", { name: "Renovar contrato" })).toBeVisible();
+  await expect(page.getByLabel("Data de início")).toHaveValue("2027-01-01");
+  await page.getByLabel("Data de fim").fill("2027-12-31");
+  await page.getByLabel("Nº da ART").fill("ART-E2E-2");
+  await page.getByLabel("Código TH (opcional)").fill("TH12326");
+  await page.getByLabel("Revisão (opcional)").fill("R1");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Contrato salvo: 12 meses.")).toBeVisible();
+  await expect(page.getByText("Renovação ainda não confirmada")).toBeVisible();
+
+  // Confirmar renovação (UF-09): o PMOC anterior vira Histórico
+  await page.getByRole("button", { name: "Confirmar renovação" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Confirmar renovação" }).click();
+  await expect(
+    page.getByText(/Renovação confirmada em .* por Ana Administradora E2E/),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "01/01/2026 a 31/12/2026" }).click();
+  await expect(page.getByText("PMOC: Histórico.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Renovar" })).toHaveCount(0);
+
+  // Cancelar o contrato novo: motivo obrigatório; depois tudo somente leitura (E-06.7)
+  await page.goto(`/adm/locais/${LOCAL_SEED_A}?aba=contratos`);
+  await page.getByRole("link", { name: "01/01/2027" }).click();
+  await page.getByRole("button", { name: "Cancelar contrato" }).click();
+  await page.getByLabel("Data de cancelamento").fill("2027-03-15");
+  await page.getByRole("button", { name: "Confirmar cancelamento" }).click();
+  await expect(page.getByText("Informe o motivo do cancelamento.")).toBeVisible();
+  await page.getByLabel("Motivo").fill("Imóvel vendido");
+  await page.getByRole("button", { name: "Confirmar cancelamento" }).click();
+  await expect(page.getByText("Contrato cancelado em 15/03/2027: Imóvel vendido")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Salvar" })).toHaveCount(0);
+  await expect(page.getByLabel("Nº da ART")).toHaveAttribute("readonly", "");
 });

@@ -151,7 +151,8 @@ describe("cliente (RF-05; E-04.1 a E-04.4)", () => {
       deps,
     );
     expect(porCnpj.linhas.map((l) => l.id)).toContain(c.id);
-    expect((await listarClientes(admCtx(), { busca: "100%_" }, deps)).linhas).toEqual([]);
+    // `%` e `_` são literais; sem dígitos suficientes, não vira busca por CNPJ
+    expect((await listarClientes(admCtx(), { busca: "%_x" }, deps)).linhas).toEqual([]);
   });
 });
 

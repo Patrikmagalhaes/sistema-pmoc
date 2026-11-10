@@ -1,23 +1,44 @@
-export type { Cliente, ClienteResumo, LinhaCliente, LinhaLocal, Local } from "./repo";
+export { diaSeguinte, mesesDoContrato } from "./domain/contrato";
+export type {
+  Cliente,
+  ClienteResumo,
+  Contrato,
+  LinhaCliente,
+  LinhaContrato,
+  LinhaLocal,
+  Local,
+} from "./repo";
 export type {
   AtualizarClienteInput,
+  AtualizarContratoInput,
   AtualizarLocalInput,
+  CancelarContratoInput,
   CriarClienteInput,
+  CriarContratoInput,
   CriarLocalInput,
 } from "./schemas";
 export {
   atualizarCliente,
+  atualizarContrato,
   atualizarLocal,
   CLIENTES_POR_PAGINA,
   type ClienteCompleto,
   type ClientesDeps,
+  type ContratoCompleto,
+  cancelarContrato,
+  confirmarRenovacao,
   criarCliente,
+  criarContrato,
   criarLocal,
   ErroClientes,
   excluirCliente,
+  excluirContrato,
   excluirLocal,
   listarClientes,
   listarClientesParaSelecao,
+  listarContratosDoLocal,
   obterCliente,
+  obterContrato,
   obterLocal,
+  sugestaoDeRenovacao,
 } from "./service";

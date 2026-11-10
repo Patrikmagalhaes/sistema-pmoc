@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { cnpjValido, normalizarCnpj } from "@/lib/cnpj";
 import { enderecoSchema, telefoneOpcional } from "@/lib/endereco";
+import { dataValida } from "./domain/contrato";
 
 const id = z.uuid();
 const versao = z.number().int().min(1);
@@ -52,3 +53,35 @@ export const criarLocalSchema = z.object({ clienteId: id }).and(dadosLocal);
 export type CriarLocalInput = z.input<typeof criarLocalSchema>;
 export const atualizarLocalSchema = z.object({ id, rowVersion: versao }).and(dadosLocal);
 export type AtualizarLocalInput = z.input<typeof atualizarLocalSchema>;
+
+/** RF-07; RN-176; TL-112. Datas de negócio `YYYY-MM-DD`. */
+const data = (msg: string) => z.string().refine(dataValida, msg);
+const dadosContrato = z
+  .object({
+    inicio: data("Informe a data de início."),
+    fim: data("Informe a data de fim."),
+    // E-06.3 / DM-09: ART obrigatória, texto livre sem formato (AF-16).
+    art: z.string().trim().min(1, "Informe o nº da ART."),
+    th: opcional.refine((v) => !v || v.length <= 30, "O código TH tem até 30 caracteres."),
+    revisao: opcional.refine((v) => !v || v.length <= 10, "A revisão tem até 10 caracteres."),
+  })
+  .refine((v) => v.fim > v.inicio, {
+    path: ["fim"],
+    message: "A data de fim deve ser depois da de início.", // E-06.1
+  });
+
+export const criarContratoSchema = z
+  .object({ localId: id, anteriorId: id.nullish() })
+  .and(dadosContrato);
+export type CriarContratoInput = z.input<typeof criarContratoSchema>;
+export const atualizarContratoSchema = z.object({ id, rowVersion: versao }).and(dadosContrato);
+export type AtualizarContratoInput = z.input<typeof atualizarContratoSchema>;
+
+/** RN-144: data entre início e fim (conferida no serviço) e motivo obrigatório (decisão R2 2.5). */
+export const cancelarContratoSchema = z.object({
+  id,
+  rowVersion: versao,
+  data: data("Informe a data de cancelamento."),
+  motivo: z.string().trim().min(1, "Informe o motivo do cancelamento."),
+});
+export type CancelarContratoInput = z.input<typeof cancelarContratoSchema>;

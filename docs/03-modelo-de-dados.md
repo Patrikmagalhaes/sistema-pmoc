@@ -322,6 +322,8 @@ Blocos: `[P]`, `[L]` (exclusão lógica só em `RASCUNHO`).
 | `historic_since` | `timestamptz` | cond. | Obrigatório se `status = 'HISTORICO'` (RN-014). |
 | `copied_from_pmoc_id` | `uuid` FK `pmoc` | não | PMOC do contrato anterior usado como ponto de partida (RN-004). |
 
+`CHECK (status IN ('RASCUNHO', 'HISTORICO') OR current_version_number IS NOT NULL)` (`pmoc_version_when_issued`, migração 0012): o PMOC em `RASCUNHO` também vira `HISTORICO`, sem versão (RN-014; A5).
+
 #### `pmoc_activity` – plano do PMOC (cópia das atividades da biblioteca)
 Blocos: `[P]`. Cópia independente da biblioteca (RN-003).
 
