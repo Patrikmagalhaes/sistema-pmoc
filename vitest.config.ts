@@ -21,7 +21,11 @@ export default defineConfig({
         resolve: { alias },
         test: {
           name: "integration",
-          include: ["tests/integration/**/*.test.ts", "tests/isolation/**/*.test.ts"],
+          include: [
+            "tests/integration/**/*.test.ts",
+            "tests/isolation/**/*.test.ts",
+            "tests/spikes/**/*.test.ts",
+          ],
           globalSetup: ["tests/integration/global-setup.ts"],
           testTimeout: 60_000,
           hookTimeout: 180_000,
