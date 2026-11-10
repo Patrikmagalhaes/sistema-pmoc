@@ -43,6 +43,8 @@ export interface Tipo {
   emUso: boolean;
   /** E-03.4: há equipamento do tipo, a sigla não muda. */
   siglaTravada: boolean;
+  /** EL-7: grupos ou atividades vivos bloqueiam a exclusão do tipo. */
+  filhosVivos: boolean;
 }
 
 export async function buscarTipo(tx: Tx, id: string): Promise<Tipo | null> {
@@ -50,7 +52,10 @@ export async function buscarTipo(tx: Tx, id: string): Promise<Tipo | null> {
       t.acronym AS sigla, t.status AS situacao, t.row_version AS "rowVersion",
       EXISTS (SELECT 1 FROM equipment e WHERE e.equipment_type_id = t.id) AS "siglaTravada",
       (EXISTS (SELECT 1 FROM equipment e WHERE e.equipment_type_id = t.id)
-        OR EXISTS (SELECT 1 FROM pmoc_activity p WHERE p.equipment_type_id = t.id)) AS "emUso"
+        OR EXISTS (SELECT 1 FROM pmoc_activity p WHERE p.equipment_type_id = t.id)) AS "emUso",
+      (EXISTS (SELECT 1 FROM equipment_group g WHERE g.equipment_type_id = t.id AND g.deleted_at IS NULL)
+        OR EXISTS (SELECT 1 FROM activity_template a
+          WHERE a.equipment_type_id = t.id AND a.deleted_at IS NULL)) AS "filhosVivos"
     FROM equipment_type t WHERE t.id = ${id} AND t.deleted_at IS NULL`);
   return (r[0] as Tipo | undefined) ?? null;
 }
@@ -178,19 +183,6 @@ export async function excluirLogico(
     SET deleted_at = now(), deleted_by_user_id = ${usuarioId}
     WHERE id = ${id} AND row_version = ${rowVersion} AND deleted_at IS NULL RETURNING id`);
   return r.length === 1;
-}
-
-/** Ao excluir um tipo sem uso, os grupos e as atividades vivos dele saem junto. */
-export async function excluirFilhosDoTipo(
-  tx: Tx,
-  tipoId: string,
-  usuarioId: string | null,
-): Promise<void> {
-  for (const t of ["equipment_group", "activity_template"] as const) {
-    await tx.execute(sql`UPDATE ${sql.identifier(t)}
-      SET deleted_at = now(), deleted_by_user_id = ${usuarioId}
-      WHERE equipment_type_id = ${tipoId} AND deleted_at IS NULL`);
-  }
 }
 
 export async function inserirGrupo(tx: Tx, tipoId: string, nome: string): Promise<string> {

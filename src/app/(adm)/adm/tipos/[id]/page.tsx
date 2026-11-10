@@ -5,6 +5,7 @@ import {
   obterTipo,
   ROTULO_NATUREZA,
   ROTULO_PERIODICIDADE,
+  SEM_EXCLUIR_TIPO_FILHOS,
   UNIDADE_MAX,
 } from "@/modules/biblioteca";
 import { exigirArea } from "@/server/auth/sessao";
@@ -62,6 +63,7 @@ export default async function TipoPage({
           situacao={tipo.situacao}
           emUso={tipo.emUso}
           aoExcluir="/adm/tipos"
+          motivoSemExcluir={tipo.filhosVivos ? SEM_EXCLUIR_TIPO_FILHOS : undefined}
         />
         {tipo.emUso && (
           <p className="dica">
