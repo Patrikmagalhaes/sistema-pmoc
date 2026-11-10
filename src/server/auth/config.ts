@@ -58,6 +58,8 @@ export interface GanchosAuth {
   ): Promise<void>;
   /** SEG-02: senha óbvia. Devolve a mensagem de erro ou `null`. */
   problemaSenha(senha: string, email: string): string | null;
+  /** FL-01 recuperação, passo 2: só usuário ATIVO e dentro do limite por e-mail (SEG-61). */
+  podeEnviarLinkRecuperacao(authUserId: string, email: string): Promise<boolean>;
 }
 
 export interface AuthOptions {
@@ -140,6 +142,8 @@ export function createAuth(o: AuthOptions) {
       resetPasswordTokenExpiresIn: 30 * MIN, // SEG-15: recuperação 30 min (o link inicial de 72 h é do módulo acesso)
       revokeSessionsOnPasswordReset: true, // SEG-04
       sendResetPassword: async ({ user, token }) => {
+        // A resposta da rota é sempre a mesma (SEG-08); só o envio é condicionado.
+        if (!(await o.ganchos.podeEnviarLinkRecuperacao(user.id, user.email))) return;
         await o.email.send({
           to: user.email,
           subject: "Redefinir senha",

@@ -1,0 +1,168 @@
+/* Padrões visuais mínimos (04 §1, propostas (UI) [A VALIDAR]). Sem biblioteca de UI definida nos docs. */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --text: #1c2430;
+  --muted: #5b6676;
+  --border: #d6dbe3;
+  --primary: #0b5cad;
+  --primary-text: #ffffff;
+  --danger: #b42318;
+  --danger-bg: #fdecea;
+  --ok: #157347;
+  --ok-bg: #e8f5ee;
+  --radius: 8px;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    16px / 1.5 system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}
+
+a {
+  color: var(--primary);
+}
+
+.centro {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.cartao {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.cartao h1 {
+  font-size: 1.35rem;
+  margin: 0 0 16px;
+}
+
+.campo {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.campo label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.campo input {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.campo input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.campo .erro {
+  color: var(--danger);
+  font-size: 0.875rem;
+}
+
+.campo .dica {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.botao {
+  font: inherit;
+  font-weight: 600;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--primary-text);
+  cursor: pointer;
+}
+
+.botao:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.botao.secundario {
+  background: transparent;
+  color: var(--primary);
+}
+
+.alerta {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+}
+
+.alerta.erro {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.alerta.ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.links {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.codigos {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  font-family: ui-monospace, monospace;
+  background: var(--bg);
+  padding: 12px;
+  border-radius: var(--radius);
+  margin: 0 0 12px;
+  list-style: none;
+}
+
+.chave {
+  font-family: ui-monospace, monospace;
+  word-break: break-all;
+  background: var(--bg);
+  padding: 8px 10px;
+  border-radius: var(--radius);
+}
+
+.linha {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.linha .botao {
+  width: auto;
+}

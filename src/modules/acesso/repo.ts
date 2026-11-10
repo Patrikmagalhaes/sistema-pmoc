@@ -104,6 +104,25 @@ export async function inserirEventoSeguranca(tx: Tx, e: EventoSeguranca): Promis
     VALUES (${e.tipo}, ${e.userId}, ${e.emailHash}, ${e.ip}::inet, ${e.userAgent}, ${e.requestId})`);
 }
 
+/**
+ * Limite de uso da aplicação (03 §2.11 `rate_limit_counter`; AF-18). `chave` já vem com o identificador
+ * em hash. Janela fixa: ao vencer, recomeça em 1. Devolve `true` se o uso cabe no limite.
+ */
+export async function consumirLimite(
+  tx: Tx,
+  chave: string,
+  janelaMs: number,
+  max: number,
+): Promise<boolean> {
+  const r = await tx.execute(sql`INSERT INTO rate_limit_counter AS c (key, window_start, count)
+    VALUES (${chave}, now(), 1)
+    ON CONFLICT (key) DO UPDATE SET
+      count = CASE WHEN c.window_start <= now() - ${janelaMs} * INTERVAL '1 millisecond' THEN 1 ELSE c.count + 1 END,
+      window_start = CASE WHEN c.window_start <= now() - ${janelaMs} * INTERVAL '1 millisecond' THEN now() ELSE c.window_start END
+    RETURNING count`);
+  return (r[0] as { count: number }).count <= max;
+}
+
 /** Tentativas de login da conta desde `desde`, em ordem cronológica (SEG-07). */
 export async function listarTentativasLogin(
   tx: Tx,
@@ -118,4 +137,16 @@ export async function listarTentativasLogin(
     tipo: x.tipo,
     em: new Date(x.em),
   }));
+}
+
+/** Data do último evento do tipo para o usuário (ex.: "ativo desde", TL-004). */
+export async function ultimoEvento(
+  tx: Tx,
+  userId: string,
+  tipo: TipoEventoSeguranca,
+): Promise<Date | null> {
+  const r = await tx.execute(sql`SELECT max(occurred_at) AS em FROM security_event
+    WHERE user_id = ${userId} AND event_type = ${tipo}`);
+  const em = (r[0] as { em: string | Date | null } | undefined)?.em;
+  return em ? new Date(em) : null;
 }
