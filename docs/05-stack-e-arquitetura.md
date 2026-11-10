@@ -986,6 +986,16 @@ Observação: a Lei 14.063/2020 define assinatura simples, avançada e qualifica
 | Links de senha (SEG-15) | `resetPasswordTokenExpiresIn` é global (30 min, uso único confirmado). O token **não** é guardado como hash: vai em `auth_verification.identifier` como `reset-password:<token>`. Aceito pelo padrão de SEG-15 (validade curta). O link de **72 h** da senha inicial exige criar o registro de verificação à parte (`internalAdapter.createVerificationValue`) ou outra rota; decidir na Etapa 2. |
 | Senha vazada (SEG-02) | Existe o plugin `haveIBeenPwned` (`better-auth/plugins/haveibeenpwned`), que consulta API externa. **Não foi exercitado** (sem rede no teste): validar na Etapa 2; se a consulta externa não for aceita, usar a lista local de SEG-02. |
 
+**Resultado do S-05 – parte local (teste `tests/spikes/s05.test.ts`, Postgres 16 embutido no Windows, 10/11/2026): APROVADO.** Parte no pooler do Supabase (modo transação): **pendente** até existir o projeto.
+
+| Item | Resultado |
+|---|---|
+| Volume | 202 clientes, 1.993 equipamentos, 71.676 ocorrências, 2.402 visitas; cliente grande com 200 equipamentos × 3 atividades × 12 meses (RNF-02). |
+| Listas do cliente grande como `CLIENTE` (p95 de 20 execuções, com a transação e o `set_config`) | Equipamentos (50 por página) 30 ms; visitas 19 ms; ocorrências de uma visita (600) 64 ms; cronograma inteiro do PMOC (7.200) **588 ms**. Todas < 2 s (RNF-16). |
+| Isolamento | Outro `CLIENTE` filtrando pelo id do PMOC ou da visita do cliente grande recebe 0 linhas. |
+| Contexto no pool | 40 transações alternando dois clientes na **mesma conexão** (`max: 1`): cada uma só vê o próprio cliente; depois delas, transação sem ator não vê nada. |
+| Ponto de atenção | A política de `occurrence` sobe `pmoc → contract → site` e cada tabela do caminho reaplica a própria RLS: 7.200 subplanos aninhados (o ADM também paga, 312 ms, porque a política roda para todos os perfis). Está dentro da meta, mas é a consulta que mais cresce com o volume. Se a medida no Supabase passar de 2 s, a opção seria `client_id` desnormalizado também em `occurrence`, o que **muda a lista da AF-06** e exige decisão do usuário. |
+
 ---
 
 ## 11. Fontes (consultadas em 17/10/2026)

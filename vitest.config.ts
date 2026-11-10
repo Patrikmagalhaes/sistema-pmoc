@@ -21,14 +21,22 @@ export default defineConfig({
         resolve: { alias },
         test: {
           name: "integration",
-          include: [
-            "tests/integration/**/*.test.ts",
-            "tests/isolation/**/*.test.ts",
-            "tests/spikes/**/*.test.ts",
-          ],
+          include: ["tests/integration/**/*.test.ts", "tests/isolation/**/*.test.ts"],
           globalSetup: ["tests/integration/global-setup.ts"],
           testTimeout: 60_000,
           hookTimeout: 180_000,
+          fileParallelism: false,
+        },
+      },
+      {
+        // Spikes (05 §10.4): banco próprio, porque alteram esquema (S-04) e carregam volume (S-05).
+        resolve: { alias },
+        test: {
+          name: "spike",
+          include: ["tests/spikes/**/*.test.ts"],
+          globalSetup: ["tests/integration/global-setup.ts"],
+          testTimeout: 300_000,
+          hookTimeout: 600_000,
           fileParallelism: false,
         },
       },
