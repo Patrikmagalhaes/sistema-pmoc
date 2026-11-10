@@ -7,10 +7,12 @@ import {
   ErroAcesso,
   inativarUsuario,
   reativarUsuario,
+  redefinirSegundoFator,
   reenviarLinkSenha,
 } from "@/modules/acesso";
 import { sessionAction } from "@/server/action";
 import { getAuth } from "@/server/auth";
+import { origemAtual } from "@/server/auth/sessao";
 
 /** Resultado das actions de TL-107: erro de regra com código estável e mensagem da tela. */
 export type Resultado<T = object> =
@@ -24,7 +26,12 @@ async function executar<T extends object>(fn: () => Promise<T>): Promise<Resulta
     return { ok: true, ...r };
   } catch (e) {
     if (e instanceof ErroAcesso) {
-      const campos = e.codigo === "EMAIL_EM_USO" ? { email: e.message } : undefined;
+      const campos: Record<string, string> | undefined =
+        e.codigo === "EMAIL_EM_USO"
+          ? { email: e.message }
+          : e.codigo === "MOTIVO_OBRIGATORIO"
+            ? { motivo: e.message }
+            : undefined;
       return { ok: false, codigo: e.codigo, mensagem: e.message, campos };
     }
     if (e instanceof z.ZodError) {
@@ -96,6 +103,16 @@ export const reativarUsuarioAction = sessionAction
   .action(async ({ parsedInput, ctx }) =>
     executar(async () => {
       await reativarUsuario(ctx.req, parsedInput, ctx.headers, getAuth().deps);
+      return {};
+    }),
+  );
+
+/** TL-107 "Redefinir segundo fator" (SEG-17; RN-194): motivo obrigatório. */
+export const redefinirSegundoFatorAction = sessionAction
+  .inputSchema(z.object({ id: z.uuid(), motivo: z.string() }))
+  .action(async ({ parsedInput, ctx }) =>
+    executar(async () => {
+      await redefinirSegundoFator(ctx.req, parsedInput, await origemAtual(), getAuth().deps);
       return {};
     }),
   );

@@ -70,12 +70,46 @@ export async function alterarSituacao(
   return r.length === 1;
 }
 
+/** Algum ADM, ativo ou inativo (primeiro ADM, runbook). */
+export async function existeAdm(tx: Tx): Promise<boolean> {
+  const r = await tx.execute(
+    sql`SELECT EXISTS (SELECT 1 FROM app_user WHERE role = 'ADM') AS existe`,
+  );
+  return Boolean((r[0] as { existe: boolean }).existe);
+}
+
 /** SEG-17: ADMs ativos com segundo fator ligado. */
 export async function contarAdmsAtivosComSegundoFator(tx: Tx): Promise<number> {
   const r = await tx.execute(sql`SELECT count(*)::int AS n FROM app_user u
     JOIN auth_user a ON a.id = u.auth_user_id
     WHERE u.role = 'ADM' AND u.status = 'ATIVO' AND a.two_factor_enabled`);
   return (r[0] as { n: number }).n;
+}
+
+/** Segundo fator ligado no `auth_user` (leitura só; quem escreve é a biblioteca). */
+export async function segundoFatorLigado(tx: Tx, authUserId: string): Promise<boolean> {
+  const r = await tx.execute(
+    sql`SELECT coalesce(two_factor_enabled, false) AS ligado FROM auth_user WHERE id = ${authUserId}`,
+  );
+  return Boolean((r[0] as { ligado: boolean } | undefined)?.ligado);
+}
+
+/**
+ * SEG-17: a redefinição do segundo fator vai para o `audit_log` com o motivo. As tabelas `auth_*` não
+ * têm o trigger genérico (AF-04), então a linha é gravada aqui, com o mesmo contexto `app.*` que o
+ * trigger leria.
+ */
+export async function auditarRedefinicaoSegundoFator(tx: Tx, authUserId: string): Promise<void> {
+  await tx.execute(sql`INSERT INTO audit_log (actor_user_id, actor_role, source, action, table_name,
+      record_id, changed_fields, old_values, new_values, reason, request_id, ip_address)
+    VALUES (nullif(current_setting('app.actor_user_id', true), '')::uuid,
+      nullif(current_setting('app.actor_role', true), ''),
+      current_setting('app.source', true), 'UPDATE', 'auth_user', ${authUserId},
+      ARRAY['two_factor_enabled'], '{"two_factor_enabled": true}'::jsonb,
+      '{"two_factor_enabled": false}'::jsonb,
+      nullif(current_setting('app.reason', true), ''),
+      nullif(current_setting('app.request_id', true), '')::uuid,
+      nullif(current_setting('app.ip_address', true), '')::inet)`);
 }
 
 export type TipoEventoSeguranca =
@@ -204,13 +238,19 @@ export async function listarUsuarios(
   return { linhas, total };
 }
 
-export async function buscarDetalhe(tx: Tx, id: string): Promise<LinhaUsuario | null> {
+export interface DetalheUsuario extends LinhaUsuario {
+  segundoFatorAtivo: boolean;
+}
+
+export async function buscarDetalhe(tx: Tx, id: string): Promise<DetalheUsuario | null> {
   const r =
     await tx.execute(sql`SELECT ${colunas}, phone AS telefone, inactivated_at AS "inativadoEm",
       (SELECT max(e.occurred_at) FROM security_event e
-        WHERE e.user_id = app_user.id AND e.event_type = 'LOGIN_OK') AS "ultimoLogin"
+        WHERE e.user_id = app_user.id AND e.event_type = 'LOGIN_OK') AS "ultimoLogin",
+      coalesce((SELECT a.two_factor_enabled FROM auth_user a WHERE a.id = app_user.auth_user_id),
+        false) AS "segundoFatorAtivo"
     FROM app_user WHERE id = ${id}`);
-  const l = r[0] as LinhaUsuario | undefined;
+  const l = r[0] as DetalheUsuario | undefined;
   if (!l) return null;
   return {
     ...l,

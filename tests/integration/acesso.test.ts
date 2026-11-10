@@ -21,6 +21,7 @@ import {
   minhasSessoes,
   obterUsuario,
   reativarUsuario,
+  redefinirSegundoFator,
   reenviarLinkSenha,
   resolverSessao,
 } from "../../src/modules/acesso";
@@ -705,5 +706,81 @@ describe("minha conta (TL-005; LG-21, SEG-13, SEG-19)", () => {
       jar,
     );
     expect(errada.json?.code).toBe("INVALID_PASSWORD"); // "Senha atual incorreta."
+  });
+});
+
+describe("redefinir segundo fator por outro ADM (SEG-17; RN-194)", () => {
+  const ORIGEM = { ip: "198.51.100.7", userAgent: "vitest" };
+  const SENHA = "frase longa de teste tres";
+  let cris: { id: string; authUserId: string };
+  let crisLogin: { jar: Jar; secret: string };
+
+  beforeAll(async () => {
+    cris = await bootstrapAdm("Cris Três", "cris3@empresa.test", SENHA);
+    crisLogin = await loginAdm("cris3@empresa.test", SENHA);
+  });
+
+  it("motivo é obrigatório; ninguém redefine o próprio; só ADM ativo com segundo fator", async () => {
+    await expect(
+      redefinirSegundoFator(admCtx, { id: cris.id, motivo: "   " }, ORIGEM, deps),
+    ).rejects.toMatchObject({ codigo: "MOTIVO_OBRIGATORIO" });
+    await expect(
+      redefinirSegundoFator(admCtx, { id: admCtx.userId as string, motivo: "perdi" }, ORIGEM, deps),
+    ).rejects.toMatchObject({ codigo: "PROPRIO_USUARIO" });
+    const [tec] = await owner`SELECT id FROM app_user WHERE role = 'TECNICO' LIMIT 1`;
+    await expect(
+      redefinirSegundoFator(admCtx, { id: tec?.id, motivo: "teste" }, ORIGEM, deps),
+    ).rejects.toMatchObject({ codigo: "SEM_SEGUNDO_FATOR" });
+    await expect(
+      redefinirSegundoFator(admCtx, { id: randomUUID(), motivo: "teste" }, ORIGEM, deps),
+    ).rejects.toMatchObject({ codigo: "NAO_ENCONTRADO" });
+    // nada mudou para a Cris
+    expect((await resolverSessao(crisLogin.jar.headers(), deps)).estado).toBe("OK");
+  });
+
+  it("isolamento: CLIENTE e TECNICO não redefinem (SEG-25)", async () => {
+    for (const ctx of [clientCtx("A"), technicianCtx()]) {
+      await expect(
+        redefinirSegundoFator(ctx, { id: cris.id, motivo: "teste" }, ORIGEM, deps),
+      ).rejects.toMatchObject({ codigo: "SEM_PERMISSAO" });
+    }
+  });
+
+  it("apaga TOTP e códigos, derruba as sessões, grava audit_log com motivo e avisa por e-mail", async () => {
+    const enviadosAntes = email.sent.filter((m) => m.to === "cris3@empresa.test").length;
+    await redefinirSegundoFator(
+      admCtx,
+      { id: cris.id, motivo: "Perdeu o celular e os códigos" },
+      ORIGEM,
+      deps,
+    );
+    expect((await resolverSessao(crisLogin.jar.headers(), deps)).estado).toBe("ANONIMO");
+    expect(
+      (
+        await owner`SELECT count(*)::int AS n FROM auth_two_factor WHERE user_id = ${cris.authUserId}`
+      )[0]?.n,
+    ).toBe(0);
+    const [log] = await owner`SELECT actor_user_id, actor_role, source, table_name, changed_fields,
+        reason, request_id FROM audit_log WHERE table_name = 'auth_user' AND record_id = ${cris.authUserId}`;
+    expect(log).toMatchObject({
+      actor_user_id: admCtx.userId,
+      actor_role: "ADM",
+      source: "WEB_ADM",
+      changed_fields: ["two_factor_enabled"],
+      reason: "Perdeu o celular e os códigos",
+      request_id: admCtx.requestId,
+    });
+    expect(await eventos("MFA_REMOVIDO", cris.id)).toBe(1);
+    const avisos = email.sent.filter((m) => m.to === "cris3@empresa.test");
+    expect(avisos.length).toBe(enviadosAntes + 1);
+    expect(avisos.at(-1)?.text).toContain("segundo fator");
+
+    // Próximo login: senha basta para abrir a sessão, mas só a TL-004 (RN-194).
+    const jar = new Jar();
+    const r = await call("/sign-in/email", { email: "cris3@empresa.test", password: SENHA }, jar);
+    expect(r.json?.twoFactorRedirect).toBeFalsy();
+    expect((await resolverSessao(jar.headers(), deps)).estado).toBe("SEGUNDO_FATOR_PENDENTE");
+    // O segredo antigo não vale mais; configura um novo e volta ao normal.
+    await loginAdm("cris3@empresa.test", SENHA);
   });
 });

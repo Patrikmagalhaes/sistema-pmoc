@@ -997,10 +997,15 @@ Estados: Vazio "Nenhum usuário encontrado." (sempre existe ao menos o ADM logad
 | Reenviar link de senha | usuário `ATIVO` | Novo token de uso único | FL-01 |
 | Inativar | `ATIVO`; não é o próprio usuário (E-05.2) | FL-05 inativar; técnico com visitas: lista para reatribuir | RN-141, RN-074 |
 | Reativar | `INATIVO` | `ATIVO` | RN-141 |
+| Redefinir segundo fator | alvo `ADM` `ATIVO` com segundo fator ativo; não é o próprio usuário | Confirmação (UF-09) com **motivo obrigatório**; apaga o TOTP e os códigos de recuperação, encerra as sessões do alvo, grava `audit_log` com o motivo e `MFA_REMOVIDO`, envia o aviso de segurança (SEG-19); no próximo login o alvo só vê a TL-004 | RN-194; 06 SEG-17 |
 
 Não existe "Excluir" (RN-141).
 
-**Implementação (Etapa 2):** na edição, o e-mail fica somente leitura até existir a troca com reautenticação (06 SEG-12; pendente). A lista "Visitas para reatribuir" ao inativar técnico (RN-074, CA-02.4) entra na Etapa 5, junto com as visitas. "Cliente" vem do módulo `clientes` (lista de seleção; o cadastro é da Etapa 3).
+**Implementação (Etapa 2):** na edição, o e-mail fica somente leitura até existir a troca com reautenticação (06 SEG-12; pendente). A lista "Visitas para reatribuir" ao inativar técnico (RN-074, CA-02.4) entra na Etapa 5, junto com as visitas. "Cliente" vem do módulo `clientes` (lista de seleção; o cadastro é da Etapa 3). "Redefinir segundo fator":
+- **Registro:** as tabelas `auth_*` não têm o trigger de auditoria (AF-04). A linha do `audit_log` é gravada pelo serviço, com `table_name = 'auth_user'`, `changed_fields = {two_factor_enabled}` e o motivo.
+- **Mínimo de 2 ADMs:** esta ação não o aplica. O alvo já não consegue usar o segundo fator, e bloquear impediria a recuperação que a SEG-17 quer garantir.
+- **Tamanho do motivo:** até 500 caracteres [A VALIDAR].
+- **Primeiro ADM e acesso de emergência** ficam fora da tela, nos runbooks `docs/runbooks/primeiro-adm.md` (comando `pnpm adm:primeiro`) e `docs/runbooks/acesso-emergencia.md` (SEG-18).
 
 | Estado | Comportamento |
 |---|---|
