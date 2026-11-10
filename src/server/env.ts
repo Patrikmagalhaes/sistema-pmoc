@@ -12,6 +12,8 @@ const schema = z.object({
   AUTH_IP_HEADERS: z.string().default("x-real-ip"),
   /** SEG-02 (senha vazada, API externa). Só `false` em teste sem rede; em produção é sempre ligada. */
   AUTH_CHECAR_SENHA_VAZADA: z.enum(["true", "false"]).default("true"),
+  /** LG-25: canal do titular (ex.: privacidade@{dominio}) [A VALIDAR: endereço]. */
+  PRIVACIDADE_EMAIL: z.email().optional(),
   /** Pasta dos e-mails gravados em desenvolvimento (fora do git). */
   EMAIL_DEV_DIR: z.string().optional(),
 });

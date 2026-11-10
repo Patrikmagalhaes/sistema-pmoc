@@ -1674,6 +1674,8 @@ Seção **Seus dados (LGPD)** – texto com o canal de contato (LG-25) e o que o
 | Carregando / Erro | Padrão §1.2. Senha atual errada: "Senha atual incorreta." |
 | Offline (PWA) | Só leitura dos dados guardados; ações desabilitadas com "Conecte-se para alterar." |
 
+**Implementação (Etapa 2):** as sessões são listadas e encerradas no servidor (o token de sessão nunca vai ao navegador); a sessão atual se encerra com "Sair". O e-mail de segurança (SEG-19) também sai quando o segundo fator é ativado ou a senha é definida pelo link. O endereço do canal LG-25 vem da variável `PRIVACIDADE_EMAIL` [A VALIDAR: endereço]; sem ela, a tela orienta a falar com o administrador. O estado Offline do PWA entra na Etapa 6.
+
 #### TL-206 – Comprovante de visita (técnico)
 - **Objetivo:** coletar, no local, o nome e a assinatura do responsável presente (RN-189; decisões A3 a e R2 2.9 a; AF-10). **Rota:** `/tecnico/visitas/{id}/comprovante`. **Permissão:** técnico da visita, visita `EM_ANDAMENTO`. **Acesso:** botão "Coletar comprovante" em TL-204, habilitado com zero faltantes. **Funciona sem conexão.** Não é obrigatório para finalizar.
 

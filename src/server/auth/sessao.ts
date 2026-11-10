@@ -48,3 +48,18 @@ export async function exigirLogin() {
   if (s.estado === "ANONIMO") return paraLogin();
   return s;
 }
+
+/** IP (cabeçalho confiável, SEG-68) e User-Agent da requisição, para a trilha de acesso. */
+export async function origemAtual(): Promise<{ ip: string | null; userAgent: string | null }> {
+  const h = await headers();
+  const { ipHeaders } = getAuth();
+  let ip: string | null = null;
+  for (const nome of ipHeaders) {
+    const v = h.get(nome)?.split(",")[0]?.trim();
+    if (v) {
+      ip = v;
+      break;
+    }
+  }
+  return { ip: ip && /^[0-9a-fA-F:.]+$/.test(ip) ? ip : null, userAgent: h.get("user-agent") };
+}

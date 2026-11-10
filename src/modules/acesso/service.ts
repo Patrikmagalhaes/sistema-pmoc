@@ -62,7 +62,15 @@ const JANELA_TENTATIVAS_MS = 24 * 60 * 60 * 1000;
 // Ganchos do Better Auth (src/server/auth). Rodam com contexto SISTEMA (03 §2.1 regra 6).
 // ---------------------------------------------------------------------------------------------
 
-export function ganchosAuth(db: Database): GanchosAuth {
+/** SEG-19: e-mail de segurança da conta quando a senha ou o segundo fator mudam. */
+const AVISO_SEGURANCA: Partial<Record<repo.TipoEventoSeguranca, string>> = {
+  SENHA_ALTERADA: "A senha da sua conta foi alterada.",
+  SENHA_REDEFINIDA: "A senha da sua conta foi definida ou redefinida.",
+  MFA_ATIVADO: "O segundo fator (aplicativo autenticador) da sua conta foi ativado.",
+  MFA_REMOVIDO: "O segundo fator (aplicativo autenticador) da sua conta foi removido.",
+};
+
+export function ganchosAuth(db: Database, email: EmailSender): GanchosAuth {
   const evento = (
     tipo: repo.TipoEventoSeguranca,
     userId: string | null,
@@ -135,6 +143,21 @@ export function ganchosAuth(db: Database): GanchosAuth {
         repo.buscarPorAuthId(tx, authUserId),
       );
       await evento(tipo, u?.id ?? null, null, o);
+      const aviso = AVISO_SEGURANCA[tipo];
+      if (u && aviso) {
+        // O e-mail não pode desfazer a troca: falha de envio é ignorada aqui.
+        await email
+          .send({
+            to: u.email,
+            subject: "Aviso de segurança da sua conta",
+            text: `Olá, ${u.nome}.
+
+${aviso}
+
+Se não foi você, fale com o administrador do sistema imediatamente.`,
+          })
+          .catch(() => {});
+      }
     },
 
     async podeEnviarLinkRecuperacao(authUserId, email) {
@@ -165,7 +188,7 @@ export type SessaoResolvida =
   | { estado: "ANONIMO" }
   /** RN-194: ADM sem segundo fator; só TL-004. */
   | { estado: "SEGUNDO_FATOR_PENDENTE"; usuario: repo.UsuarioAcesso }
-  | { estado: "OK"; ctx: RequestContext; usuario: repo.UsuarioAcesso };
+  | { estado: "OK"; ctx: RequestContext; usuario: repo.UsuarioAcesso; sessaoId: string };
 
 type CanalUsuario = Exclude<AuditSource, "SISTEMA">;
 
@@ -231,7 +254,7 @@ export async function resolverSessao(
     ipAddress: ip && /^[0-9a-fA-F:.]+$/.test(ip) ? ip : null,
     source: opcoes.canal ?? canalPadrao[usuario.perfil],
   });
-  return { estado: "OK", ctx, usuario };
+  return { estado: "OK", ctx, usuario, sessaoId: s.session.id };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -539,4 +562,131 @@ export async function segundoFatorAtivoDesde(
   if (!ctx.userId) return null;
   const userId = ctx.userId;
   return deps.db.withTransaction(ctx, (tx) => repo.ultimoEvento(tx, userId, "MFA_ATIVADO"));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Minha conta (TL-005; SEG-13; LG-21). Só os próprios dados: o alvo é sempre `ctx.userId`.
+// ---------------------------------------------------------------------------------------------
+
+const eu = (ctx: RequestContext): string => {
+  if (!ctx.userId || ctx.role === "SISTEMA") {
+    throw new ErroAcesso("SEM_PERMISSAO", "Entre para ver sua conta.");
+  }
+  return ctx.userId;
+};
+
+/** TL-005: dados do próprio usuário (inclui `rowVersion` para salvar). */
+export async function minhaConta(ctx: RequestContext, deps: Pick<AcessoDeps, "db">) {
+  const id = eu(ctx);
+  const u = await deps.db.withTransaction(ctx, (tx) => repo.buscarDetalhe(tx, id));
+  if (!u) throw new ErroAcesso("NAO_ENCONTRADO", "Usuário não encontrado.");
+  return u;
+}
+
+/**
+ * TL-005 "Salvar dados" (LG-21: correção pelo titular). A RLS de `app_user` deixa um CLIENTE ver os
+ * usuários do mesmo cliente; por isso o alvo vem do contexto, nunca do navegador.
+ */
+export async function atualizarMeusDados(
+  ctx: RequestContext,
+  input: { rowVersion: number; nome: string; telefone?: string | null },
+  deps: AcessoDeps,
+): Promise<void> {
+  const id = eu(ctx);
+  const v = atualizarUsuarioSchema.parse({ ...input, id });
+  const authUserId = await deps.db.withTransaction(ctx, async (tx) => {
+    const atual = await repo.buscarPorId(tx, id);
+    if (!atual) throw new ErroAcesso("NAO_ENCONTRADO", "Usuário não encontrado.");
+    const ok = await repo.atualizarDados(
+      tx,
+      id,
+      { nome: v.nome, telefone: v.telefone ?? null },
+      v.rowVersion,
+    );
+    if (!ok) {
+      throw new ErroAcesso(
+        "ALTERADO_POR_OUTRO",
+        "Este registro foi alterado por outra pessoa. Recarregue para ver a versão atual.",
+      );
+    }
+    return atual.authUserId;
+  });
+  const c = await deps.auth.$context;
+  await c.internalAdapter.updateUser(authUserId, { name: v.nome });
+}
+
+export interface MinhaSessao {
+  id: string;
+  criadaEm: Date;
+  /** `updated_at`: renovada a cada 5 min de uso (LIMITES_SESSAO.renovacaoMs). */
+  ultimoUso: Date;
+  userAgent: string | null;
+  atual: boolean;
+}
+
+async function sessoesDe(ctx: RequestContext, deps: Pick<AcessoDeps, "db" | "auth">) {
+  const id = eu(ctx);
+  const u = await deps.db.withTransaction(ctx, (tx) => repo.buscarPorId(tx, id));
+  if (!u) throw new ErroAcesso("NAO_ENCONTRADO", "Usuário não encontrado.");
+  const c = await deps.auth.$context;
+  return {
+    u,
+    c,
+    sessoes: await c.internalAdapter.listSessions(u.authUserId, { onlyActiveSessions: true }),
+  };
+}
+
+/** SEG-13 (versão simplificada): só as sessões do próprio usuário. O token nunca sai do servidor. */
+export async function minhasSessoes(
+  ctx: RequestContext,
+  sessaoAtualId: string,
+  deps: Pick<AcessoDeps, "db" | "auth">,
+): Promise<MinhaSessao[]> {
+  const { sessoes } = await sessoesDe(ctx, deps);
+  return sessoes
+    .map((s) => ({
+      id: s.id,
+      criadaEm: new Date(s.createdAt),
+      ultimoUso: new Date(s.updatedAt),
+      userAgent: s.userAgent ?? null,
+      atual: s.id === sessaoAtualId,
+    }))
+    .sort(
+      (a, b) => Number(b.atual) - Number(a.atual) || b.ultimoUso.getTime() - a.ultimoUso.getTime(),
+    );
+}
+
+/**
+ * TL-005 "Encerrar" (uma sessão que não é a atual) e "Encerrar todas as outras". Sessão de outro
+ * usuário não é encontrada (RN-162). Grava `SESSAO_REVOGADA` (SEG-09).
+ */
+export async function encerrarMinhasSessoes(
+  ctx: RequestContext,
+  alvo: { sessaoId: string } | { todasMenos: string },
+  origem: Origem,
+  deps: Pick<AcessoDeps, "db" | "auth">,
+): Promise<number> {
+  const { u, c, sessoes } = await sessoesDe(ctx, deps);
+  const atual = "todasMenos" in alvo ? alvo.todasMenos : null;
+  const remover =
+    "sessaoId" in alvo
+      ? sessoes.filter((s) => s.id === alvo.sessaoId)
+      : sessoes.filter((s) => s.id !== atual);
+  if ("sessaoId" in alvo && remover.length === 0) {
+    throw new ErroAcesso("NAO_ENCONTRADO", "Sessão não encontrada.");
+  }
+  for (const s of remover) await c.internalAdapter.deleteSession(s.token);
+  if (remover.length > 0) {
+    await deps.db.withTransaction(sistema("trilha de acesso"), (tx) =>
+      repo.inserirEventoSeguranca(tx, {
+        tipo: "SESSAO_REVOGADA",
+        userId: u.id,
+        emailHash: null,
+        ip: origem.ip,
+        userAgent: origem.userAgent,
+        requestId: ctx.requestId,
+      }),
+    );
+  }
+  return remover.length;
 }

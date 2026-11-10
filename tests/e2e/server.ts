@@ -60,7 +60,7 @@ const auth = createAuth({
   secret: E2E.secret,
   baseURL: E2E.baseURL,
   email: memoryEmailSender(),
-  ganchos: ganchosAuth(db),
+  ganchos: ganchosAuth(db, memoryEmailSender()),
   checarSenhaVazada: false,
   limitarTentativas: false,
   ipHeaders: ["x-real-ip"],

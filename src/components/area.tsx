@@ -38,7 +38,9 @@ export function Area({
           </nav>
         </span>
         <span style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <span>{nome}</span>
+          <Link href="/conta" title="Minha conta">
+            {nome}
+          </Link>
           <BotaoSair />
         </span>
       </header>
