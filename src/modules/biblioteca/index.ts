@@ -31,5 +31,6 @@ export {
   listarTipos,
   obterTipo,
   renomearGrupo,
+  SEM_EXCLUIR_TIPO_FILHOS,
   type TipoCompleto,
 } from "./service";

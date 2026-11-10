@@ -152,16 +152,31 @@ describe("tipo (RN-040; E-03.1, E-03.2, E-03.4)", () => {
 });
 
 describe("excluir ou inativar (EL-4; RN-044; CA-08.2)", () => {
-  it("tipo sem uso é excluído logicamente com grupos e atividades; some das telas", async () => {
+  it("tipo sem uso: sem cascata (EL-7), exclui grupos e atividades antes; some das telas", async () => {
     const t = await novoTipo();
     const { id: aId } = await incluirAtividade(admCtx(), atividade(t.tipo.id), deps);
-    await excluirTipo(admCtx(), { id: t.tipo.id, rowVersion: t.tipo.rowVersion }, deps);
+    expect(t.tipo).toMatchObject({ emUso: false, filhosVivos: true });
+    await expect(
+      excluirTipo(admCtx(), { id: t.tipo.id, rowVersion: t.tipo.rowVersion }, deps),
+    ).rejects.toMatchObject({ codigo: "TEM_FILHOS" });
+    // o último grupo só sai com o tipo inativo (RN-040)
+    await alterarSituacaoTipo(
+      admCtx(),
+      { id: t.tipo.id, rowVersion: t.tipo.rowVersion, situacao: "INATIVO" },
+      deps,
+    );
+    const x = await obterTipo(admCtx(), t.tipo.id, deps);
+    const g = x?.grupos[0];
+    const a = x?.atividades[0];
+    await excluirGrupo(admCtx(), { id: g?.id ?? "", rowVersion: g?.rowVersion ?? 1 }, deps);
+    await excluirAtividade(admCtx(), { id: aId, rowVersion: a?.rowVersion ?? 1 }, deps);
+    const y = await obterTipo(admCtx(), t.tipo.id, deps);
+    expect(y?.tipo.filhosVivos).toBe(false);
+    await excluirTipo(admCtx(), { id: t.tipo.id, rowVersion: y?.tipo.rowVersion ?? 1 }, deps);
     expect(await obterTipo(admCtx(), t.tipo.id, deps)).toBeNull();
-    const [r] = await owner`SELECT
-        (SELECT deleted_at IS NOT NULL FROM equipment_type WHERE id = ${t.tipo.id}) AS tipo,
-        (SELECT bool_and(deleted_at IS NOT NULL) FROM equipment_group WHERE equipment_type_id = ${t.tipo.id}) AS grupos,
-        (SELECT deleted_at IS NOT NULL FROM activity_template WHERE id = ${aId}) AS atividade`;
-    expect(r).toEqual({ tipo: true, grupos: true, atividade: true });
+    const [r] =
+      await owner`SELECT deleted_at IS NOT NULL AS excluido FROM equipment_type WHERE id = ${t.tipo.id}`;
+    expect(r?.excluido).toBe(true);
     // excluído libera nome e sigla para um novo tipo (UNIQUE só entre vivos)
     await criarTipo(admCtx(), { nome: t.tipo.nome, sigla: t.tipo.sigla, grupos: ["G"] }, deps);
   });

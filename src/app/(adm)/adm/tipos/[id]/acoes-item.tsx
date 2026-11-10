@@ -34,6 +34,7 @@ export function AcoesItem({
   situacao,
   emUso,
   aoExcluir,
+  motivoSemExcluir,
 }: {
   alvo: Alvo;
   id: string;
@@ -43,6 +44,8 @@ export function AcoesItem({
   emUso: boolean;
   /** Para onde ir depois de excluir (o tipo excluído não tem mais página). */
   aoExcluir?: string;
+  /** Excluir desabilitado com a dica do motivo (EL-7, como E-04.7). */
+  motivoSemExcluir?: string;
 }) {
   const router = useRouter();
   const pronto = useHidratado();
@@ -129,12 +132,14 @@ export function AcoesItem({
         <button
           type="button"
           className="botao secundario perigo"
-          disabled={desab}
+          disabled={desab || Boolean(motivoSemExcluir)}
+          title={motivoSemExcluir}
           onClick={() => setConfirmar("excluir")}
         >
           Excluir
         </button>
       )}
+      {!emUso && motivoSemExcluir && <span className="dica">{motivoSemExcluir}</span>}
       {erro && (
         <span className="erro" role="status">
           {erro}

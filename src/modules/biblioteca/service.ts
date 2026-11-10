@@ -35,6 +35,7 @@ export class ErroBiblioteca extends Error {
       | "SIGLA_TRAVADA"
       | "EM_USO"
       | "SEM_GRUPO_ATIVO"
+      | "TEM_FILHOS"
       | "VALIDACAO",
     message: string,
     readonly campo?: string,
@@ -215,7 +216,13 @@ export async function alterarSituacaoTipo(
   });
 }
 
-/** Excluir tipo sem uso (EL-4; CA-08.2): grupos e atividades saem junto. Com uso: só inativar. */
+/** Motivo de não poder excluir o tipo (TL-105 mostra no botão desabilitado, como E-04.7). */
+export const SEM_EXCLUIR_TIPO_FILHOS = "Exclua antes os grupos e as atividades deste tipo.";
+
+/**
+ * Excluir tipo sem uso (EL-4; CA-08.2). Com uso: só inativar. Sem cascata (EL-7): grupos e atividades
+ * vivos bloqueiam; para tirar o último grupo, o tipo precisa estar inativo (RN-040).
+ */
 export async function excluirTipo(
   ctx: RequestContext,
   input: { id: string; rowVersion: number },
@@ -230,10 +237,10 @@ export async function excluirTipo(
     if (!podeExcluir(t)) {
       throw new ErroBiblioteca("EM_USO", "Este tipo já foi usado. Use Inativar.");
     }
+    if (t.filhosVivos) throw new ErroBiblioteca("TEM_FILHOS", SEM_EXCLUIR_TIPO_FILHOS);
     if (!(await repo.excluirLogico(tx, "equipment_type", v.id, ctx.userId, v.rowVersion))) {
       throw conflito();
     }
-    await repo.excluirFilhosDoTipo(tx, v.id, ctx.userId);
   });
 }
 

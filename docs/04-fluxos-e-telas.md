@@ -971,7 +971,7 @@ Lista editável – atividades padrão (ordenadas por periodicidade e ordem, RN-
 - **Criação e edição:** a criação grava o tipo e os grupos numa transação (RN-040). As atividades se incluem depois, na página do tipo.
 - **Salvamento:** na edição, cada parte salva sozinha, com `row_version` (UF-07): os dados do tipo, cada grupo (renomear, inativar, reativar, excluir) e cada atividade (formulário "Editar" / "Nova atividade").
 - **Uso do tipo (EL-4):** atividade em PMOC **ou** equipamento do tipo, contando excluídos e inativos (inferido de E-03.4). O uso do grupo é ter equipamento. O uso da atividade é estar em `pmoc_activity`.
-- **Excluir tipo sem uso:** os grupos e as atividades dele também recebem `deleted_at`.
+- **Excluir tipo sem uso:** não há cascata (EL-7). Com grupo ou atividade vivos, o botão "Excluir" fica desabilitado com a dica "Exclua antes os grupos e as atividades deste tipo." Para tirar o último grupo, o tipo precisa estar inativo (RN-040).
 - **Reativar tipo:** exige um grupo ativo (E-03.2). Com o tipo inativo, os grupos podem ficar todos inativos.
 - **Sigla (E-03.4):** é travada no serviço e no banco, pelo trigger `equipment_type_acronym_locked` (migração 0010).
 - **Carga inicial da análise §4 (RF-08.6):** não foi feita, porque está `[A VALIDAR]`.
