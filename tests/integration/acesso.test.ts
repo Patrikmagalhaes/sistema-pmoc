@@ -8,13 +8,17 @@ import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   type AcessoDeps,
+  atualizarMeusDados,
   atualizarUsuario,
   criarUsuario,
   ErroAcesso,
+  encerrarMinhasSessoes,
   ganchosAuth,
   hashEmail,
   inativarUsuario,
   listarUsuarios,
+  minhaConta,
+  minhasSessoes,
   obterUsuario,
   reativarUsuario,
   reenviarLinkSenha,
@@ -157,7 +161,7 @@ beforeAll(async () => {
     secret: "teste-teste-teste-teste-teste-teste-0123",
     baseURL: BASE,
     email,
-    ganchos: ganchosAuth(db),
+    ganchos: ganchosAuth(db, email),
     checarSenhaVazada: false,
     limitarTentativas: false,
     ipHeaders: IP_HEADERS,
@@ -609,5 +613,97 @@ describe("gestão de usuários pelo ADM (TL-106, TL-107; FL-05)", () => {
     expect(await obterUsuario(admCtx, r.id, deps)).toMatchObject({
       email: "sem.email@empresa.test",
     });
+  });
+});
+
+describe("minha conta (TL-005; LG-21, SEG-13, SEG-19)", () => {
+  const ORIGEM = { ip: "198.51.100.7", userAgent: "vitest" };
+
+  async function logarCarla() {
+    const jar = new Jar();
+    await call(
+      "/sign-in/email",
+      { email: "carla@clientex.test", password: "cavalo bateria grampo" },
+      jar,
+    );
+    const s = await resolverSessao(jar.headers(), deps);
+    if (s.estado !== "OK") throw new Error("Carla deveria entrar");
+    return { jar, s };
+  }
+
+  it("cada um corrige só os próprios dados, com row_version", async () => {
+    const { s } = await logarCarla();
+    const antes = await minhaConta(s.ctx, deps);
+    expect(antes.email).toBe("carla@clientex.test");
+    await atualizarMeusDados(
+      s.ctx,
+      { rowVersion: antes.rowVersion, nome: "Carla X. Souza", telefone: "1133334444" },
+      deps,
+    );
+    expect(await minhaConta(s.ctx, deps)).toMatchObject({
+      nome: "Carla X. Souza",
+      telefone: "1133334444",
+    });
+    await expect(
+      atualizarMeusDados(s.ctx, { rowVersion: antes.rowVersion, nome: "Velha" }, deps),
+    ).rejects.toMatchObject({ codigo: "ALTERADO_POR_OUTRO" });
+    // O ADM continua igual: o alvo é sempre o próprio usuário do contexto.
+    const adm = await minhaConta(admCtx, deps);
+    expect(adm.email).toBe("ana1@empresa.test");
+  });
+
+  it("lista as próprias sessões, encerra uma e depois todas as outras (SEG-13)", async () => {
+    const a = await logarCarla();
+    const b = await logarCarla();
+    const c = await logarCarla();
+    if (a.s.estado !== "OK" || b.s.estado !== "OK" || c.s.estado !== "OK") throw new Error();
+    const lista = await minhasSessoes(a.s.ctx, a.s.sessaoId, deps);
+    expect(lista.filter((x) => x.atual).map((x) => x.id)).toEqual([a.s.sessaoId]);
+    expect(lista.length).toBeGreaterThanOrEqual(3);
+    expect(Object.keys(lista[0] ?? {})).not.toContain("token"); // o token não sai do servidor
+
+    expect(await encerrarMinhasSessoes(a.s.ctx, { sessaoId: b.s.sessaoId }, ORIGEM, deps)).toBe(1);
+    expect((await resolverSessao(b.jar.headers(), deps)).estado).toBe("ANONIMO");
+    expect((await resolverSessao(c.jar.headers(), deps)).estado).toBe("OK");
+
+    const n = await encerrarMinhasSessoes(a.s.ctx, { todasMenos: a.s.sessaoId }, ORIGEM, deps);
+    expect(n).toBeGreaterThanOrEqual(1);
+    expect((await resolverSessao(c.jar.headers(), deps)).estado).toBe("ANONIMO");
+    expect((await resolverSessao(a.jar.headers(), deps)).estado).toBe("OK");
+  });
+
+  it("não alcança a sessão de outro usuário (RN-162)", async () => {
+    const carla = await logarCarla();
+    if (carla.s.estado !== "OK") throw new Error();
+    // a sessão do ADM não está entre as sessões da Carla
+    const sessaoDoAdm = (await minhasSessoes(admCtx, "x", deps))[0]?.id as string;
+    await expect(
+      encerrarMinhasSessoes(carla.s.ctx, { sessaoId: sessaoDoAdm }, ORIGEM, deps),
+    ).rejects.toMatchObject({ codigo: "NAO_ENCONTRADO" });
+    expect((await resolverSessao(adm1Login.jar.headers(), deps)).estado).toBe("OK");
+  });
+
+  it("trocar a senha envia o e-mail de segurança (SEG-19)", async () => {
+    const { jar } = await logarCarla();
+    const antes = email.sent.filter(
+      (m) => m.to === "carla@clientex.test" && m.subject.includes("segurança"),
+    ).length;
+    const r = await call(
+      "/change-password",
+      { currentPassword: "cavalo bateria grampo", newPassword: "pedra papel tesoura lagarto" },
+      jar,
+    );
+    expect(r.status).toBe(200);
+    const depois = email.sent.filter(
+      (m) => m.to === "carla@clientex.test" && m.subject.includes("segurança"),
+    );
+    expect(depois.length).toBe(antes + 1);
+    expect(depois.at(-1)?.text).toContain("A senha da sua conta foi alterada.");
+    const errada = await call(
+      "/change-password",
+      { currentPassword: "errada errada", newPassword: "outra frase longa" },
+      jar,
+    );
+    expect(errada.json?.code).toBe("INVALID_PASSWORD"); // "Senha atual incorreta."
   });
 });

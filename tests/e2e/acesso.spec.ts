@@ -250,7 +250,10 @@ test("ADM inativa com confirmação; o usuário perde o acesso; reativar devolve
 
   // Próprio ADM: "Inativar" desabilitado (E-05.2)
   await page.goto(`/adm/usuarios?busca=${encodeURIComponent(usuario("ADM").email)}&situacao=TODOS`);
-  await page.getByRole("link", { name: usuario("ADM").nome }).click();
+  await page
+    .locator("tbody")
+    .getByRole("link", { name: usuario("ADM").nome })
+    .click();
   await expect(page.getByRole("button", { name: "Inativar" })).toBeDisabled();
 
   await page.getByRole("button", { name: "Sair" }).click();
@@ -263,4 +266,49 @@ test("ADM inativa com confirmação; o usuário perde o acesso; reativar devolve
   await page.getByRole("link", { name: "Rafael Técnico Novo" }).click();
   await page.getByRole("button", { name: "Reativar" }).click();
   await expect(page.getByText("Usuário reativado.")).toBeVisible();
+});
+
+// ---- TL-005 – Minha conta (fica por último: troca a senha do técnico de teste) -----------------
+
+test("TL-005: técnico corrige os dados, vê as sessões e troca a senha (LG-21, SEG-04, SEG-13)", async ({
+  browser,
+}) => {
+  const u = usuario("TECNICO");
+  // Duas sessões: a segunda deve cair quando a senha mudar (SEG-04).
+  const outro = await browser.newContext();
+  const pagina2 = await outro.newPage();
+  await entrar(pagina2, u.email, u.senha);
+  await expect(pagina2).toHaveURL(/\/tecnico$/);
+
+  const page = await (await browser.newContext()).newPage();
+  await entrar(page, u.email, u.senha);
+  await expect(page).toHaveURL(/\/tecnico$/);
+  await page.getByRole("link", { name: u.nome }).click();
+  await expect(page).toHaveURL(/\/conta$/);
+
+  await expect(page.getByLabel("E-mail")).toHaveAttribute("readonly", "");
+  await page.getByLabel("Nome").fill("Tiago Técnico Corrigido");
+  await page.getByRole("button", { name: "Salvar dados" }).click();
+  await expect(page.getByText("Dados salvos.")).toBeVisible();
+
+  await expect(page.getByText("Esta sessão")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Encerrar", exact: true })).toHaveCount(1);
+
+  await page.getByLabel("Senha atual").fill("senha errada qualquer");
+  await page.getByLabel("Nova senha", { exact: true }).fill("frase nova do tecnico");
+  await page.getByLabel("Repetir nova senha").fill("frase nova do tecnico");
+  await page.getByRole("button", { name: "Trocar senha" }).click();
+  await expect(page.getByText("Senha atual incorreta.")).toBeVisible();
+
+  await page.getByLabel("Senha atual").fill(u.senha);
+  await page.getByRole("button", { name: "Trocar senha" }).click();
+  await expect(page.getByText("Senha alterada. As outras sessões foram encerradas.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Encerrar", exact: true })).toHaveCount(0);
+
+  // A outra sessão caiu; a senha nova vale.
+  await pagina2.goto("/tecnico");
+  await expect(pagina2).toHaveURL(/\/login\?voltar=/);
+  await entrar(pagina2, u.email, "frase nova do tecnico");
+  await expect(pagina2).toHaveURL(/\/tecnico$/);
+  await outro.close();
 });

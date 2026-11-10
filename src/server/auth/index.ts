@@ -23,7 +23,7 @@ export function getAuth() {
       secret: env.BETTER_AUTH_SECRET,
       baseURL: env.APP_URL,
       email,
-      ganchos: ganchosAuth(db),
+      ganchos: ganchosAuth(db, email),
       checarSenhaVazada: production || env.AUTH_CHECAR_SENHA_VAZADA === "true",
       limitarTentativas: true,
       ipHeaders,

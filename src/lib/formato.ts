@@ -36,3 +36,31 @@ export const ROTULO_PERFIL = {
   CLIENTE: "Cliente",
 } as const;
 export const ROTULO_SITUACAO = { ATIVO: "Ativo", INATIVO: "Inativo" } as const;
+
+/** TL-005 "navegador e sistema (do User-Agent)": leitura aproximada, só para exibição. */
+export function descreverDispositivo(ua: string | null | undefined): string {
+  if (!ua) return "Dispositivo desconhecido";
+  const navegador = /Edg\//.test(ua)
+    ? "Edge"
+    : /OPR\//.test(ua)
+      ? "Opera"
+      : /Firefox\//.test(ua)
+        ? "Firefox"
+        : /Chrome\//.test(ua)
+          ? "Chrome"
+          : /Safari\//.test(ua)
+            ? "Safari"
+            : "Navegador";
+  const sistema = /Windows/.test(ua)
+    ? "Windows"
+    : /iPhone|iPad/.test(ua)
+      ? "iOS"
+      : /Android/.test(ua)
+        ? "Android"
+        : /Mac OS X/.test(ua)
+          ? "macOS"
+          : /Linux/.test(ua)
+            ? "Linux"
+            : "sistema desconhecido";
+  return `${navegador} em ${sistema}`;
+}
