@@ -94,7 +94,7 @@
 | RN-046 | SE um equipamento é criado ENTÃO a TAG é gerada como `{código do local}-{sigla do tipo}-{sequencial de 3 dígitos}`; o sequencial é por local + tipo, começa em `001`, é imutável e **nunca** reutilizado (inclusive após inativação). | Requisito do cliente — DEC-26; RF-09.4, CA-09.1, CA-09.2 | Sequencial acima de 999 [A VALIDAR]. |
 | RN-047 | SE o local já tem código ENTÃO o código não pode ser alterado. | Requisito do cliente — DEC-26; RF-06.3, CA-06.2 | Regra de geração do código [A VALIDAR]. |
 | RN-048 | SE o equipamento tem qualquer ocorrência com registro ENTÃO não pode ser excluído, só `INATIVO`. | Requisito do cliente — RF-09.5 | Sem histórico: exclusão permitida (inferido). |
-| RN-049 | SE o equipamento tem qualquer ocorrência com registro ENTÃO o tipo dele não pode ser alterado (a TAG depende da sigla); para mudar, inativar e cadastrar outro. | [A VALIDAR] | Sem registro, trocar o tipo deixaria a TAG imutável (RN-046) com a sigla de outro tipo: até a decisão, o tipo não muda desde a criação (04 TL-111, notas da Etapa 3). |
+| RN-049 | SE o equipamento foi criado ENTÃO o tipo dele não pode ser alterado, com ou sem registro (a TAG leva a sigla e é imutável, RN-046); para mudar, inativar (ou excluir, sem registro; RN-048) e cadastrar outro. | Decisão do usuário de 11/11/2026 (opção A: tipo travado desde a criação) | — |
 | RN-050 | SE a seção 5 do PMOC é gerada ENTÃO agrupa equipamentos `ATIVO` por tipo + grupo, mostra quantidade em número e por extenso com concordância (ex.: "1 (um) Split", "2 (dois) Splits") e lista as TAGs. Nunca repete o rótulo (proibido "tipo Tipo Janela"). | Requisito do cliente — DEC-18, RNF-07; Meu PMOC — análise §3.1, B12, B13 | Forma plural dos nomes de tipo [A VALIDAR]. |
 | RN-051 | SE o cronograma (seção 6) ou a ficha histórico é gerada ENTÃO há uma tabela por tipo presente, e as atividades seguem a mesma ordem para todos os equipamentos do tipo: periodicidade (`MM`→`MA`) e, dentro dela, a ordem de exibição cadastrada. | Meu PMOC — análise §1.4, A10; Requisito do cliente — RF-08.2 | — |
 | RN-052 | SE a capacidade é informada ENTÃO é número + unidade; unidade padrão `BTU/h`. | [A VALIDAR] — RF-09.3; Meu PMOC — análise A9 | — |
@@ -337,7 +337,6 @@ Não bloqueiam a implementação; o padrão abaixo vale até nova decisão.
 |---|---|
 | RN-017 | Contrato encerrado não emite PMOC nem nova versão. |
 | RN-032 | Recálculo de periodicidade não inclui o mês corrente. |
-| RN-049 | Tipo do equipamento não muda depois de ter registro. |
 | RN-071 | Visita em andamento não troca técnico nem data. |
 | RN-080 | Técnico pode iniciar a visita antes da data agendada (agora é a única forma de gravar: B11). |
 | RN-106 | Notificação de pendências agrupada por local e mês. |
