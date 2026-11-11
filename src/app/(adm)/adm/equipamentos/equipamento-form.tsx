@@ -165,7 +165,7 @@ export function EquipamentoForm({
           ) : (
             <>
               <input id="tipoId" value={equipamento.tipoNome} readOnly />
-              {/* E-07.4 / RN-049 [A VALIDAR]: o tipo compõe a TAG. */}
+              {/* E-07.4 / RN-049: o tipo compõe a TAG. */}
               <span className="dica">
                 O tipo compõe a TAG e não muda. Inative e cadastre outro.
               </span>

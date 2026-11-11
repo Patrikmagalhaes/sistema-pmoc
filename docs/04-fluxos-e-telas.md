@@ -324,7 +324,7 @@ Passos – inativar:
 | E-07.1 | Sem tipo, grupo ou ambiente | Erro no campo. | RN-045, CA-09.3 |
 | E-07.2 | Grupo de outro tipo | Impossível pela tela (lista filtrada); servidor rejeita (FK composta). | RN-041 |
 | E-07.3 | Capacidade ≤ 0, ou capacidade sem unidade | Erro no campo. | Doc 03 `equipment.capacity` |
-| E-07.4 | Mudar tipo de equipamento com registro | Campo tipo somente leitura com dica "Inative e cadastre outro." | RN-049 |
+| E-07.4 | Mudar tipo de equipamento já salvo | Campo tipo somente leitura com dica "Inative e cadastre outro." | RN-049 |
 | E-07.5 | Excluir equipamento com registro | Só "Inativar" disponível. | RN-048 |
 | E-07.6 | Sequencial do tipo no local passou de 999 | "Limite de TAGs deste tipo no local atingido." [A VALIDAR] | RN-046 exceção |
 | E-07.7 | Recalcular cancela visita `AGENDADA` que ficou vazia | Diálogo de impacto avisa antes: "A visita de {data} ficará sem itens e será cancelada." | RN-065 |
@@ -1111,7 +1111,7 @@ Aba Contratos e PMOC: lista de contratos (início, fim, meses, ART, TH-revisão,
 |---|---|---|---|---|
 | Local | somente leitura | sim | imutável | `equipment.site_id` |
 | TAG | somente leitura; prévia antes de salvar | — | gerada (RN-046) | `equipment.tag` |
-| Tipo | seleção (só `ATIVO`) | sim | somente leitura com registro (E-07.4) | `equipment.equipment_type_id` |
+| Tipo | seleção (só `ATIVO`) | sim | somente leitura depois de salvar (E-07.4) | `equipment.equipment_type_id` |
 | Grupo | seleção filtrada pelo tipo (só `ATIVO`) | sim | RN-041 | `equipment.equipment_group_id` |
 | Ambiente / localização interna | texto | sim | não vazio (CA-09.3) | `equipment.location_description` |
 | Marca | texto | não | — | `equipment.brand` |
@@ -1136,7 +1136,7 @@ Aba Contratos e PMOC: lista de contratos (início, fim, meses, ART, TH-revisão,
 **Implementação (Etapa 3):**
 - **Rotas:** `/adm/equipamentos/novo?local={id}`, aberta pela aba Equipamentos da TL-110. Depois de salvar, abre `/adm/equipamentos/{id}` com "Equipamento criado com a TAG {tag}."
 - **TAG (RN-046):** o trigger `equipment_tag` da migração 0013 gera o sequencial pelo contador `equipment_tag_counter`, na mesma transação do `INSERT`, e monta `{site.code}-{acronym}-{nnn}`. Acima de 999 recusa com E-07.6 `[A VALIDAR]`, e o contador não anda. A prévia mostra `{código}-{sigla}-NNN`, sem prever o número.
-- **Tipo somente leitura sempre, não só com registro `[A VALIDAR]`:** RN-049 trava o tipo só com registro. Mas a TAG leva a sigla do tipo e é imutável (RN-046), então trocar o tipo deixaria a TAG com a sigla errada. Até a decisão, o tipo não muda depois de salvar. O trigger `equipment_rules` (0013) também impede mudar local, TAG e sequencial.
+- **Tipo somente leitura desde a criação (RN-049, decisão de 11/11/2026):** a TAG leva a sigla do tipo e é imutável (RN-046), então o tipo não muda depois de salvar, com ou sem registro. O trigger `equipment_rules` (0013) também impede mudar local, TAG e sequencial.
 - **Grupo na edição:** a lista mostra os grupos ativos do tipo e o atual, mesmo inativo. Trocar só para um grupo ativo.
 - **Capacidade (RN-052):** aceita o número digitado em pt-BR ("12.000", "12000", "1,5"), até 2 casas. A unidade vem preenchida com `BTU/h` `[A VALIDAR]`. Sem capacidade, a unidade não é gravada.
 - **Excluir (RN-048):** só sem ocorrência registrada. O serviço confere, e o trigger `equipment_rules` também. Com registro, o botão "Excluir" não aparece (E-07.5).
