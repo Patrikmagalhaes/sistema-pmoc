@@ -909,6 +909,17 @@ Proibido em qualquer tela: baixar o certificado, mostrar a senha, reexibir a sen
 | Erro | E-02.3 a E-02.6 no formulário; carregamento padrão §1.2. |
 | `A_VENCER` / `VENCIDO` | Faixa amarela/vermelha com a data (RN-114) (UI). |
 
+**Implementação (Etapa 3), TL-102 e TL-103:**
+- **Rotas:** `/adm/empresa` (TL-102) e `/adm/empresa/certificado` (TL-103); item "Empresa e RT" no menu do ADM.
+- **Registros únicos (CA-04.1):** o primeiro "Salvar" de cada seção cria; depois, só edita com `row_version` (UF-07). Dois "primeiro salvar" ao mesmo tempo esbarram no `UNIQUE (singleton)` e o segundo vê o conflito.
+- **Logo (SEG-50 a SEG-53):** a tela pede `POST /api/arquivos` (05 §3.1) com tipo, tamanho e `sha256`, envia o arquivo direto ao armazenamento pela URL assinada e entrega o comprovante ao "Salvar empresa". O servidor confere tamanho, `sha256` e os primeiros bytes (PNG/JPEG) na mesma transação que grava `stored_file` e a empresa. Divergente: nada é gravado. A prévia usa `/api/arquivos/{id}`, que só serve o logo ao ADM.
+- **Armazenamento local:** sem projeto no Supabase, o desenvolvimento grava em `tmp/armazenamento` (ou `STORAGE_DEV_DIR`) com o mesmo desenho: URL de uso único, com prazo de 10 min `[A VALIDAR]`, tipo e tamanho, e sem sobrescrever. Em produção, o envio recusa até o Supabase Storage entrar.
+- **Certificado (SEG-54, DM-11):** o arquivo vai em base64 na própria action, é aberto em memória com a senha (biblioteca `node-forge`) e é gravado cifrado com a senha (AES-256-GCM, `CERT_ENCRYPTION_KEY`). O `encryption_key_ref` é um resumo da chave, para a rotação. Nada sai do banco para a tela além de titular, série, emissor e validade.
+- **Titular:** o CN do e-CPF ICP-Brasil é "NOME:CPF". Grava e mostra só o nome. A comparação com o RT (E-02.6) ignora acento, caixa e espaços. A cadeia ICP-Brasil não é verificada `[A VALIDAR]`.
+- **E-02.5 `[A VALIDAR]`:** certificado já vencido no envio é recusado.
+- **Sem RT:** a TL-103 pede "Cadastre o responsável técnico antes do certificado.", porque o certificado referencia o RT.
+- **Alerta no painel (CA-04.3) e bloqueio da emissão (CA-04.2):** entram com o painel e com a emissão (Etapa 4).
+
 #### TL-104 – Tipos de equipamento
 | Coluna exibida | Origem |
 |---|---|

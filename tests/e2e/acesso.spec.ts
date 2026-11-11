@@ -6,6 +6,7 @@ import { createHmac } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { gerarPkcs12 } from "../fixtures/certificado";
 import { E2E, usuario } from "./dados";
 
 function totp(base32: string): string {
@@ -185,6 +186,8 @@ test("isolamento: CLIENTE e TECNICO não abrem a gestão de usuários (CA-01.3)"
       "/adm/locais/novo",
       "/adm/contratos/novo",
       "/adm/equipamentos/novo",
+      "/adm/empresa",
+      "/adm/empresa/certificado",
     ]) {
       const r = await page.goto(rota);
       expect(r?.status(), `${perfil} ${rota}`).toBe(403);
@@ -608,4 +611,84 @@ test("FL-07: TAG gerada e não reaproveitada; ambiente obrigatório; inativar e 
   await page.getByLabel("Ambiente / localização interna").fill("Recepção");
   await page.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText("Equipamento criado com a TAG L001-SPL-003.")).toBeVisible();
+});
+
+// ---- Etapa 3 – TL-102 / TL-103 – empresa, RT e certificado (FL-02; RF-04; DM-11) ----------------
+
+/** PNG 1×1 válido (o navegador mostra a prévia). */
+const PNG_1X1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64",
+);
+
+test("FL-02: logo enviado e servido, RT salvo e certificado A1 enviado (E-02.2, E-02.3, E-02.6)", async ({
+  page,
+}) => {
+  test.skip(!segredoAdm, "depende do segundo fator do ADM");
+  await entrarAdm(page);
+  await page.getByRole("link", { name: "Empresa e RT" }).click();
+  await expect(page.getByRole("heading", { name: "Empresa executora e RT" })).toBeVisible();
+
+  // E-02.2: formato não aceito
+  const empresa = page.locator("form").first();
+  await empresa.getByLabel("Logo").setInputFiles({
+    name: "logo.gif",
+    mimeType: "image/gif",
+    buffer: Buffer.from("GIF89a"),
+  });
+  await expect(empresa.getByText("Envie uma imagem PNG ou JPEG de até 2 MB.")).toBeVisible();
+
+  // Logo PNG: vai direto ao armazenamento (SEG-50) e é confirmado ao salvar (SEG-53)
+  await empresa.getByLabel("Logo").setInputFiles({
+    name: "logo.png",
+    mimeType: "image/png",
+    buffer: PNG_1X1,
+  });
+  await empresa.getByRole("button", { name: "Salvar empresa" }).click();
+  await expect(page.getByText("Dados da empresa salvos.")).toBeVisible();
+  await page.reload();
+  const src = await page.getByAltText("Logo da empresa").getAttribute("src");
+  expect(src).toMatch(/^\/api\/arquivos\/[0-9a-f-]{36}$/);
+  const logo = await page.request.get(String(src));
+  expect(logo.status()).toBe(200);
+  expect(logo.headers()["content-type"]).toBe("image/png");
+  // SEG-29a: sem Origin nem X-App-Version, o preparo de envio é recusado
+  const semOrigem = await page.request.post("/api/arquivos", {
+    data: { finalidade: "LOGO_EMPRESA" },
+  });
+  expect(semOrigem.status()).toBe(403);
+
+  // RT (RF-04.3)
+  const rt = page.locator("form").nth(1);
+  await rt.getByLabel("Telefone do RT").fill("47988887777");
+  await rt.getByRole("button", { name: "Salvar RT" }).click();
+  await expect(page.getByText("Dados do RT salvos.")).toBeVisible();
+
+  // TL-103: senha errada (E-02.3); depois o certificado vira o atual, com aviso do titular (E-02.6)
+  await page.getByRole("link", { name: "Gerenciar certificado" }).click();
+  await expect(page.getByRole("heading", { name: "Certificado do RT" })).toBeVisible();
+  const p12 = gerarPkcs12({
+    nome: "Maria Certificada",
+    senha: "senha-do-a1",
+    validoDe: new Date(Date.now() - 86_400_000),
+    validoAte: new Date(Date.now() + 400 * 86_400_000),
+  });
+  const arquivo = { name: "rt.pfx", mimeType: "application/x-pkcs12", buffer: p12 };
+  await page.getByLabel("Arquivo do certificado (.pfx ou .p12)").setInputFiles(arquivo);
+  await page.getByLabel("Senha do certificado").fill("errada");
+  await page.getByRole("button", { name: "Enviar certificado" }).click();
+  await expect(page.locator(".campo .erro")).toHaveText("Senha do certificado incorreta.");
+  await expect(page.getByLabel("Senha do certificado")).toHaveValue(""); // RN-121
+  await page.getByLabel("Senha do certificado").fill("senha-do-a1");
+  await page.getByRole("button", { name: "Enviar certificado" }).click();
+  await expect(
+    page.getByText("Certificado de Maria Certificada enviado. Ele passa a ser o atual."),
+  ).toBeVisible();
+  await expect(
+    page.getByText("O titular do certificado (Maria Certificada) é diferente do RT cadastrado."),
+  ).toBeVisible();
+  const linha = page.locator("tbody tr").first();
+  await expect(linha).toContainText("Maria Certificada");
+  await expect(linha).toContainText("atual");
+  await expect(linha).toContainText("Válido");
 });

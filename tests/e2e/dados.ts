@@ -6,6 +6,9 @@ export const E2E = {
   baseURL: "http://localhost:3100",
   secret: "e2e-e2e-e2e-e2e-e2e-e2e-e2e-e2e-0123456789",
   emailDir: join(process.cwd(), "tmp", "e2e-emails"),
+  storageDir: join(process.cwd(), "tmp", "e2e-armazenamento"),
+  /** 32 bytes em base64, só para o E2E (chave fictícia do certificado). */
+  certKey: Buffer.alloc(32, 7).toString("base64"),
   usuarios: [
     {
       nome: "Ana Administradora E2E",

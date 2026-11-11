@@ -12,10 +12,13 @@ export function EnderecoCampos({
   valor,
   erros,
   bairroObrigatorio,
+  prefixo = "",
 }: {
   valor?: Endereco;
   erros: Record<string, string | undefined>;
   bairroObrigatorio: boolean;
+  /** Prefixo dos `id` quando há dois blocos na mesma página (TL-102). */
+  prefixo?: string;
 }) {
   const [semNumero, setSemNumero] = useState(valor?.semNumero ?? false);
   const [cep, setCep] = useState(mascararCep(valor?.cep));
@@ -27,9 +30,9 @@ export function EnderecoCampos({
     <fieldset className="campo">
       <legend>Endereço</legend>
       <div className="campo">
-        <label htmlFor="logradouro">Logradouro</label>
+        <label htmlFor={`${prefixo}logradouro`}>Logradouro</label>
         <input
-          id="logradouro"
+          id={`${prefixo}logradouro`}
           name="logradouro"
           defaultValue={valor?.logradouro}
           aria-invalid={invalido("logradouro")}
@@ -38,9 +41,9 @@ export function EnderecoCampos({
       </div>
       <div className="grade">
         <div className="campo">
-          <label htmlFor="numero">Número</label>
+          <label htmlFor={`${prefixo}numero`}>Número</label>
           <input
-            id="numero"
+            id={`${prefixo}numero`}
             name="numero"
             defaultValue={valor?.numero ?? ""}
             disabled={semNumero}
@@ -58,13 +61,17 @@ export function EnderecoCampos({
           {erro("numero")}
         </div>
         <div className="campo">
-          <label htmlFor="complemento">Complemento</label>
-          <input id="complemento" name="complemento" defaultValue={valor?.complemento ?? ""} />
+          <label htmlFor={`${prefixo}complemento`}>Complemento</label>
+          <input
+            id={`${prefixo}complemento`}
+            name="complemento"
+            defaultValue={valor?.complemento ?? ""}
+          />
         </div>
         <div className="campo">
-          <label htmlFor="bairro">Bairro{bairroObrigatorio ? "" : " (opcional)"}</label>
+          <label htmlFor={`${prefixo}bairro`}>Bairro{bairroObrigatorio ? "" : " (opcional)"}</label>
           <input
-            id="bairro"
+            id={`${prefixo}bairro`}
             name="bairro"
             defaultValue={valor?.bairro ?? ""}
             aria-invalid={invalido("bairro")}
@@ -74,9 +81,9 @@ export function EnderecoCampos({
       </div>
       <div className="grade">
         <div className="campo">
-          <label htmlFor="cidade">Cidade</label>
+          <label htmlFor={`${prefixo}cidade`}>Cidade</label>
           <input
-            id="cidade"
+            id={`${prefixo}cidade`}
             name="cidade"
             defaultValue={valor?.cidade}
             aria-invalid={invalido("cidade")}
@@ -84,8 +91,13 @@ export function EnderecoCampos({
           {erro("cidade")}
         </div>
         <div className="campo">
-          <label htmlFor="uf">UF</label>
-          <select id="uf" name="uf" defaultValue={valor?.uf ?? ""} aria-invalid={invalido("uf")}>
+          <label htmlFor={`${prefixo}uf`}>UF</label>
+          <select
+            id={`${prefixo}uf`}
+            name="uf"
+            defaultValue={valor?.uf ?? ""}
+            aria-invalid={invalido("uf")}
+          >
             <option value="">Escolha</option>
             {UFS.map((u) => (
               <option key={u} value={u}>
@@ -96,9 +108,9 @@ export function EnderecoCampos({
           {erro("uf")}
         </div>
         <div className="campo">
-          <label htmlFor="cep">CEP</label>
+          <label htmlFor={`${prefixo}cep`}>CEP</label>
           <input
-            id="cep"
+            id={`${prefixo}cep`}
             name="cep"
             inputMode="numeric"
             value={cep}

@@ -82,6 +82,13 @@ export function enderecoSchema(opcoes: { bairroObrigatorio: boolean }) {
 }
 
 /** Telefone opcional só com dígitos, 10 ou 11 [A VALIDAR] (03 §2.1, §2.3). */
+/** Telefone obrigatório (empresa e RT, RF-04.2/RF-04.3): só dígitos, 10 ou 11. */
+export const telefoneObrigatorio = z
+  .string()
+  .transform((v) => v.replace(/\D/g, ""))
+  .refine((v) => v !== "", "Informe o telefone.")
+  .refine((v) => v === "" || /^[0-9]{10,11}$/.test(v), "Telefone com 10 ou 11 dígitos.");
+
 export const telefoneOpcional = z
   .string()
   .nullish()

@@ -8,7 +8,7 @@
 - Monolito modular Next.js + PostgreSQL; perfis `ADM`, `TECNICO`, `CLIENTE`; isolamento entre clientes é requisito crítico.
 
 ## Stack (fonte: docs/05 §3.0 — versões exatas, sem `^`)
-Next.js 16.4.2 (App Router) · React 19.3.1 · TypeScript 7.0.2 · PostgreSQL (Supabase, mín. 16 [A VALIDAR]) · Drizzle ORM 0.45.4 / drizzle-kit 0.31.11 + driver `postgres` 3.4.9 · Better Auth 1.7.10 (`admin` e `twoFactor` só para o ADM no MVP, R2 1.2 b; MFA de TECNICO e CLIENTE é fase futura) · Zod 4.6.7 · next-safe-action 8.7.3 · @react-pdf/renderer 4.9.0 + @signpdf/signpdf 3.3.0 · Supabase Storage · pg-boss 12.38.0 + Vercel Cron · Dexie 4.4.6 + Serwist 9.5.13 · TanStack Query 5.104.4 · Resend 6.34.1 · @anthropic-ai/sdk 0.135.0 · Vitest 5.0.5 + Testcontainers 12.2.1 · Playwright 1.64.1 · Biome 2.5.15 · Sentry 11.8.0 · pnpm.
+Next.js 16.4.2 (App Router) · React 19.3.1 · TypeScript 7.0.2 · PostgreSQL (Supabase, mín. 16 [A VALIDAR]) · Drizzle ORM 0.45.4 / drizzle-kit 0.31.11 + driver `postgres` 3.4.9 · Better Auth 1.7.10 (`admin` e `twoFactor` só para o ADM no MVP, R2 1.2 b; MFA de TECNICO e CLIENTE é fase futura) · Zod 4.6.7 · next-safe-action 8.7.3 · @react-pdf/renderer 4.9.0 + @signpdf/signpdf 3.3.0 + node-forge 1.4.3 (leitura do PKCS#12) · Supabase Storage · pg-boss 12.38.0 + Vercel Cron · Dexie 4.4.6 + Serwist 9.5.13 · TanStack Query 5.104.4 · Resend 6.34.1 · @anthropic-ai/sdk 0.135.0 · Vitest 5.0.5 + Testcontainers 12.2.1 · Playwright 1.64.1 · Biome 2.5.15 · Sentry 11.8.0 · pnpm.
 
 ## Mapa dos documentos (consulte ANTES de codar a parte afetada)
 | Arquivo | Conteúdo | Consultar quando |

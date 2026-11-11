@@ -168,7 +168,7 @@ Blocos: `[P]`, `[L]`. Guarda o histórico de certificados; só um é o atual.
 | `encrypted_pkcs12` | `bytea` | sim | Arquivo do certificado criptografado pela aplicação (RNF-09) (DM-11). |
 | `encrypted_password` | `bytea` | sim | Senha criptografada. |
 | `encryption_key_ref` | `text` | sim | Identificador da chave usada (permite rotação). |
-| `holder_name` | `text` | sim | Titular lido do certificado (RF-04.4). |
+| `holder_name` | `text` | sim | Titular lido do certificado (RF-04.4). Do CN "NOME:CPF" do e-CPF, grava só o nome (minimização; 04 TL-103, notas da Etapa 3). O envio grava também `created_by_user_id` ("enviado por"). |
 | `serial_number` | `text` | sim | Nº de série do certificado. |
 | `issuer_name` | `text` | não | Autoridade certificadora. |
 | `valid_from` | `timestamptz` | sim | Início da validade. |
