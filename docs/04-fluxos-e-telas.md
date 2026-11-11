@@ -1103,7 +1103,8 @@ Aba Contratos e PMOC: lista de contratos (início, fim, meses, ART, TH-revisão,
 **Implementação (Etapa 3):**
 - **Rotas:** o local novo abre em `/adm/locais/novo?cliente={id}`.
 - **Código (DM-19, `[A VALIDAR]`):** o trigger `site_code` da migração 0011 gera `L` + 3 dígitos pela sequência `site_code_seq`, e de L1000 em diante, sem cortar. Códigos já usados são pulados. O trigger `site_code_immutable` impede mudar o código (RN-047; CA-06.2).
-- **Abas Equipamentos e Contratos e PMOC:** entram junto com a TL-111 e a TL-112.
+- **Abas:** cada aba é um link com `?aba=dados|equipamentos|contratos`. A aba Equipamentos filtra com `&tipo={id}&inativos=1`; o filtro "Tipo" lista os tipos dos equipamentos do local.
+- **Excluir local:** trava a linha do local antes de conferir contratos e equipamentos vivos, como a inclusão de contrato e de equipamento, para a checagem não ficar velha (EL-7).
 
 #### TL-111 – Equipamento
 | Campo | Controle | Obrig. | Validação | Coluna |
@@ -1131,6 +1132,16 @@ Aba Contratos e PMOC: lista de contratos (início, fim, meses, ART, TH-revisão,
 |---|---|
 | Vazio | Novo equipamento: formulário vazio; se não existe tipo `ATIVO`: "Cadastre um tipo de equipamento antes." com link TL-104. |
 | Carregando / Erro | Padrão §1.2. |
+
+**Implementação (Etapa 3):**
+- **Rotas:** `/adm/equipamentos/novo?local={id}`, aberta pela aba Equipamentos da TL-110. Depois de salvar, abre `/adm/equipamentos/{id}` com "Equipamento criado com a TAG {tag}."
+- **TAG (RN-046):** o trigger `equipment_tag` da migração 0013 gera o sequencial pelo contador `equipment_tag_counter`, na mesma transação do `INSERT`, e monta `{site.code}-{acronym}-{nnn}`. Acima de 999 recusa com E-07.6 `[A VALIDAR]`, e o contador não anda. A prévia mostra `{código}-{sigla}-NNN`, sem prever o número.
+- **Tipo somente leitura sempre, não só com registro `[A VALIDAR]`:** RN-049 trava o tipo só com registro. Mas a TAG leva a sigla do tipo e é imutável (RN-046), então trocar o tipo deixaria a TAG com a sigla errada. Até a decisão, o tipo não muda depois de salvar. O trigger `equipment_rules` (0013) também impede mudar local, TAG e sequencial.
+- **Grupo na edição:** a lista mostra os grupos ativos do tipo e o atual, mesmo inativo. Trocar só para um grupo ativo.
+- **Capacidade (RN-052):** aceita o número digitado em pt-BR ("12.000", "12000", "1,5"), até 2 casas. A unidade vem preenchida com `BTU/h` `[A VALIDAR]`. Sem capacidade, a unidade não é gravada.
+- **Excluir (RN-048):** só sem ocorrência registrada. O serviço confere, e o trigger `equipment_rules` também. Com registro, o botão "Excluir" não aparece (E-07.5).
+- **Reativar `[A VALIDAR]`:** exige o tipo e o grupo do equipamento `ATIVO`, como a inclusão (FL-07 passo 2; inferido).
+- **Local com PMOC:** com PMOC ainda não histórico no local, **não** é possível incluir, inativar, reativar ou excluir equipamento. A tela mostra "Incluir, inativar, reativar ou excluir equipamento em local com PMOC ainda não está disponível." Os efeitos no plano e no cronograma (FL-07 passos 4–5; RN-006, RN-067, RN-068) chegam com a Etapa 4. Editar os dados do equipamento continua permitido.
 
 #### TL-112 – Contrato
 | Campo | Controle | Obrig. | Validação | Coluna |

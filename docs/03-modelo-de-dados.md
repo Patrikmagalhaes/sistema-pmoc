@@ -275,7 +275,7 @@ Blocos: `[P]`, `[L]`.
 | Coluna | Tipo | Obrig. | Descrição |
 |---|---|---|---|
 | `site_id` | `uuid` FK `site` | sim | Local (RF-09.1). Imutável. |
-| `equipment_type_id` | `uuid` FK `equipment_type` | sim | Tipo. Imutável depois de existir `occurrence_record` do equipamento (RN-049). |
+| `equipment_type_id` | `uuid` FK `equipment_type` | sim | Tipo. Imutável depois de existir `occurrence_record` do equipamento (RN-049). Implementado imutável desde a criação, porque a TAG leva a sigla do tipo (trigger `equipment_rules`, 0013) `[A VALIDAR]` (04 TL-111, notas da Etapa 3). |
 | `equipment_group_id` | `uuid` | sim | FK composta `(equipment_group_id, equipment_type_id)` → `equipment_group (id, equipment_type_id)` (RN-041). |
 | `location_description` | `text` | sim | Ambiente / localização interna (ex.: "Consultório 03") (CA-09.3). |
 | `brand` | `text` | não | Marca. |
@@ -284,11 +284,11 @@ Blocos: `[P]`, `[L]`.
 | `capacity` | `numeric(12,2)` | não | Capacidade. `CHECK (capacity > 0)`. |
 | `capacity_unit` | `varchar(20)` | cond. | Obrigatória se `capacity` preenchida. `DEFAULT 'BTU/h'` [A VALIDAR] (RN-052). |
 | `tag_sequence` | `smallint` | sim | Sequencial por local + tipo, a partir de 1 (RN-046). `CHECK (tag_sequence BETWEEN 1 AND 999)` [A VALIDAR: acima de 999]. |
-| `tag` | `varchar(30)` | sim | `{site.code}-{equipment_type.acronym}-{lpad(tag_sequence,3,'0')}` (ex.: `L012-SPL-003`). Gerada em `INSERT`; única em toda a tabela (inclusive excluídos e inativos); imutável (trigger). |
+| `tag` | `varchar(30)` | sim | `{site.code}-{equipment_type.acronym}-{lpad(tag_sequence,3,'0')}` (ex.: `L012-SPL-003`). Gerada em `INSERT`; única em toda a tabela (inclusive excluídos e inativos); imutável (trigger). Gerada pelo trigger `equipment_tag` e travada, com local e sequencial, pelo `equipment_rules` (migração 0013). |
 | `status` | `text` enum `active_status` | sim | `INATIVO` em vez de excluir quando há histórico (RN-048). |
 | `inactivated_at` | `timestamptz` | cond. | Obrigatório se `INATIVO`. Base do recálculo de RN-068. |
 
-Restrições: `UNIQUE (site_id, equipment_type_id, tag_sequence)`; `UNIQUE (tag)`. Exclusão lógica só sem `occurrence_record` (RN-048).
+Restrições: `UNIQUE (site_id, equipment_type_id, tag_sequence)`; `UNIQUE (tag)`. Exclusão lógica só sem `occurrence_record` (RN-048); o trigger `equipment_rules` (0013) recusa a exclusão com registro.
 
 #### `equipment_tag_counter` – contador da TAG
 Sem blocos (tabela técnica). Garante que o sequencial nunca é reutilizado (CA-09.2).

@@ -1,22 +1,24 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Abas } from "@/components/abas";
-import { formatarDataIso, ROTULO_CONTRATO, ROTULO_PMOC } from "@/lib/formato";
+import { formatarDataIso, ROTULO_CONTRATO, ROTULO_PMOC, ROTULO_SITUACAO } from "@/lib/formato";
 import { listarContratosDoLocal, obterLocal } from "@/modules/clientes";
+import { listarEquipamentosDoLocal } from "@/modules/equipamentos";
 import { exigirArea } from "@/server/auth/sessao";
+import type { RequestContext } from "@/server/context";
 import { getDatabase } from "@/server/db";
 import { Excluir } from "../../clientes/excluir";
 import { LocalForm } from "../local-form";
 
 export const metadata = { title: "Local – Sistema PMOC" };
 
-/** A aba Equipamentos (TL-111) entra com essa tela, ainda na Etapa 3. */
 const ABAS = [
   { id: "dados", rotulo: "Dados" },
+  { id: "equipamentos", rotulo: "Equipamentos" },
   { id: "contratos", rotulo: "Contratos e PMOC" },
 ];
 
-/** TL-110 – Local: abas Dados e Contratos e PMOC (RF-06, RF-07; FL-04, FL-06). */
+/** TL-110 – Local: abas Dados, Equipamentos e Contratos e PMOC (RF-06, RF-07, RF-09; FL-04, FL-06, FL-07). */
 export default async function LocalPage({
   params,
   searchParams,
@@ -65,10 +67,112 @@ export default async function LocalPage({
         </>
       )}
 
+      {aba === "equipamentos" && (
+        <Equipamentos
+          ctx={s.ctx}
+          localId={l.id}
+          tipoId={typeof sp.tipo === "string" ? sp.tipo : null}
+          mostrarInativos={sp.inativos === "1"}
+        />
+      )}
+
       {aba === "contratos" && (
         <Contratos localId={l.id} contratos={await listarContratosDoLocal(s.ctx, l.id, deps)} />
       )}
     </section>
+  );
+}
+
+/** Aba Equipamentos (FL-07 passo 1): filtro por tipo e "Mostrar inativos" (UL-03), por TAG. */
+async function Equipamentos({
+  ctx,
+  localId,
+  tipoId,
+  mostrarInativos,
+}: {
+  ctx: RequestContext;
+  localId: string;
+  tipoId: string | null;
+  mostrarInativos: boolean;
+}) {
+  const r = await listarEquipamentosDoLocal(
+    ctx,
+    localId,
+    { tipoId, mostrarInativos },
+    { db: getDatabase() },
+  );
+  const lista = r?.equipamentos ?? [];
+  return (
+    <div className="secao">
+      <p>
+        <Link
+          className="botao"
+          style={{ width: "auto" }}
+          href={`/adm/equipamentos/novo?local=${localId}`}
+        >
+          Novo equipamento
+        </Link>
+      </p>
+      <form className="filtros" method="get">
+        <input type="hidden" name="aba" value="equipamentos" />
+        <label>
+          Tipo{" "}
+          <select name="tipo" defaultValue={tipoId ?? ""}>
+            <option value="">Todos</option>
+            {r?.tipos.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.nome}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="caixa">
+          <input type="checkbox" name="inativos" value="1" defaultChecked={mostrarInativos} />
+          Mostrar inativos
+        </label>
+        <button className="botao secundario" type="submit">
+          Aplicar
+        </button>
+      </form>
+      {lista.length === 0 ? (
+        <p className="vazio">Nenhum equipamento.</p>
+      ) : (
+        <div className="tabela-rolagem">
+          <table className="tabela">
+            <thead>
+              <tr>
+                <th>TAG</th>
+                <th>Tipo</th>
+                <th>Grupo</th>
+                <th>Ambiente</th>
+                <th>Marca</th>
+                <th>Modelo</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lista.map((e) => (
+                <tr key={e.id}>
+                  <td>
+                    <Link href={`/adm/equipamentos/${e.id}`}>{e.tag}</Link>
+                  </td>
+                  <td>{e.tipo}</td>
+                  <td>{e.grupo}</td>
+                  <td>{e.ambiente}</td>
+                  <td>{e.marca ?? "—"}</td>
+                  <td>{e.modelo ?? "—"}</td>
+                  <td>
+                    <span className={`etiqueta ${e.situacao === "ATIVO" ? "ok" : "neutra"}`}>
+                      {ROTULO_SITUACAO[e.situacao]}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 

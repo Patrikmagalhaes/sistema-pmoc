@@ -277,6 +277,8 @@ export async function excluirLocal(
   exigirEscrita(ctx);
   const v = excluirSchema.parse(input);
   return escrever(ctx, deps, async (tx) => {
+    // Incluir contrato ou equipamento trava a mesma linha: a checagem abaixo não fica velha.
+    await repo.travarLocal(tx, v.id);
     const l = await repo.buscarLocal(tx, v.id);
     if (!l) throw naoEncontrado("Local");
     if (l.temContratoVivo || l.temEquipamentoVivo) {
