@@ -22,7 +22,17 @@ function totp(base32: string): string {
   return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, "0");
 }
 
+/**
+ * Cada login sai de um IP próprio (`x-real-ip`, o cabeçalho que o servidor de E2E confia). O limite
+ * por IP (SEG-60) só zera depois de 1 min sem tentativas, e o spec faz mais de 20 logins seguidos.
+ */
+let ipDoTeste = 0;
+
 async function entrar(page: Page, email: string, senha: string) {
+  ipDoTeste += 1;
+  await page.setExtraHTTPHeaders({
+    "x-real-ip": `10.0.${Math.floor(ipDoTeste / 250)}.${ipDoTeste % 250}`,
+  });
   await page.goto("/login");
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(senha);
@@ -174,6 +184,7 @@ test("isolamento: CLIENTE e TECNICO não abrem a gestão de usuários (CA-01.3)"
       "/adm/clientes/novo",
       "/adm/locais/novo",
       "/adm/contratos/novo",
+      "/adm/equipamentos/novo",
     ]) {
       const r = await page.goto(rota);
       expect(r?.status(), `${perfil} ${rota}`).toBe(403);
@@ -535,4 +546,66 @@ test("FL-06: sobreposição, renovar, confirmar renovação e cancelar (CA-07.1,
   await expect(page.getByText("Contrato cancelado em 15/03/2027: Imóvel vendido")).toBeVisible();
   await expect(page.getByRole("button", { name: "Salvar" })).toHaveCount(0);
   await expect(page.getByLabel("Nº da ART")).toHaveAttribute("readonly", "");
+});
+
+// ---- Etapa 3 – TL-111 – equipamentos (FL-07; RF-09; RN-046, RN-048) ---------------------------
+
+/** Seed: local L002 (Cliente B) com PMOC em rascunho. */
+const LOCAL_SEED_B = "00000000-0000-4000-8000-0000000000e2";
+
+test("FL-07: TAG gerada e não reaproveitada; ambiente obrigatório; inativar e excluir (CA-09.1 a CA-09.3, E-07.3)", async ({
+  page,
+}) => {
+  test.skip(!segredoAdm, "depende do segundo fator do ADM");
+  await entrarAdm(page);
+
+  // Local com PMOC aberto: incluir equipamento espera a Etapa 4 (FL-07 passos 4–5)
+  await page.goto(`/adm/locais/${LOCAL_SEED_B}?aba=equipamentos`);
+  await page.getByRole("link", { name: "Novo equipamento" }).click();
+  await expect(page.getByText(/ainda não está disponível/)).toBeVisible();
+
+  // L001: depois do FL-06, o PMOC do seed é histórico; já existe L001-SPL-001
+  await page.goto(`/adm/locais/${LOCAL_SEED_A}?aba=equipamentos`);
+  await expect(page.getByRole("link", { name: "L001-SPL-001" })).toBeVisible();
+  await page.getByRole("link", { name: "Novo equipamento" }).click();
+  // a aba do local também tem um "Tipo" (filtro): espera a TL-111
+  await expect(page.getByRole("heading", { name: "Novo equipamento" })).toBeVisible();
+  await page.getByLabel("Tipo").selectOption({ label: "Split" });
+  await expect(page.getByLabel("TAG")).toHaveValue("será gerada ao salvar: L001-SPL-NNN");
+  await page.getByLabel("Grupo").selectOption({ label: "Hi-Wall" });
+  await page.getByLabel("Capacidade (opcional)").fill("0");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Informe o ambiente.")).toBeVisible(); // CA-09.3
+  await expect(page.getByText("A capacidade deve ser maior que zero.")).toBeVisible(); // E-07.3
+  await page.getByLabel("Ambiente / localização interna").fill("Consultório 03");
+  await page.getByLabel("Capacidade (opcional)").fill("12.000");
+  await expect(page.getByLabel("Unidade da capacidade")).toHaveValue("BTU/h"); // RN-052
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Equipamento criado com a TAG L001-SPL-002.")).toBeVisible(); // CA-09.1
+  await expect(page.getByLabel("Tipo")).toHaveAttribute("readonly", ""); // RN-049
+  await expect(page.getByLabel("Capacidade (opcional)")).toHaveValue("12000");
+
+  // Inativar (UF-09): some da lista; aparece com "Mostrar inativos" (UL-03)
+  await page.getByRole("button", { name: "Inativar" }).click();
+  await page.getByRole("button", { name: "Confirmar: inativar" }).click();
+  await expect(page.locator(".titulo-pagina .etiqueta")).toHaveText("Inativo");
+  await page.getByRole("link", { name: /\(L001\)/ }).click();
+  await expect(page.getByRole("link", { name: "L001-SPL-001" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "L001-SPL-002" })).toHaveCount(0);
+  await page.getByLabel("Mostrar inativos").check();
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await page.getByRole("link", { name: "L001-SPL-002" }).click();
+
+  // Sem registro: exclui (RN-048); o próximo não reaproveita o sequencial (CA-09.2)
+  await page.getByRole("button", { name: "Excluir equipamento" }).click();
+  await page.getByRole("button", { name: "Confirmar exclusão" }).click();
+  await expect(page).toHaveURL(/aba=equipamentos/);
+  await page.getByRole("link", { name: "Novo equipamento" }).click();
+  // a aba do local também tem um "Tipo" (filtro): espera a TL-111
+  await expect(page.getByRole("heading", { name: "Novo equipamento" })).toBeVisible();
+  await page.getByLabel("Tipo").selectOption({ label: "Split" });
+  await page.getByLabel("Grupo").selectOption({ label: "Hi-Wall" });
+  await page.getByLabel("Ambiente / localização interna").fill("Recepção");
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Equipamento criado com a TAG L001-SPL-003.")).toBeVisible();
 });
