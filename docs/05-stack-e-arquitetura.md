@@ -160,6 +160,7 @@ Versões = última estável publicada no npm em 17/10/2026. **Fixar versão exat
 | Validação | Zod | 4.6.7 | Valibot, Yup | Padrão do ecossistema (Drizzle, next-safe-action, Better Auth) |
 | PDF | @react-pdf/renderer | 4.9.0 | Chromium/Playwright HTML→PDF | §3.6 |
 | Assinatura PDF (RT) | @signpdf/signpdf | 3.3.0 | Serviço externo de assinatura | §3.6, S-02 |
+| Leitura do PKCS#12 (e-CPF A1) | node-forge | 1.4.3 | `openssl` na linha de comando (não existe na Vercel) | TL-103 (Etapa 3); é a mesma biblioteca de que o `@signpdf/signer-p12` depende |
 | Arquivos | Supabase Storage (S3-compatível) | — | Cloudflare R2, Vercel Blob | §3.7 |
 | Jobs agendados | Vercel Cron (Pro) | — | GitHub Actions como cron | Cron da Vercel chama a própria aplicação, com logs no mesmo lugar |
 | Fila | pg-boss (no mesmo Postgres) | 12.38.0 | Vercel Queues, Inngest, Trigger.dev, Redis/BullMQ | §3.9 |
@@ -286,6 +287,8 @@ Ver §3.10.
 | Assinaturas desenhadas e comprovantes | Mesmo bucket, `kind` próprio. |
 | Certificado do RT | **Não** vai para o Storage. Fica no banco criptografado (DM-11, §3.13). |
 | Backup | O backup diário do Supabase **não inclui os arquivos** do Storage. Cópia externa obrigatória (§7.5). |
+
+**Implementação (Etapa 3):** a interface `Armazenamento` (`src/server/storage`) tem `urlDeEnvio` e `ler`. Sem projeto no Supabase, desenvolvimento e testes usam uma pasta local com o mesmo desenho: URL assinada de uso único, com prazo, tipo e tamanho, recebida por `PUT /api/arquivos/envio`, e objeto nunca sobrescrito. Em produção, até o Supabase entrar, o envio recusa. O preparo é `POST /api/arquivos` (§3.1; SEG-29a). O download por `/api/arquivos/:id` entrega os bytes no armazenamento local; com o Supabase, redireciona para a URL assinada.
 
 **Descartadas:** Cloudflare R2 como armazenamento principal (sem região no Brasil confirmada [A VALIDAR]; fica como destino de backup externo, §7.5); Vercel Blob (mais caro por GB em `gru1`: US$ 0,041 vs. US$ 0,0213 do Supabase).
 

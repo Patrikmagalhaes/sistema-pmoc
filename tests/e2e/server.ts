@@ -86,6 +86,7 @@ for (const u of E2E.usuarios) {
 await db.close();
 
 rmSync(E2E.emailDir, { recursive: true, force: true });
+rmSync(E2E.storageDir, { recursive: true, force: true });
 const next = spawn(
   process.execPath,
   ["node_modules/next/dist/bin/next", "dev", "-p", String(E2E.port)],
@@ -98,6 +99,8 @@ const next = spawn(
       APP_URL: E2E.baseURL,
       AUTH_CHECAR_SENHA_VAZADA: "false",
       EMAIL_DEV_DIR: E2E.emailDir,
+      STORAGE_DEV_DIR: E2E.storageDir,
+      CERT_ENCRYPTION_KEY: E2E.certKey,
     },
   },
 );

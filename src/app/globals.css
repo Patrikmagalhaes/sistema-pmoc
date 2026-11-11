@@ -11,6 +11,8 @@
   --danger-bg: #fdecea;
   --ok: #157347;
   --ok-bg: #e8f5ee;
+  --warn: #8a5a00;
+  --warn-bg: #fff4d6;
   --radius: 8px;
   color-scheme: light;
 }
@@ -122,6 +124,11 @@ a {
 .alerta.erro {
   background: var(--danger-bg);
   color: var(--danger);
+}
+
+.alerta.aviso {
+  background: var(--warn-bg);
+  color: var(--warn);
 }
 
 .alerta.ok {
@@ -260,6 +267,16 @@ a {
 .etiqueta.ok {
   background: var(--ok-bg);
   color: var(--ok);
+}
+
+.etiqueta.aviso {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.etiqueta.erro {
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 .etiqueta.neutra {

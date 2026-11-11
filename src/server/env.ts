@@ -16,6 +16,10 @@ const schema = z.object({
   PRIVACIDADE_EMAIL: z.email().optional(),
   /** Pasta dos e-mails gravados em desenvolvimento (fora do git). */
   EMAIL_DEV_DIR: z.string().optional(),
+  /** 05 §3.13 / DM-11: chave mestra (32 bytes em base64) do certificado do RT. Só servidor. */
+  CERT_ENCRYPTION_KEY: z.string().optional(),
+  /** Pasta do armazenamento local de arquivos em desenvolvimento (fora do git; 05 §3.7). */
+  STORAGE_DEV_DIR: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

@@ -9,6 +9,7 @@ const MENU = [
   { href: "/adm/clientes", rotulo: "Clientes" },
   { href: "/adm/usuarios", rotulo: "Usuários" },
   { href: "/adm/tipos", rotulo: "Tipos de equipamento" },
+  { href: "/adm/empresa", rotulo: "Empresa e RT" },
 ];
 
 /** Área Administração: só ADM (04 §1.1; CA-01.3). */
