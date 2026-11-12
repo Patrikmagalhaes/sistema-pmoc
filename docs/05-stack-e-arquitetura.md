@@ -159,7 +159,7 @@ Versões = última estável publicada no npm em 17/10/2026. **Fixar versão exat
 | Autenticação | Better Auth (plugins `admin` e `twoFactor`) | 1.7.10 | Auth.js, Clerk, Supabase Auth | §3.3 |
 | Validação | Zod | 4.6.7 | Valibot, Yup | Padrão do ecossistema (Drizzle, next-safe-action, Better Auth) |
 | PDF | @react-pdf/renderer | 4.9.0 | Chromium/Playwright HTML→PDF | §3.6 |
-| Assinatura PDF (RT) | @signpdf/signpdf | 3.3.0 | Serviço externo de assinatura | §3.6, S-02 |
+| Assinatura PDF (RT) | @signpdf/signpdf | 3.3.0 | Serviço externo de assinatura | §3.6, S-02 (CMS PAdES montado com node-forge; placeholder em aberto, ver resultado do S-02 em §10.4) |
 | Leitura do PKCS#12 (e-CPF A1) | node-forge | 1.4.3 | `openssl` na linha de comando (não existe na Vercel) | TL-103 (Etapa 3); é a mesma biblioteca de que o `@signpdf/signer-p12` depende |
 | Arquivos | Supabase Storage (S3-compatível) | — | Cloudflare R2, Vercel Blob | §3.7 |
 | Jobs agendados | Vercel Cron (Pro) | — | GitHub Actions como cron | Cron da Vercel chama a própria aplicação, com logs no mesmo lugar |
@@ -999,6 +999,30 @@ Observação: a Lei 14.063/2020 define assinatura simples, avançada e qualifica
 | Isolamento | Outro `CLIENTE` filtrando pelo id do PMOC ou da visita do cliente grande recebe 0 linhas. |
 | Contexto no pool | 40 transações alternando dois clientes na **mesma conexão** (`max: 1`): cada uma só vê o próprio cliente; depois delas, transação sem ator não vê nada. |
 | Ponto de atenção | A política de `occurrence` sobe `pmoc → contract → site` e cada tabela do caminho reaplica a própria RLS: 7.200 subplanos aninhados (o ADM também paga, 312 ms, porque a política roda para todos os perfis). Está dentro da meta, mas é a consulta que mais cresce com o volume. Se a medida no Supabase passar de 2 s, a opção seria `client_id` desnormalizado também em `occurrence`, o que **muda a lista da AF-06** e exige decisão do usuário. |
+
+**Resultado do S-01 – parte local (teste `tests/spikes/s01.test.ts`, @react-pdf/renderer 4.9.0, Node 24 no Windows, 12/11/2026): APROVADO.** Medida na Vercel (função de 4 GB): **pendente** até existir o projeto.
+
+| Item | Resultado |
+|---|---|
+| Documento | PMOC sintético com a estrutura da RF-12.2 (capa, seções 1 a 6, cronograma por tipo, recomendações, Anexo 1, uma ficha histórico por equipamento em blocos de 12 meses). Tipos com o número de atividades da análise 01 §4 (até 23). Fontes padrão do PDF (Helvetica), **sem imagens** (logo). Cada geração em processo próprio; pico = `maxRSS` do processo. |
+| 1 / 30 equipamentos | 1,2 s · 6 páginas / 5,0 s · 35 páginas |
+| **200 × 12 meses** | **24 s**, pico 1,15 GB, 209 páginas, 0,33 MB |
+| 200 × 24 meses (DEC-22) | 51 s, pico 1,46 GB, 409 páginas |
+| 500 × 12 meses (folga) | 80 s, pico 1,71 GB, 515 páginas |
+| RNF-07 | `Página n de total` correto em todas as páginas; acentuação legível; nenhum `null`/`undefined`; mesmo dado → PDF idêntico byte a byte (com `creationDate` fixo). |
+| Leitura | Folga de ~30× sobre os 800 s e ~3× sobre os 3,5 GB. O tempo cresce um pouco acima do linear (200 → 500: 3,3×). Plano B (geração em partes) **não** é necessário. Ainda a medir na Etapa 4: logo embutido em toda página e fonte própria, se o layout final usar. |
+| Snapshot de texto (05 §3.11) | O spike usa um extrator mínimo (`s01/texto.ts`), suficiente para fontes padrão. O snapshot da Etapa 4 precisa de um extrator de texto de verdade: **escolha de biblioteca pendente** (pergunta ao usuário). |
+
+**Resultado do S-02 – parte local (teste `tests/spikes/s02.test.ts`, 12/11/2026): APROVADO na estrutura.** Critério oficial (CA-13.1, validador do ITI com A1 ICP-Brasil): **pendente**, feito à mão com `tests/spikes/s02/assinar.ts`.
+
+| Item | Resultado |
+|---|---|
+| Formato | PAdES B-B: `/SubFilter /ETSI.CAdES.detached`, CMS com `contentType`, `messageDigest` e `signing-certificate-v2` (com `issuerSerial`), **sem** `signing-time` (a hora vai no `/M`). Assinatura em update incremental: os bytes do PDF gerado continuam intactos. |
+| Signer | O `@signpdf/signer-p12` e o PKCS#7 do node-forge **não** servem para PAdES (não gravam `signing-certificate-v2`). O CMS é montado com as primitivas ASN.1 do node-forge e assinado com `node:crypto` (RSA-SHA256). |
+| Verificação local | Independente do signer: `ByteRange` cobre o arquivo todo menos o `/Contents`; digest, assinatura RSA e hash do certificado conferem; alterar 1 byte quebra o digest. |
+| Desempenho | Assinar o PMOC de 200 equipamentos: 59 ms. |
+| `/Contents` | 16 KB reservados: a cadeia ICP-Brasil (titular + ACs) passa dos 8 KB padrão. |
+| **Ponto de atenção** | O `@signpdf/placeholder-plain` 3.3.0 (cria o campo de assinatura) depende de `pdfkit` 0.10 → `crypto-js` < 4 com alerta **crítico sem correção** (GHSA-rg76-677x-56q9); como dependência de produção, reprova o `pnpm audit` do CI (SEG-84). No spike ficou em `devDependencies`. Para a Etapa 4, **decisão do usuário**: (a) escrever o placeholder no próprio código (update incremental com AcroForm, campo e dicionário de assinatura, ~150 linhas); ou (b) outra biblioteca. |
 
 ---
 
