@@ -1152,7 +1152,8 @@ Aba Contratos e PMOC: lista de contratos (início, fim, meses, ART, TH-revisão,
 - **Capacidade (RN-052):** aceita o número digitado em pt-BR ("12.000", "12000", "1,5"), até 2 casas. A unidade vem preenchida com `BTU/h` `[A VALIDAR]`. Sem capacidade, a unidade não é gravada.
 - **Excluir (RN-048):** só sem ocorrência registrada. O serviço confere, e o trigger `equipment_rules` também. Com registro, o botão "Excluir" não aparece (E-07.5).
 - **Reativar `[A VALIDAR]`:** exige o tipo e o grupo do equipamento `ATIVO`, como a inclusão (FL-07 passo 2; inferido).
-- **Local com PMOC:** com PMOC ainda não histórico no local, **não** é possível incluir, inativar, reativar ou excluir equipamento. A tela mostra "Incluir, inativar, reativar ou excluir equipamento em local com PMOC ainda não está disponível." Os efeitos no plano e no cronograma (FL-07 passos 4–5; RN-006, RN-067, RN-068) chegam com a Etapa 4. Editar os dados do equipamento continua permitido.
+- **Local com PMOC em rascunho (Etapa 4):** incluir, inativar, reativar e excluir valem na hora; o cronograma de pré-visualização recalcula na leitura (RN-006, DM-05). Incluir ou reativar equipamento de um tipo **sem nenhuma linha no plano** (nem removida) copia para o plano as atividades `ATIVO` desse tipo, com a periodicidade padrão (FL-07 passo 5, DFT-05); se o ADM removeu as atividades do tipo, a escolha dele vale.
+- **Local com PMOC emitido:** **não** é possível incluir, inativar, reativar ou excluir equipamento. A tela mostra "Incluir, inativar, reativar ou excluir equipamento em local com PMOC emitido ainda não está disponível." Os efeitos no cronograma e nas visitas (FL-07 passo 4; RN-065, RN-067, RN-068) chegam com o recálculo pós-emissão. Editar os dados do equipamento continua permitido.
 
 #### TL-112 – Contrato
 | Campo | Controle | Obrig. | Validação | Coluna |
@@ -1190,7 +1191,7 @@ Aba Contratos e PMOC: lista de contratos (início, fim, meses, ART, TH-revisão,
 - **Estado:** é calculado ao salvar (RN-142, hoje em `America/Sao_Paulo`). O recálculo diário é do job da Etapa 5.
 - **Triggers (migração 0012):** garantem `CANCELADO` final (E-06.7), `ENCERRADO` não cancelável e as datas travadas depois da 1ª emissão (`pmoc.first_issued_at`; RN-145).
 - **Cancelar:** contrato → `CANCELADO` e PMOC → `HISTORICO`, na mesma transação. Visitas e ocorrências só existem depois da emissão (Etapa 4). Até a Etapa 5 implementar RN-076, E-06.5 e E-06.6, o contrato com PMOC já emitido **não** é cancelado; a tela mostra "O cancelamento de contrato com PMOC emitido ainda não está disponível."
-- **"Criar PMOC" e "Abrir PMOC":** entram com a TL-120 (Etapa 4).
+- **"Criar PMOC" e "Abrir PMOC" (Etapa 4):** "Criar PMOC" aparece sem PMOC e com contrato não `ENCERRADO`/`CANCELADO` (RN-001, RN-017). Se o contrato anterior tem PMOC, pergunta "Copiar plano e periodicidades do PMOC anterior?" com "Copiar do anterior" e "Usar a biblioteca" (FL-08 passo 2). Cria e abre a TL-120.
 - **"Excluir":** só sem PMOC, porque a exclusão lógica não tem cascata (EL-7). Com PMOC em rascunho, o PMOC é excluído antes; essa exclusão vem com a Etapa 4.
 
 #### TL-120 – PMOC
@@ -1231,6 +1232,16 @@ Aba Ficha histórico: grade por equipamento com os estados da ocorrência (rótu
 | Erro | Padrão §1.2 por aba. |
 | Plano alterado após emissão | Faixa de FL-09 passo 4 com "Emitir nova versão". |
 | `HISTORICO` | Faixa "PMOC histórico: somente leitura." Só downloads ativos (RN-146). |
+
+**Implementação (Etapa 4, parte 1 – rascunho e plano):**
+- **Rota:** `/adm/pmocs/{id}`, aberta por "Criar PMOC"/"Abrir PMOC" (TL-112) e pelo estado do PMOC na aba Contratos e PMOC (TL-110). Só `ADM`; para os outros perfis, rascunho e histórico nunca emitido dão 404 (RN-147).
+- **Criação (FL-08 passo 3):** sem cópia, aplica RN-002. Com cópia (RN-004), traz do PMOC anterior as atividades não removidas, com a periodicidade dele, dos tipos com equipamento `ATIVO` no local, e deixa de fora tipo ou atividade da biblioteca que ficou `INATIVO` (RN-152). Tipo presente que a cópia não trouxe recebe as atividades da biblioteca (inferido de RN-002 e FL-07 passo 5).
+- **Tipos da aba Plano:** os que têm linha no plano e os com equipamento `ATIVO` no local; tipo presente sem atividade aparece com "Nenhuma atividade deste tipo no plano."
+- **Periodicidade:** salva ao escolher (sem botão), com lock otimista (UF-07); a auditoria guarda o valor anterior e o novo por trigger (CA-10.2).
+- **Remover / incluir atividade (RF-10.3 `[A VALIDAR]`):** "Remover" pede confirmação e grava `removed_at`/`removed_by_user_id`. "Incluir atividade" oferece, por tipo: (a) as removidas deste plano, que voltam pela **mesma linha** (RN-184); (b) as atividades `ATIVO` da biblioteca sem linha no plano, com a periodicidade padrão; (c) atividade nova só deste PMOC (`activity_template_id = NULL`), com os campos da RN-043 e a unidade da RN-042, no fim da ordem do tipo. Título repetido entre as atividades vivas do tipo é recusado, como na biblioteca (inferido).
+- **Permissões:** criar e remover/incluir atividade usam `pmoc.emitir` (fazem parte do fluxo de emissão, FL-08 passos 1–4); periodicidade usa `pmoc.periodicidade.alterar` (DEC-07). As duas são só do `ADM` (RN-168).
+- **Aba Cronograma:** grade por tipo com equipamento `ATIVO`, colunas `mm/aa`, "•"/"Ø", e o total de ocorrências previstas (`buildSchedule`, módulo `cronograma`). Nada é gravado em `occurrence` (DM-05).
+- **Ainda não:** "Emitir PMOC" (TL-121), aba Versões e Ficha (mostram o estado Vazio), alteração do plano com PMOC emitido (FL-09; mostra "Alterar o plano de PMOC emitido ainda não está disponível.") e "Excluir rascunho" (E-08.11: ver a pergunta sobre `pmoc.contract_id`).
 
 #### TL-121 – Emissão do PMOC (diálogo)
 - **Objetivo:** conferir e emitir (FL-08 passos 7–12; FL-09 nova versão).

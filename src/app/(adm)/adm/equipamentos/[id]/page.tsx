@@ -11,8 +11,9 @@ import { SituacaoEquipamento } from "./situacao";
 export const metadata = { title: "Equipamento – Sistema PMOC" };
 
 /**
- * TL-111 – Equipamento (RF-09; FL-07). Os diálogos de impacto no cronograma (RN-067, RN-068) chegam
- * com o PMOC (Etapa 4); até lá, local com PMOC não inclui, inativa, reativa nem exclui equipamento.
+ * TL-111 – Equipamento (RF-09; FL-07). Com PMOC em rascunho, as mudanças valem na hora (RN-006). Os
+ * diálogos de impacto do PMOC emitido (RN-067, RN-068) chegam com o recálculo pós-emissão; até lá,
+ * local com PMOC emitido não inclui, inativa, reativa nem exclui equipamento.
  */
 export default async function EquipamentoPage({
   params,

@@ -1,5 +1,6 @@
 import "server-only";
 import { can } from "@/modules/autorizacao";
+import { incluirTipoNoPlanoNaTransacao } from "@/modules/pmoc";
 import type { RequestContext } from "@/server/context";
 import type { Database, Tx } from "@/server/db";
 import { restricaoViolada } from "@/server/db/errors";
@@ -62,9 +63,9 @@ const limiteTag = () =>
 const comRegistro = () =>
   new ErroEquipamentos("TEM_REGISTRO", "Equipamento com registro: só pode ser inativado."); // E-07.5
 
-/** Mensagem única para o que depende do plano e do cronograma do PMOC (Etapa 4). */
+/** Mensagem única para o que depende do recálculo pós-emissão (FL-07 passo 4; RN-065 a RN-068). */
 export const SEM_MUDAR_COM_PMOC =
-  "Incluir, inativar, reativar ou excluir equipamento em local com PMOC ainda não está disponível.";
+  "Incluir, inativar, reativar ou excluir equipamento em local com PMOC emitido ainda não está disponível.";
 
 /** Escrita com tradução das restrições do banco (a transação já foi desfeita aqui). */
 async function escrever<T>(
@@ -82,9 +83,12 @@ async function escrever<T>(
   }
 }
 
-/** FL-07 passos 4–5: com PMOC no local, o plano e o cronograma mudariam (RN-006, RN-067, RN-068). */
-async function exigirSemPmoc(tx: Tx, localId: string) {
-  if (await repo.temPmocAberto(tx, localId)) {
+/**
+ * FL-07 passo 4: com PMOC emitido, ocorrências e visitas mudariam (RN-065, RN-067, RN-068). Com PMOC
+ * em `RASCUNHO`, nada é gravado no cronograma: a pré-visualização recalcula na leitura (RN-006, DM-05).
+ */
+async function exigirSemPmocEmitido(tx: Tx, localId: string) {
+  if (await repo.temPmocEmitido(tx, localId)) {
     throw new ErroEquipamentos("NAO_DISPONIVEL", SEM_MUDAR_COM_PMOC);
   }
 }
@@ -122,7 +126,7 @@ export interface NovoEquipamento {
   local: repo.LocalDoEquipamento;
   /** Vazio: "Cadastre um tipo de equipamento antes." (TL-111 estado Vazio). */
   tipos: (repo.OpcaoTipo & { previaTag: string })[];
-  /** Com PMOC no local, a inclusão espera a Etapa 4. */
+  /** Com PMOC emitido no local, a inclusão espera o recálculo pós-emissão (RN-067). */
   bloqueio: string | null;
 }
 
@@ -140,7 +144,7 @@ export async function prepararNovoEquipamento(
       ...t,
       previaTag: previaDaTag(local.codigo, t.sigla),
     }));
-    const bloqueio = (await repo.temPmocAberto(tx, localId)) ? SEM_MUDAR_COM_PMOC : null;
+    const bloqueio = (await repo.temPmocEmitido(tx, localId)) ? SEM_MUDAR_COM_PMOC : null;
     return { local, tipos, bloqueio };
   });
 }
@@ -150,7 +154,7 @@ export interface EquipamentoCompleto extends repo.Equipamento {
   grupos: repo.OpcaoGrupo[];
   /** RN-048: sem registro pode excluir. */
   podeExcluir: boolean;
-  /** Com PMOC no local, inativar, reativar e excluir esperam a Etapa 4. */
+  /** Com PMOC emitido no local, inativar, reativar e excluir esperam o recálculo (RN-067, RN-068). */
   bloqueio: string | null;
 }
 
@@ -167,7 +171,7 @@ export async function obterEquipamento(
     const grupos = (await repo.listarGruposDoTipo(tx, e.tipoId))
       .filter((g) => g.ativo || g.id === e.grupoId)
       .map(({ id, nome }) => ({ id, nome }));
-    const bloqueio = (await repo.temPmocAberto(tx, e.localId)) ? SEM_MUDAR_COM_PMOC : null;
+    const bloqueio = (await repo.temPmocEmitido(tx, e.localId)) ? SEM_MUDAR_COM_PMOC : null;
     return { ...e, grupos, podeExcluir: !e.temRegistro, bloqueio };
   });
 }
@@ -187,13 +191,15 @@ export async function criarEquipamento(
   return escrever(ctx, deps, async (tx) => {
     await repo.travarLocal(tx, v.localId);
     if (!(await repo.buscarLocal(tx, v.localId))) throw naoEncontrado("Local");
-    await exigirSemPmoc(tx, v.localId);
+    await exigirSemPmocEmitido(tx, v.localId);
     const ok = await repo.tipoEGrupoAtivos(tx, v.tipoId, v.grupoId);
     if (!ok.tipo) throw new ErroEquipamentos("VALIDACAO", "Escolha um tipo ativo.", "tipoId");
     // E-07.2: grupo de outro tipo (a tela não oferece; a FK composta também segura).
     if (!ok.grupo)
       throw new ErroEquipamentos("VALIDACAO", "Escolha um grupo ativo do tipo.", "grupoId");
-    return repo.inserirEquipamento(tx, v.localId, v.tipoId, v);
+    const novo = await repo.inserirEquipamento(tx, v.localId, v.tipoId, v);
+    await incluirTipoNoPlanoNaTransacao(tx, v.localId, v.tipoId); // FL-07 passo 5
+    return novo;
   });
 }
 
@@ -220,8 +226,9 @@ export async function atualizarEquipamento(
 
 /**
  * TL-111 "Inativar" (RN-152) e "Reativar" [A VALIDAR] (sem fonte; inferido). Reativar exige tipo e
- * grupo `ATIVO`, como a inclusão (FL-07 passo 2). Os efeitos no cronograma (RN-067, RN-068)
- * chegam com o PMOC (Etapa 4); até lá, local com PMOC não muda.
+ * grupo `ATIVO`, como a inclusão (FL-07 passo 2); com PMOC em `RASCUNHO`, reativar um tipo fora do
+ * plano o inclui, como a inclusão (FL-07 passo 5). Com PMOC emitido (RN-067, RN-068), espera o
+ * recálculo pós-emissão.
  */
 export async function alterarSituacaoEquipamento(
   ctx: RequestContext,
@@ -241,7 +248,7 @@ export async function alterarSituacaoEquipamento(
           : "O equipamento já está ativo.",
       );
     }
-    await exigirSemPmoc(tx, e.localId);
+    await exigirSemPmocEmitido(tx, e.localId);
     if (v.situacao === "ATIVO" && !(e.tipoAtivo && e.grupoAtivo)) {
       throw new ErroEquipamentos(
         "ESTADO",
@@ -249,6 +256,7 @@ export async function alterarSituacaoEquipamento(
       );
     }
     if (!(await repo.alterarSituacao(tx, v.id, v.situacao, v.rowVersion))) throw conflito();
+    if (v.situacao === "ATIVO") await incluirTipoNoPlanoNaTransacao(tx, e.localId, e.tipoId);
   });
 }
 
@@ -264,7 +272,7 @@ export async function excluirEquipamento(
     const e = await repo.buscarEquipamento(tx, v.id);
     if (!e) throw naoEncontrado();
     if (e.temRegistro) throw comRegistro();
-    await exigirSemPmoc(tx, e.localId);
+    await exigirSemPmocEmitido(tx, e.localId);
     if (!(await repo.excluirEquipamento(tx, v.id, ctx.userId, v.motivo, v.rowVersion))) {
       throw conflito();
     }

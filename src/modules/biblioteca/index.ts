@@ -1,11 +1,13 @@
 export {
   NATUREZAS,
   type Natureza,
+  ordenarAtividades,
   PERIODICIDADES,
   type Periodicidade,
   ROTULO_NATUREZA,
   ROTULO_PERIODICIDADE,
   UNIDADE_MAX,
+  unidadeDaAtividade,
 } from "./domain/biblioteca";
 export type { Atividade, Grupo, LinhaTipo, Tipo } from "./repo";
 export type {

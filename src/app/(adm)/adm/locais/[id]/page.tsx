@@ -225,7 +225,15 @@ function Contratos({
                       {ROTULO_CONTRATO[c.situacao]}
                     </span>
                   </td>
-                  <td>{c.estadoPmoc ? (ROTULO_PMOC[c.estadoPmoc] ?? c.estadoPmoc) : "—"}</td>
+                  <td>
+                    {c.pmocId && c.estadoPmoc ? (
+                      <Link href={`/adm/pmocs/${c.pmocId}`}>
+                        {ROTULO_PMOC[c.estadoPmoc] ?? c.estadoPmoc}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

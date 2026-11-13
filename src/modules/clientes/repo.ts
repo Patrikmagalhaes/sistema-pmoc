@@ -277,6 +277,8 @@ export interface LinhaContrato {
   situacao: EstadoContratoDb;
   /** Estado do PMOC do contrato (texto do enum), se houver. */
   estadoPmoc: string | null;
+  /** PMOC vivo do contrato (link para a TL-120). */
+  pmocId: string | null;
 }
 
 const colunasContrato = sql.raw(`k.id, to_char(k.start_date, 'YYYY-MM-DD') AS inicio,
@@ -286,8 +288,9 @@ const colunasContrato = sql.raw(`k.id, to_char(k.start_date, 'YYYY-MM-DD') AS in
 /** TL-110 aba Contratos e PMOC: contratos vivos do local, do mais recente ao mais antigo. */
 export async function listarContratos(tx: Tx, localId: string): Promise<LinhaContrato[]> {
   const r = await tx.execute(sql`SELECT ${colunasContrato},
-      (SELECT p.status FROM pmoc p WHERE p.contract_id = k.id AND p.deleted_at IS NULL) AS "estadoPmoc"
-    FROM contract k WHERE k.site_id = ${localId} AND k.deleted_at IS NULL
+      p.status AS "estadoPmoc", p.id AS "pmocId"
+    FROM contract k LEFT JOIN pmoc p ON p.contract_id = k.id AND p.deleted_at IS NULL
+    WHERE k.site_id = ${localId} AND k.deleted_at IS NULL
     ORDER BY k.start_date DESC, k.id`);
   return r as unknown as LinhaContrato[];
 }
@@ -309,6 +312,8 @@ export interface Contrato extends LinhaContrato {
   pmocEmitido: boolean;
   /** Há PMOC vivo (qualquer estado). */
   temPmoc: boolean;
+  /** FL-08 passo 2: o contrato anterior tem PMOC vivo para copiar (RN-004). */
+  anteriorTemPmoc: boolean;
   /** RF-15: o local já tem contrato posterior vivo e não cancelado (não renova de novo). */
   temPosterior: boolean;
 }
@@ -320,7 +325,10 @@ export async function buscarContrato(tx: Tx, id: string): Promise<Contrato | nul
       k.previous_contract_id AS "anteriorId",
       to_char(a.start_date, 'YYYY-MM-DD') AS "anteriorInicio", to_char(a.end_date, 'YYYY-MM-DD') AS "anteriorFim",
       k.renewal_confirmed_at AS "renovacaoConfirmadaEm", u.name AS "renovacaoConfirmadaPor",
-      p.status AS "estadoPmoc", (p.first_issued_at IS NOT NULL) AS "pmocEmitido", (p.id IS NOT NULL) AS "temPmoc",
+      p.status AS "estadoPmoc", p.id AS "pmocId", (p.first_issued_at IS NOT NULL) AS "pmocEmitido",
+      (p.id IS NOT NULL) AS "temPmoc",
+      EXISTS (SELECT 1 FROM pmoc pa WHERE pa.contract_id = k.previous_contract_id AND pa.deleted_at IS NULL)
+        AS "anteriorTemPmoc",
       EXISTS (SELECT 1 FROM contract o WHERE o.site_id = k.site_id AND o.id <> k.id
         AND o.deleted_at IS NULL AND o.status <> 'CANCELADO' AND o.start_date > k.start_date) AS "temPosterior"
     FROM contract k

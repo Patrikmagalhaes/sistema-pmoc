@@ -105,14 +105,17 @@ const obter = async (id: string) =>
     Awaited<ReturnType<typeof obterEquipamento>>
   >;
 
-/** Contrato e PMOC direto no banco (a criação do PMOC pela tela é da Etapa 4). */
-async function criarPmoc(localId: string, status: "RASCUNHO" | "HISTORICO" = "RASCUNHO") {
+/** Contrato e PMOC direto no banco (a emissão pela tela vem depois na Etapa 4). */
+async function criarPmoc(localId: string, status: "EMITIDO" | "HISTORICO" = "EMITIDO") {
   return owner.begin(async (tx) => {
     await tx`SELECT set_config('app.source', 'SISTEMA', true)`;
     const [k] = await tx`INSERT INTO contract (site_id, start_date, end_date, art_number, status)
       VALUES (${localId}, '2026-01-01', '2026-12-31', 'ART-T', 'VIGENTE') RETURNING id`;
-    const [p] = await tx`INSERT INTO pmoc (contract_id, status, historic_since)
-      VALUES (${k?.id}, ${status}, ${status === "HISTORICO" ? new Date() : null}) RETURNING id`;
+    const [p] = await tx`INSERT INTO pmoc (contract_id, status, historic_since,
+        current_version_number, first_issued_at)
+      VALUES (${k?.id}, ${status}, ${status === "HISTORICO" ? new Date() : null},
+        ${status === "EMITIDO" ? 1 : null}, ${status === "EMITIDO" ? new Date() : null})
+      RETURNING id`;
     return p?.id as string;
   });
 }
@@ -407,12 +410,12 @@ describe("inativar, reativar e excluir (RN-048, RN-152; E-07.5)", () => {
   });
 });
 
-describe("local com PMOC (FL-07 passos 4–5; Etapa 4)", () => {
-  it("incluir, inativar e excluir esperam a Etapa 4; editar os dados continua; PMOC histórico libera", async () => {
+describe("local com PMOC emitido (FL-07 passo 4; RN-067, RN-068)", () => {
+  it("incluir, inativar e excluir esperam o recálculo pós-emissão; editar os dados continua; PMOC histórico libera", async () => {
     const l = await novoLocal();
     const t = await novoTipo();
     const e = await obter((await novoEquipamento(l.id, t)).id);
-    await criarPmoc(l.id, "RASCUNHO");
+    await criarPmoc(l.id, "EMITIDO");
     await expect(novoEquipamento(l.id, t)).rejects.toThrow(/ainda não está disponível/);
     await expect(
       alterarSituacaoEquipamento(
