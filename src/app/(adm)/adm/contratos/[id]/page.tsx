@@ -7,13 +7,11 @@ import { getDatabase } from "@/server/db";
 import { Excluir } from "../../clientes/excluir";
 import { ContratoForm } from "../contrato-form";
 import { AcoesContrato } from "./acoes";
+import { CriarPmoc } from "./criar-pmoc";
 
 export const metadata = { title: "Contrato – Sistema PMOC" };
 
-/**
- * TL-112 – Contrato (RF-07, RF-15; FL-06). "Criar PMOC" e "Abrir PMOC" (FL-08, TL-120) entram com a
- * Etapa 4.
- */
+/** TL-112 – Contrato (RF-07, RF-15; FL-06). "Criar PMOC" e "Abrir PMOC" levam à TL-120 (FL-08). */
 export default async function ContratoPage({
   params,
   searchParams,
@@ -66,7 +64,14 @@ export default async function ContratoPage({
       )}
       <p className="dica">
         PMOC: {c.estadoPmoc ? (ROTULO_PMOC[c.estadoPmoc] ?? c.estadoPmoc) : "ainda não criado"}.
+        {c.pmocId && (
+          <>
+            {" "}
+            <Link href={`/adm/pmocs/${c.pmocId}`}>Abrir PMOC</Link>
+          </>
+        )}
       </p>
+      {c.podeCriarPmoc && <CriarPmoc contratoId={c.id} anteriorTemPmoc={c.anteriorTemPmoc} />}
 
       <ContratoForm
         key={c.rowVersion}

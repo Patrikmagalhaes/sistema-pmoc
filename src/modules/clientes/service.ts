@@ -331,8 +331,10 @@ export interface ContratoCompleto extends repo.Contrato {
   podeCancelar: boolean;
   podeRenovar: boolean;
   podeConfirmarRenovacao: boolean;
-  /** TL-112 "Excluir": sem PMOC (o rascunho de PMOC chega na Etapa 4). */
+  /** TL-112 "Excluir": sem PMOC; com rascunho, o PMOC é excluído antes (EL-7). */
   podeExcluir: boolean;
+  /** TL-112 "Criar PMOC": sem PMOC e contrato não `ENCERRADO`/`CANCELADO` (RN-001, RN-017). */
+  podeCriarPmoc: boolean;
 }
 
 /** TL-110 aba Contratos e PMOC. `null` = local não encontrado ou de outro cliente (RN-162). */
@@ -365,6 +367,7 @@ export async function obterContrato(
     podeConfirmarRenovacao:
       c.anteriorId !== null && c.situacao !== "CANCELADO" && c.renovacaoConfirmadaEm === null,
     podeExcluir: !c.temPmoc && c.situacao !== "CANCELADO",
+    podeCriarPmoc: !c.temPmoc && c.situacao !== "ENCERRADO" && c.situacao !== "CANCELADO",
   };
 }
 

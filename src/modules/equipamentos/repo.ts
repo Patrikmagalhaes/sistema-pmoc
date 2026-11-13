@@ -27,15 +27,15 @@ export async function travarLocal(tx: Tx, id: string): Promise<void> {
 }
 
 /**
- * PMOC do local ainda não histórico (`RASCUNHO`, `EMITIDO`, `ASSINADO_CLIENTE`). Com ele, incluir,
- * inativar ou excluir equipamento mexe no plano e no cronograma (FL-07 passos 4–5; RN-006, RN-067,
- * RN-068), o que chega com a Etapa 4.
+ * PMOC emitido do local (`EMITIDO`, `ASSINADO_CLIENTE`). Com ele, incluir, inativar ou excluir
+ * equipamento recalcula ocorrências e visitas (FL-07 passo 4; RN-065, RN-067, RN-068), o que chega com
+ * o recálculo pós-emissão. Com PMOC em `RASCUNHO` a mudança vale na hora (RN-006).
  */
-export async function temPmocAberto(tx: Tx, localId: string): Promise<boolean> {
+export async function temPmocEmitido(tx: Tx, localId: string): Promise<boolean> {
   const r = await tx.execute(sql`SELECT EXISTS (SELECT 1 FROM pmoc p
       JOIN contract k ON k.id = p.contract_id
       WHERE k.site_id = ${localId} AND k.deleted_at IS NULL AND p.deleted_at IS NULL
-        AND p.status <> 'HISTORICO') AS sim`);
+        AND p.status IN ('EMITIDO', 'ASSINADO_CLIENTE')) AS sim`);
   return Boolean((r[0] as { sim: boolean } | undefined)?.sim);
 }
 
