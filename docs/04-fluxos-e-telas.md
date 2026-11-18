@@ -1269,12 +1269,12 @@ Estados padrão "vazio" não se aplica (diálogo sempre tem conteúdo).
 - **Gatilho:** botão "Emitir PMOC" no cabeçalho da TL-120, só com PMOC `RASCUNHO` e perfil `ADM`; com contrato `ENCERRADO`/`CANCELADO` vem desabilitado com "Contrato encerrado não emite PMOC." (E-08.5).
 - **`VERIFICANDO` → `PENDENCIAS` | `PRONTO`:** o servidor confere RN-007 (a)–(g), RN-008 e RN-017 sem gravar nada e devolve todos os faltantes, na ordem da RN-007, cada um com link: empresa, RT e certificado → TL-102/TL-103; ART e contrato encerrado → TL-112; equipamento → aba Equipamentos do local; plano → aba Plano. RN-007 (d) é garantida pelas restrições do banco (registro vivo já tem os obrigatórios). Certificado vigente A3 entra como pendência (E-08.10).
 - **Resumo do `PRONTO`:** equipamentos `ATIVO`, atividades no plano, ocorrências previstas e visitas a criar (meses com ≥ 1 ocorrência, RN-060), calculados com o mesmo `buildSchedule` da emissão. Cliente, local e vigência já estão no cabeçalho da TL-120.
-- **Ainda não:** "Emitir" aparece desabilitado ("A emissão do PMOC ainda não está disponível."); `PROCESSANDO`, `CONCLUIDO`, `ERRO` e nova versão (FL-09) chegam com a emissão.
+- **Depois da parte 6:** "Emitir" fica habilitado no `PRONTO` (ver a implementação da emissão abaixo); nova versão (FL-09) ainda não.
 
 **Implementação (Etapa 4, parte 3 – retrato e regras do PDF, sem tela):**
 - **Retrato (`pmoc_version.snapshot`, versão 1):** empresa, RT, cliente, local, contrato (TH/revisão, ART), calendário 1..N e, por tipo presente (com equipamento `ATIVO`, por nome), as atividades não removidas na ordem da RN-051 com os meses previstos (RN-023) e os equipamentos `ATIVO` por TAG. Tipo presente sem atividade entra com a lista vazia (a seção 5 ainda o lista).
 - **Regras de apresentação:** RN-010 (TH-revisão; revisão sem TH não é impressa), RN-011 (capa), RN-050 (quantidade por extenso no masculino, plural do tipo, "tipo {grupo}" sem repetir "Tipo", TAGs), RN-052 (capacidade pt-BR + unidade), RN-150 (rótulos da ficha), DEC-22/CA-12.3 (ficha em blocos de 12 meses). Datas `dd/mm/aaaa` e máscaras da RNF-07.
-- **Textos no retrato:** recomendações (`standard_text` `RECOMENDACOES_PMOC`) e Anexo 1 (rascunho da Portaria, `src/server/pdf/textos/anexo1.ts`, P3), com a versão de cada um, para o PDF regerado sair igual (INT-22).
+- **Textos no retrato:** recomendações (`standard_text` `RECOMENDACOES_PMOC`) e Anexo 1 (rascunho da Portaria, `src/modules/pmoc/domain/textos.ts`, P3), com a versão de cada um, para o PDF regerado sair igual (INT-22).
 - **CA-12.2 `[A VALIDAR]`:** campo opcional vazio tem o **rótulo omitido** (constante única `CAMPO_VAZIO_NO_PDF` em `src/modules/pmoc/domain/documento.ts`; `"EM_BRANCO"` imprime o rótulo sem valor). Gênero da quantidade por extenso e a descrição de "Pendente" na legenda também ficam `[A VALIDAR]`.
 
 **Implementação (Etapa 4, parte 4 – PDF do PMOC, sem tela):** `src/server/pdf/pmoc` desenha o retrato na ordem da RF-12.2 (sem qualidade do ar, RN-013):
@@ -1288,7 +1288,21 @@ Estados padrão "vazio" não se aplica (diálogo sempre tem conteúdo).
 **Implementação (Etapa 4, parte 5 – assinatura do RT, sem tela):**
 - **Assinatura:** `src/server/pdf/assinar.ts` assina o PDF em PAdES B-B com o A1 vigente (RN-120, RN-190), em update incremental. O campo de assinatura é de código próprio (`campo-assinatura.ts`): widget invisível na página 1 e motivo/local em UTF-16BE.
 - **Certificado:** o módulo `empresa` entrega o PKCS#12 e a senha decifrados só em memória, dentro da transação da emissão (`certificadoParaAssinarNaTransacao`, RN-121). Chave de cifra ausente ou diferente da usada no envio recusa (`NAO_CONFIGURADO`).
-- **Falhas (E-08.6):** erro tipado `ErroAssinatura`, sem dados do certificado na mensagem: `SENHA` (a senha guardada não abre mais o arquivo), `CERTIFICADO_INVALIDO`, `FORA_DA_VALIDADE` (vencido na hora da assinatura, RN-008) e `FALHA`.
+- **Falhas (E-08.6) na assinatura:** erro tipado `ErroAssinatura`, sem dados do certificado na mensagem: `SENHA` (a senha guardada não abre mais o arquivo), `CERTIFICADO_INVALIDO`, `FORA_DA_VALIDADE` (vencido na hora da assinatura, RN-008) e `FALHA`.
+
+**Implementação (Etapa 4, parte 6 – emissão, RN-009):**
+- **Transação única (`emitirPmoc`):** trava o PMOC sem esperar (outra emissão em andamento recebe 409 na hora, E-08.8) e confere o `row_version` da tela (UF-07). Depois:
+  1. Confere de novo as pré-condições (faltando algo, `PENDENCIAS`: a TL-121 volta à lista).
+  2. Monta o retrato, gera o PDF, assina com o A1 (RN-120) e grava o arquivo `PMOC_PDF` do cliente.
+  3. Insere a versão 1 `AGUARDANDO_ASSINATURA` (VP-2) e passa o PMOC a `EMITIDO` com `first_issued_at` (HM-1).
+  4. Grava as ocorrências `PREVISTA` do `buildSchedule`.
+  5. Cria uma visita `A_AGENDAR` (`AUTOMATICA`) por mês com as ocorrências do mês (RN-060).
+  6. Notifica "PMOC aguardando assinatura" a cada usuário `ATIVO` do cliente (RN-101; texto do corpo: "O PMOC de {local} (versão {n}) está aguardando a sua assinatura." (UI)).
+  Ocorrências e visitas são criadas pelo sistema (`created_by_user_id` nulo, DM-18).
+- **Falha em qualquer passo (E-08.6):** a transação é desfeita e a tela mostra a mensagem do E-08.6. O log do servidor registra só o passo e o código do erro (RN-121). O objeto do PDF, se já gravado no armazenamento, fica sem `stored_file` que o referencie, como um envio preparado e nunca confirmado: nada é apagado (RN-126).
+- **Código de verificação `[A VALIDAR]` (formato):** 128 bits aleatórios em Base32 de Crockford, 26 caracteres, gravados sem hífen e impressos em grupos de 4 (`src/modules/pmoc/domain/codigo-verificacao.ts`). O link do rodapé é `{APP_URL}/verificar/{código}`.
+- **TL-121:** `PROCESSANDO` com o tempo decorrido e o diálogo travado. `CONCLUIDO` mostra "PMOC emitido – versão {n}", e a página recarrega ao fechar. `ERRO` tem "Tentar novamente" (volta a verificar).
+- **Ainda não:** "Baixar PDF" no `CONCLUIDO` e a aba Versões (parte 7); "Ir para agenda" (TL-130 é da Etapa 5); nova versão (FL-09).
 
 #### TL-130 – Agenda
 - **Objetivo:** ver e filtrar visitas (RF-18.7). Visões: **Lista** (padrão) e **Calendário mensal por técnico** (formato [A VALIDAR], DFT-18).

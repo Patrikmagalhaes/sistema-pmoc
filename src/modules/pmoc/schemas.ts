@@ -32,3 +32,7 @@ export const incluirNovaSchema = z.object({
   exigeFoto: z.boolean().default(false),
 });
 export type IncluirNovaAtividadeInput = z.input<typeof incluirNovaSchema>;
+
+/** TL-121 "Emitir" (RN-009): o `row_version` do PMOC que a tela mostrou (UF-07). */
+export const emitirSchema = z.object({ pmocId: id, rowVersion: z.number().int() });
+export type EmitirPmocInput = z.input<typeof emitirSchema>;

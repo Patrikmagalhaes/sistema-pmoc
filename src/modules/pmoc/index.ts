@@ -1,9 +1,15 @@
 /**
- * Módulo `pmoc` (RF-10 a RF-16). Etapa 4: rascunho e plano (FL-08 passos 1–6; TL-120) e verificação
- * das pré-condições da emissão (FL-08 passo 7; TL-121; RN-007, RN-008, RN-017). A passagem
- * para `HISTORICO` é usada pelo cancelamento e pela confirmação de renovação do contrato (módulo
- * `clientes`); a inclusão de tipo no plano, pela inclusão de equipamento (módulo `equipamentos`).
+ * Módulo `pmoc` (RF-10 a RF-16). Etapa 4: rascunho e plano (FL-08 passos 1–6; TL-120), verificação
+ * das pré-condições (FL-08 passo 7; TL-121; RN-007, RN-008, RN-017) e emissão (FL-08 passo 11; RN-009).
+ * A passagem para `HISTORICO` é usada pelo cancelamento e pela confirmação de renovação do contrato
+ * (módulo `clientes`); a inclusão de tipo no plano, pela inclusão de equipamento (módulo
+ * `equipamentos`). As regras de apresentação e o retrato alimentam o gerador do PDF (`src/server/pdf`).
  */
+export {
+  codigoImpresso,
+  normalizarCodigo,
+  TAMANHO_CODIGO,
+} from "./domain/codigo-verificacao";
 export {
   blocosDeDozeMeses,
   CAMPO_VAZIO_NO_PDF,
@@ -34,6 +40,7 @@ export {
   type SnapshotPmocV1,
   type TipoDoSnapshot,
 } from "./domain/snapshot";
+export { ANEXO1 } from "./domain/textos";
 export type {
   AtividadePlano,
   EstadoPmoc,
@@ -44,19 +51,23 @@ export type {
 export type {
   AlterarPeriodicidadeInput,
   CriarPmocInput,
+  EmitirPmocInput,
   IncluirNovaAtividadeInput,
 } from "./schemas";
 export {
   type AtividadeNoPlano,
   alterarPeriodicidade,
   criarPmoc,
+  type EmissaoDeps,
   ErroPmoc,
+  emitirPmoc,
   incluirAtividadeDaBiblioteca,
   incluirAtividadeNova,
   incluirTipoNoPlanoNaTransacao,
   obterPmoc,
   type PmocCompleto,
   type PmocDeps,
+  type ResultadoEmissao,
   removerAtividadeDoPlano,
   restaurarAtividadeDoPlano,
   SEM_MUDAR_PLANO_EMITIDO,

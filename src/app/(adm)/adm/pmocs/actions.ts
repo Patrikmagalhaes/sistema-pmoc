@@ -5,6 +5,7 @@ import {
   alterarPeriodicidade,
   criarPmoc,
   ErroPmoc,
+  emitirPmoc,
   incluirAtividadeDaBiblioteca,
   incluirAtividadeNova,
   removerAtividadeDoPlano,
@@ -13,6 +14,7 @@ import {
 } from "@/modules/pmoc";
 import { sessionAction } from "@/server/action";
 import { getDatabase } from "@/server/db";
+import { emissaoDeps } from "@/server/emissao";
 
 /** Resultado das actions de TL-112 "Criar PMOC" e TL-120: erro de regra com código e mensagem. */
 export type Resultado<T = object> =
@@ -60,6 +62,16 @@ export const verificarEmissaoAction = sessionAction
   .inputSchema(z.object({ pmocId: z.uuid() }))
   .action(async ({ parsedInput, ctx }) =>
     executar(() => verificarEmissao(ctx.req, parsedInput.pmocId, deps()), false),
+  );
+
+/**
+ * TL-121 "Emitir" (RN-009): PDF, assinatura do RT, versão 1, cronograma, visitas e notificação, numa
+ * transação. Síncrona (RN-188): o `maxDuration` da página TL-120 cobre o tempo (S-01).
+ */
+export const emitirPmocAction = sessionAction
+  .inputSchema(z.object({ pmocId: z.uuid(), rowVersion: z.number().int() }))
+  .action(async ({ parsedInput, ctx }) =>
+    executar(() => emitirPmoc(ctx.req, parsedInput, emissaoDeps())),
   );
 
 /** TL-120 aba Plano: periodicidade (RN-026). */

@@ -1,4 +1,7 @@
 import "server-only";
+import { randomBytes } from "node:crypto";
+import { z } from "zod";
+import { gravarArquivoGeradoNaTransacao, lerArquivoNaTransacao } from "@/modules/arquivos";
 import { can } from "@/modules/autorizacao";
 import { ordenarAtividades, unidadeDaAtividade } from "@/modules/biblioteca";
 import {
@@ -7,11 +10,23 @@ import {
   mesesDoCronograma,
   mesesPrevistos,
 } from "@/modules/cronograma";
-import { diasParaVencer, estadoDoCertificado } from "@/modules/empresa";
+import {
+  certificadoParaAssinarNaTransacao,
+  diasParaVencer,
+  ErroEmpresa,
+  estadoDoCertificado,
+} from "@/modules/empresa";
 import type { RequestContext } from "@/server/context";
+import type { ChaveCifra } from "@/server/crypto";
 import type { Database, Tx } from "@/server/db";
-import { restricaoViolada } from "@/server/db/errors";
+import { linhaTravada, restricaoViolada } from "@/server/db/errors";
+import type { OpcoesAssinatura } from "@/server/pdf/assinar";
+import type { EntradaPdfPmoc } from "@/server/pdf/pmoc";
+import type { Armazenamento } from "@/server/storage";
+import { codigoDeBytes, codigoImpresso } from "./domain/codigo-verificacao";
 import { type VerificacaoPura, verificarPreCondicoes } from "./domain/emissao";
+import { montarSnapshot } from "./domain/snapshot";
+import { ANEXO1 } from "./domain/textos";
 import * as repo from "./repo";
 import {
   type AlterarPeriodicidadeInput,
@@ -19,6 +34,7 @@ import {
   type CriarPmocInput,
   comVersaoSchema,
   criarPmocSchema,
+  emitirSchema,
   type IncluirNovaAtividadeInput,
   incluirDaBibliotecaSchema,
   incluirNovaSchema,
@@ -34,7 +50,9 @@ export class ErroPmoc extends Error {
       | "JA_EXISTE"
       | "ESTADO"
       | "NAO_DISPONIVEL"
-      | "VALIDACAO",
+      | "VALIDACAO"
+      | "PENDENCIAS"
+      | "FALHA_EMISSAO",
     message: string,
     readonly campo?: string,
   ) {
@@ -436,4 +454,221 @@ export async function incluirAtividadeNova(
     });
     return { id };
   });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Emissão (FL-08 passo 11; TL-121 `PROCESSANDO` → `CONCLUIDO` | `ERRO`)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * O que a emissão usa fora do banco. Injetado por quem chama (MOD-04): o módulo não importa o gerador
+ * nem o assinador (`src/server/pdf`), e os testes trocam cada passo para provar que a falha desfaz tudo.
+ */
+export interface EmissaoDeps extends PmocDeps {
+  armazenamento: Armazenamento;
+  /** `CERT_ENCRYPTION_KEY` (05 §3.13). */
+  chaveCertificado: ChaveCifra | null;
+  gerarPdf(e: EntradaPdfPmoc): Promise<Buffer>;
+  assinarPdf(
+    pdf: Buffer,
+    certificado: { pkcs12: Buffer; senha: string },
+    o: OpcoesAssinatura,
+  ): Promise<Buffer>;
+  /** Link do rodapé para a TL-007 (`/verificar/{codigo}`). */
+  urlVerificacao(codigo: string): string;
+  /** `APP_VERSION` (INT-21). */
+  versaoApp: string;
+  /** 16 bytes aleatórios do código de verificação (os testes fixam). */
+  bytesAleatorios?: () => Uint8Array;
+}
+
+export interface ResultadoEmissao {
+  versao: number;
+  versaoId: string;
+  arquivoId: string;
+  ocorrencias: number;
+  visitas: number;
+  notificados: number;
+}
+
+/** E-08.6: a mensagem da tela nunca leva o detalhe técnico (que vai só para o log). */
+const FALHA_EMISSAO = "A emissão não foi concluída e nada foi alterado. Tente novamente.";
+
+type PassoEmissao =
+  | "VERIFICAR"
+  | "RETRATO"
+  | "GERAR_PDF"
+  | "ASSINAR"
+  | "GRAVAR_PDF"
+  | "VERSAO"
+  | "OCORRENCIAS"
+  | "VISITAS"
+  | "NOTIFICAR";
+
+/** Parágrafos do texto padrão: separados por linha em branco. */
+const paragrafos = (corpo: string) =>
+  corpo
+    .split(/\r?\n\s*\r?\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+/**
+ * RN-009: em **uma** transação e nesta ordem, (1) gera o PDF, (2) assina com o A1 do RT (RN-120),
+ * (3) grava a versão 1 `AGUARDANDO_ASSINATURA` e passa o PMOC a `EMITIDO`, (4) grava o cronograma em
+ * `occurrence` (HM-1), (5) cria as visitas `A_AGENDAR` (RN-060) e (6) notifica os usuários do cliente
+ * (RN-101). Falha em qualquer passo desfaz todos (E-08.6). Síncrona (RN-188).
+ *
+ * O PMOC fica travado do início ao fim: outra emissão simultânea recebe `ALTERADO_POR_OUTRO` na hora
+ * (E-08.8), sem esperar. As pré-condições (RN-007, RN-008, RN-017) são conferidas de novo aqui; faltando
+ * algo, nada é gravado (`PENDENCIAS`).
+ */
+export async function emitirPmoc(
+  ctx: RequestContext,
+  input: { pmocId: string; rowVersion: number },
+  deps: EmissaoDeps,
+  agora = new Date(),
+): Promise<ResultadoEmissao> {
+  exigir(ctx, "pmoc.emitir");
+  const v = emitirSchema.parse(input);
+  let passo: PassoEmissao = "VERIFICAR";
+  try {
+    return await deps.db.withTransaction(ctx, async (tx) => {
+      const p = await repo.buscarPmoc(tx, v.pmocId, "SEM_ESPERAR");
+      if (!p) throw naoEncontrado();
+      if (p.rowVersion !== v.rowVersion) throw conflito();
+      if (p.situacao !== "RASCUNHO") {
+        throw new ErroPmoc(
+          "NAO_DISPONIVEL",
+          "Nova versão de PMOC emitido ainda não está disponível.",
+        );
+      }
+      const d = await repo.dadosParaEmissao(tx, p);
+      const c = d.certificado;
+      const ativos = await repo.equipamentosAtivos(tx, p.localId);
+      const { pendencias } = verificarPreCondicoes({
+        empresaCadastrada: d.empresaCadastrada,
+        rtCadastrado: d.rtCadastrado,
+        certificado: c && {
+          tipo: c.tipo,
+          estado: estadoDoCertificado(c.validoAte, agora),
+          dias: diasParaVencer(c.validoAte, agora),
+        },
+        art: d.art,
+        situacaoContrato: p.situacaoContrato,
+        equipamentosAtivos: ativos.length,
+        atividadesNoPlano: d.atividadesNoPlano,
+      });
+      if (pendencias.length > 0) {
+        throw new ErroPmoc("PENDENCIAS", "Falta completar dados antes de emitir. Confira a lista.");
+      }
+
+      passo = "RETRATO";
+      const dados = await repo.dadosDoDocumento(tx, p);
+      const recomendacoes = await repo.textoPadrao(tx, "RECOMENDACOES_PMOC");
+      if (!dados || !recomendacoes) throw new Error("retrato incompleto");
+      const snapshot = montarSnapshot({
+        ...dados,
+        textos: {
+          recomendacoes: {
+            versao: String(recomendacoes.versao),
+            paragrafos: paragrafos(recomendacoes.corpo),
+          },
+          anexo1: {
+            versao: ANEXO1.versao,
+            titulo: ANEXO1.titulo,
+            paragrafos: [...ANEXO1.paragrafos],
+          },
+        },
+      });
+      const logo = dados.empresa.logoArquivoId
+        ? await lerArquivoNaTransacao(tx, dados.empresa.logoArquivoId, deps.armazenamento)
+        : null;
+      const codigo = codigoDeBytes(deps.bytesAleatorios?.() ?? randomBytes(16));
+      const versao = 1;
+
+      passo = "GERAR_PDF";
+      const pdf = await deps.gerarPdf({
+        snapshot,
+        versao,
+        codigoVerificacao: codigoImpresso(codigo),
+        urlVerificacao: deps.urlVerificacao(codigo),
+        geradoEm: agora,
+        logo: logo && {
+          dados: logo.bytes,
+          formato: logo.mime === "image/png" ? "png" : "jpg",
+        },
+        assinaturaRt: { em: agora },
+      });
+
+      passo = "ASSINAR";
+      const certificado = await certificadoParaAssinarNaTransacao(tx, deps.chaveCertificado);
+      if (!certificado) throw new Error("sem certificado A1 vigente");
+      const { endereco } = snapshot.empresa;
+      const assinado = await deps.assinarPdf(pdf, certificado, {
+        nome: snapshot.rt.nome,
+        motivo: "Responsável técnico pelo PMOC",
+        local: `${endereco.cidade}/${endereco.uf}`,
+        quando: agora,
+      });
+
+      passo = "GRAVAR_PDF";
+      const arquivo = await gravarArquivoGeradoNaTransacao(
+        tx,
+        { tipo: "PMOC_PDF", clienteId: p.clienteId, bytes: assinado },
+        deps.armazenamento,
+        agora,
+      );
+
+      passo = "VERSAO";
+      const versaoId = await repo.inserirVersao(tx, {
+        pmocId: p.id,
+        numero: versao,
+        motivo: null,
+        snapshot,
+        arquivoId: arquivo.id,
+        sha256: arquivo.sha256,
+        certificadoId: certificado.id,
+        emitidaEm: agora,
+        emitidaPor: ctx.userId as string,
+        versaoRenderizador: deps.versaoApp,
+        codigoVerificacao: codigo,
+      });
+      if (!(await repo.marcarEmitido(tx, p.id, versao, agora))) throw conflito();
+
+      passo = "OCORRENCIAS";
+      const plano = dados.atividades.filter((a) => !a.removida);
+      const ocorrencias = await repo.inserirOcorrencias(
+        tx,
+        p.id,
+        buildSchedule(snapshot.contrato, plano, ativos),
+      );
+
+      passo = "VISITAS";
+      const visitas = await repo.criarVisitasDoCronograma(tx, p.id, p.localId);
+
+      passo = "NOTIFICAR";
+      const notificados = await repo.notificarClientes(tx, p, versao);
+
+      return { versao, versaoId, arquivoId: arquivo.id, ocorrencias, visitas, notificados };
+    });
+  } catch (e) {
+    if (e instanceof ErroPmoc || e instanceof z.ZodError) throw e;
+    if (linhaTravada(e)) throw conflito(); // E-08.8: outra emissão do mesmo PMOC em andamento
+    const r = restricaoViolada(e);
+    if (r === "pmoc_version_pmoc_id_version_number_key" || r === "pmoc_version_current_uq") {
+      throw conflito();
+    }
+    // E-08.6: detalhe só no log do servidor, sem dados do certificado (RN-121, LG-30).
+    const codigoErro =
+      e instanceof ErroEmpresa
+        ? e.codigo
+        : ((e as { codigo?: string })?.codigo ?? (e as Error)?.name);
+    console.error(
+      JSON.stringify({ evento: "emissao_pmoc_falhou", pmocId: v.pmocId, passo, erro: codigoErro }),
+    );
+    if (e instanceof ErroEmpresa && e.codigo === "NAO_CONFIGURADO") {
+      throw new ErroPmoc("FALHA_EMISSAO", `${FALHA_EMISSAO} ${e.message}`);
+    }
+    throw new ErroPmoc("FALHA_EMISSAO", FALHA_EMISSAO);
+  }
 }

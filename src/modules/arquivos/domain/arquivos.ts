@@ -55,3 +55,16 @@ export function assinaturaConfere(f: Finalidade, mime: string, bytes: Uint8Array
   const a = r.tipos[mime]?.assinatura;
   return Boolean(a) && (a ?? []).every((b, i) => bytes[i] === b);
 }
+
+/** Arquivos gerados no servidor (sem envio pelo navegador), por `file_kind` (03 `stored_file`). */
+export const GERADOS = {
+  PMOC_PDF: { mime: "application/pdf", ext: "pdf" },
+} as const;
+
+export type ArquivoGerado = keyof typeof GERADOS;
+
+/** SEG-50: a mesma forma de chave dos enviados, `{kind}/{yyyy}/{mm}/{uuid}.{ext}`. */
+export function chaveDoArquivoGerado(k: ArquivoGerado, agora: Date, uuid: string): string {
+  const mes = String(agora.getUTCMonth() + 1).padStart(2, "0");
+  return `${k.toLowerCase()}/${agora.getUTCFullYear()}/${mes}/${uuid}.${GERADOS[k].ext}`;
+}
