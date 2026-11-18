@@ -2,8 +2,10 @@
 export {
   CERTIFICADO_MAX,
   DIAS_A_VENCER,
+  diasParaVencer,
   type EstadoCertificado,
   EXTENSOES_CERTIFICADO,
+  estadoDoCertificado,
 } from "./domain/certificado";
 export type { Certificado, Empresa, Rt } from "./repo";
 export type { EnviarCertificadoInput, SalvarEmpresaInput, SalvarRtInput } from "./schemas";

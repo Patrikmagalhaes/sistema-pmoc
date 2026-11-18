@@ -18,6 +18,7 @@ import {
 import { obterPmoc, type PmocCompleto } from "@/modules/pmoc";
 import { exigirArea } from "@/server/auth/sessao";
 import { getDatabase } from "@/server/db";
+import { EmitirPmoc } from "./emitir";
 import { Plano } from "./plano";
 
 export const metadata = { title: "PMOC – Sistema PMOC" };
@@ -65,6 +66,20 @@ export default async function PmocPage({
         ]}
         titulo={`PMOC${th ? ` ${th}` : ""}`}
         estado={<StatusBadge tipo="pmoc" valor={p.situacao} tamanho="lg" />}
+        acoes={
+          p.podeAlterarPlano && (
+            <EmitirPmoc
+              pmocId={p.id}
+              contratoId={p.contratoId}
+              localId={p.localId}
+              bloqueio={
+                p.situacaoContrato === "ENCERRADO" || p.situacaoContrato === "CANCELADO"
+                  ? "Contrato encerrado não emite PMOC."
+                  : null
+              }
+            />
+          )
+        }
         meta={
           <span className="flex flex-wrap gap-x-2">
             <span>
