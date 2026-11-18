@@ -2,20 +2,20 @@
  * Spike S-02, passo manual (CA-13.1): assina um PMOC sintético com um A1 real para conferir no validador
  * oficial do ITI. A senha vem de variável de ambiente, nunca da linha de comando (fica no histórico).
  *
- *   $env:S02_SENHA = "..."; node --import tsx tests/spikes/s02/assinar.ts <arquivo.pfx> <saida.pdf>
+ *   $env:S02_SENHA = "..."; node --conditions=react-server --import tsx tests/spikes/s02/assinar.ts <arquivo.pfx> <saida.pdf>
  *
  * Não grave o .pfx nem o PDF assinado no repositório.
  */
 import { readFileSync, writeFileSync } from "node:fs";
+import { verificarPades } from "../../fixtures/verificar-pades";
 import { gerarPmocSintetico } from "../s01/pmoc-sintetico";
 import { assinarPades, lerPkcs12 } from "./pades";
-import { verificarPades } from "./verificar";
 
 const [pfx, saida] = process.argv.slice(2);
 const senha = process.env.S02_SENHA;
 if (!pfx || !saida || !senha) {
   console.error(
-    "Uso: S02_SENHA=... node --import tsx tests/spikes/s02/assinar.ts <arquivo.pfx> <saida.pdf>",
+    "Uso: S02_SENHA=... node --conditions=react-server --import tsx tests/spikes/s02/assinar.ts <arquivo.pfx> <saida.pdf>",
   );
   process.exit(1);
 }

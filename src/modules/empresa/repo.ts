@@ -182,3 +182,33 @@ export async function houveEmissao(tx: Tx): Promise<boolean> {
     WHERE first_issued_at IS NOT NULL) AS sim`);
   return Boolean((r[0] as { sim: boolean } | undefined)?.sim);
 }
+
+/**
+ * RN-120: o certificado vigente, ainda cifrado, para a assinatura da emissão. Só o servidor lê estas
+ * colunas, e nunca para a tela nem para log (RN-121).
+ */
+export interface CertificadoCifrado {
+  id: string;
+  tipo: "A1" | "A3";
+  pkcs12: Buffer;
+  senha: Buffer;
+  chaveRef: string;
+  validoAte: Date;
+}
+
+export async function certificadoAtualCifrado(tx: Tx): Promise<CertificadoCifrado | null> {
+  const r = await tx.execute(sql`SELECT id, certificate_type AS tipo, encrypted_pkcs12 AS pkcs12,
+      encrypted_password AS senha, encryption_key_ref AS "chaveRef", valid_until AS "validoAte"
+    FROM rt_certificate WHERE is_current AND deleted_at IS NULL`);
+  const c = r[0] as
+    | (Omit<CertificadoCifrado, "validoAte"> & { validoAte: Date | string })
+    | undefined;
+  return c
+    ? {
+        ...c,
+        pkcs12: Buffer.from(c.pkcs12),
+        senha: Buffer.from(c.senha),
+        validoAte: new Date(c.validoAte),
+      }
+    : null;
+}

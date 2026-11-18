@@ -5,9 +5,9 @@
  */
 import { describe, expect, it } from "vitest";
 import { gerarPkcs12 } from "../fixtures/certificado";
+import { verificarPades } from "../fixtures/verificar-pades";
 import { gerarPmocSintetico } from "./s01/pmoc-sintetico";
 import { assinarPades, lerPkcs12, SUBFILTER_PADES } from "./s02/pades";
-import { verificarPades } from "./s02/verificar";
 
 const SENHA = "senha-de-teste";
 const a1 = () =>

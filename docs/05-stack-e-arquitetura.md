@@ -159,7 +159,7 @@ Versões = última estável publicada no npm em 17/10/2026. **Fixar versão exat
 | Autenticação | Better Auth (plugins `admin` e `twoFactor`) | 1.7.10 | Auth.js, Clerk, Supabase Auth | §3.3 |
 | Validação | Zod | 4.6.7 | Valibot, Yup | Padrão do ecossistema (Drizzle, next-safe-action, Better Auth) |
 | PDF | @react-pdf/renderer | 4.9.0 | Chromium/Playwright HTML→PDF | §3.6 |
-| Assinatura PDF (RT) | @signpdf/signpdf | 3.3.0 | Serviço externo de assinatura | §3.6, S-02 (CMS PAdES montado com node-forge; placeholder em aberto, ver resultado do S-02 em §10.4) |
+| Assinatura PDF (RT) | @signpdf/signpdf | 3.3.0 | Serviço externo de assinatura | §3.6, S-02 (CMS PAdES montado com node-forge; campo de assinatura em código próprio, `src/server/pdf/campo-assinatura.ts`, decisão do usuário de 18/11/2026) |
 | Leitura do PKCS#12 (e-CPF A1) | node-forge | 1.4.3 | `openssl` na linha de comando (não existe na Vercel) | TL-103 (Etapa 3); é a mesma biblioteca de que o `@signpdf/signer-p12` depende |
 | Arquivos | Supabase Storage (S3-compatível) | — | Cloudflare R2, Vercel Blob | §3.7 |
 | Jobs agendados | Vercel Cron (Pro) | — | GitHub Actions como cron | Cron da Vercel chama a própria aplicação, com logs no mesmo lugar |
@@ -1024,7 +1024,7 @@ Observação: a Lei 14.063/2020 define assinatura simples, avançada e qualifica
 | Verificação local | Independente do signer: `ByteRange` cobre o arquivo todo menos o `/Contents`; digest, assinatura RSA e hash do certificado conferem; alterar 1 byte quebra o digest. |
 | Desempenho | Assinar o PMOC de 200 equipamentos: 59 ms. |
 | `/Contents` | 16 KB reservados: a cadeia ICP-Brasil (titular + ACs) passa dos 8 KB padrão. |
-| **Ponto de atenção** | O `@signpdf/placeholder-plain` 3.3.0 (cria o campo de assinatura) depende de `pdfkit` 0.10 → `crypto-js` < 4 com alerta **crítico sem correção** (GHSA-rg76-677x-56q9); como dependência de produção, reprova o `pnpm audit` do CI (SEG-84). No spike ficou em `devDependencies`. Para a Etapa 4, **decisão do usuário**: (a) escrever o placeholder no próprio código (update incremental com AcroForm, campo e dicionário de assinatura, ~150 linhas); ou (b) outra biblioteca. |
+| **Ponto de atenção** | O `@signpdf/placeholder-plain` 3.3.0 (cria o campo de assinatura) depende de `pdfkit` 0.10 → `crypto-js` < 4 com alerta **crítico sem correção** (GHSA-rg76-677x-56q9); como dependência de produção, reprova o `pnpm audit` do CI (SEG-84). No spike ficou em `devDependencies`. Para a Etapa 4, **decisão do usuário**: (a) escrever o placeholder no próprio código (update incremental com AcroForm, campo e dicionário de assinatura, ~150 linhas); ou (b) outra biblioteca. **Resolvido em 18/11/2026: (a).** `src/server/pdf/campo-assinatura.ts` grava o update incremental (`/Sig` com `/ByteRange` e `/Contents` reservados, widget invisível na página 1, `/AcroForm` com `/SigFlags 3`, xref e trailer com `/Prev`); o `@signpdf/placeholder-plain` saiu do projeto. O código do spike foi promovido para `src/server/pdf/assinar.ts`; `tests/spikes/s02/` só reexporta, então o passo manual do ITI confere o código de produção. |
 
 ---
 

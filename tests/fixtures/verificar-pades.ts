@@ -5,7 +5,7 @@
  */
 import { createHash, verify, X509Certificate } from "node:crypto";
 import forge from "node-forge";
-import { OID } from "./pades";
+import { OID } from "../../src/server/pdf/assinar";
 
 const { asn1 } = forge;
 

@@ -2,7 +2,7 @@ import "server-only";
 import { type ArquivosDeps, confirmarEnvioNaTransacao } from "@/modules/arquivos";
 import { can } from "@/modules/autorizacao";
 import type { RequestContext } from "@/server/context";
-import { type ChaveCifra, cifrar } from "@/server/crypto";
+import { type ChaveCifra, cifrar, decifrar } from "@/server/crypto";
 import type { Database, Tx } from "@/server/db";
 import { restricaoViolada } from "@/server/db/errors";
 import {
@@ -238,4 +238,40 @@ export async function enviarCertificado(
       : `O titular do certificado (${dados.titular}) é diferente do RT cadastrado.`;
     return { id, titular: dados.titular, validoAte: dados.validoAte, aviso };
   });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Certificado para assinar (RF-13; RN-120, RN-121)
+// ---------------------------------------------------------------------------------------------
+
+/** PKCS#12 e senha do certificado vigente, decifrados só em memória (RN-121). */
+export interface CertificadoParaAssinar {
+  id: string;
+  pkcs12: Buffer;
+  senha: string;
+}
+
+/**
+ * RN-120: decifra o certificado A1 vigente para a emissão assinar o PDF. Recebe a transação de quem
+ * emite (MOD-05a); a permissão é conferida por ele, antes de abrir a transação (MOD-04). `null` = sem
+ * certificado vigente ou A3 (a emissão já recusa pelas pré-condições, RN-007 c e E-08.10). Chave de
+ * cifra ausente ou diferente da usada no envio lança `ErroEmpresa` (`NAO_CONFIGURADO`).
+ */
+export async function certificadoParaAssinarNaTransacao(
+  tx: Tx,
+  chave: ChaveCifra | null,
+): Promise<CertificadoParaAssinar | null> {
+  const c = await repo.certificadoAtualCifrado(tx);
+  if (c?.tipo !== "A1") return null;
+  if (!chave || chave.ref !== c.chaveRef) {
+    throw new ErroEmpresa(
+      "NAO_CONFIGURADO",
+      "A chave de cifra do certificado do RT não está configurada no servidor.",
+    );
+  }
+  return {
+    id: c.id,
+    pkcs12: decifrar(chave, c.pkcs12, "rt_certificate:pkcs12"),
+    senha: decifrar(chave, c.senha, "rt_certificate:senha").toString("utf8"),
+  };
 }
