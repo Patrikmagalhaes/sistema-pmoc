@@ -1271,6 +1271,11 @@ Estados padrão "vazio" não se aplica (diálogo sempre tem conteúdo).
 - **Resumo do `PRONTO`:** equipamentos `ATIVO`, atividades no plano, ocorrências previstas e visitas a criar (meses com ≥ 1 ocorrência, RN-060), calculados com o mesmo `buildSchedule` da emissão. Cliente, local e vigência já estão no cabeçalho da TL-120.
 - **Ainda não:** "Emitir" aparece desabilitado ("A emissão do PMOC ainda não está disponível."); `PROCESSANDO`, `CONCLUIDO`, `ERRO` e nova versão (FL-09) chegam com a emissão.
 
+**Implementação (Etapa 4, parte 3 – retrato e regras do PDF, sem tela):**
+- **Retrato (`pmoc_version.snapshot`, versão 1):** empresa, RT, cliente, local, contrato (TH/revisão, ART), calendário 1..N e, por tipo presente (com equipamento `ATIVO`, por nome), as atividades não removidas na ordem da RN-051 com os meses previstos (RN-023) e os equipamentos `ATIVO` por TAG. Tipo presente sem atividade entra com a lista vazia (a seção 5 ainda o lista).
+- **Regras de apresentação:** RN-010 (TH-revisão; revisão sem TH não é impressa), RN-011 (capa), RN-050 (quantidade por extenso no masculino, plural do tipo, "tipo {grupo}" sem repetir "Tipo", TAGs), RN-052 (capacidade pt-BR + unidade), RN-150 (rótulos da ficha), DEC-22/CA-12.3 (ficha em blocos de 12 meses). Datas `dd/mm/aaaa` e máscaras da RNF-07.
+- **CA-12.2 `[A VALIDAR]`:** campo opcional vazio tem o **rótulo omitido** (constante única `CAMPO_VAZIO_NO_PDF` em `src/modules/pmoc/domain/documento.ts`; `"EM_BRANCO"` imprime o rótulo sem valor). Gênero da quantidade por extenso e a descrição de "Pendente" na legenda também ficam `[A VALIDAR]`.
+
 #### TL-130 – Agenda
 - **Objetivo:** ver e filtrar visitas (RF-18.7). Visões: **Lista** (padrão) e **Calendário mensal por técnico** (formato [A VALIDAR], DFT-18).
 
