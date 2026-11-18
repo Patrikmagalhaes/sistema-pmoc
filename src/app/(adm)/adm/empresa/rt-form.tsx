@@ -3,6 +3,11 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Conflito } from "@/components/conflito";
 import { EnderecoCampos, lerEndereco } from "@/components/endereco-campos";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, Fieldset } from "@/components/ui/card";
+import { Field, FieldRow, Input } from "@/components/ui/field";
+import { avisar } from "@/components/ui/toaster";
 import { chamarAcao } from "@/lib/chamar-acao";
 import type { Endereco } from "@/lib/endereco";
 import { mascararTelefone } from "@/lib/formato";
@@ -21,13 +26,13 @@ export interface RtEditavel {
   endereco: Endereco;
 }
 
-/** TL-102 seção Responsável técnico (RF-04.3; DEC-29; FL-02 passo 3). */
+/** TL-102 seção Responsável técnico (RF-04.3; DEC-29; FL-02 passo 3): Card com o botão próprio. */
 export function RtForm({ rt }: { rt: RtEditavel | null }) {
   const router = useRouter();
   const pronto = useHidratado();
   const [telefone, setTelefone] = useState(mascararTelefone(rt?.telefone ?? ""));
   const [erros, setErros] = useState<Erros>({});
-  const [geral, setGeral] = useState<{ tipo: "erro" | "ok"; texto: string } | null>(null);
+  const [geral, setGeral] = useState<string | null>(null);
   const [conflito, setConflito] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
@@ -64,64 +69,63 @@ export function RtForm({ rt }: { rt: RtEditavel | null }) {
     if (r.tipo === "conflito") return setConflito(true);
     if (r.tipo === "erro") {
       if (r.campos) setErros(r.campos);
-      return setGeral({ tipo: "erro", texto: r.mensagem });
+      return setGeral(r.mensagem);
     }
-    setGeral({ tipo: "ok", texto: "Dados do RT salvos." });
+    avisar.sucesso("Dados do RT salvos.");
     router.refresh();
   }
 
   if (conflito) return <Conflito />;
 
-  const erro = (k: string) => (erros[k] ? <span className="erro">{erros[k]}</span> : null);
-  const campo = (k: "nome" | "titulo" | "registro", rotulo: string) => (
-    <div className="campo">
-      <label htmlFor={`rt-${k}`}>{rotulo}</label>
-      <input id={`rt-${k}`} name={k} defaultValue={rt?.[k]} aria-invalid={Boolean(erros[k])} />
-      {erro(k)}
-    </div>
-  );
-
   return (
-    <form onSubmit={salvar} noValidate className="formulario" style={{ maxWidth: 720 }}>
-      {geral && (
-        <div className={`alerta ${geral.tipo}`} role="status">
-          {geral.texto}
+    <form onSubmit={salvar} noValidate aria-labelledby="titulo-rt">
+      <Card
+        titulo={<span id="titulo-rt">Responsável técnico (RT)</span>}
+        descricao="O RT assina o PMOC com o certificado e-CPF."
+        rodape={
+          <Button type="submit" variant="primary" disabled={!pronto} loading={enviando}>
+            {enviando ? "Salvando…" : "Salvar RT"}
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-6">
+          {geral && <Alert tom="danger">{geral}</Alert>}
+          <div className="flex flex-col gap-4">
+            <Field id="rt-nome" label="Nome do RT" erro={erros.nome}>
+              <Input name="nome" defaultValue={rt?.nome} />
+            </Field>
+            <FieldRow className="lg:grid-cols-2">
+              <Field id="rt-titulo" label="Título profissional" erro={erros.titulo}>
+                <Input name="titulo" defaultValue={rt?.titulo} />
+              </Field>
+              <Field id="rt-registro" label="Nº de registro" erro={erros.registro}>
+                <Input name="registro" defaultValue={rt?.registro} />
+              </Field>
+              <Field id="rt-telefone" label="Telefone do RT" erro={erros.telefone}>
+                <Input
+                  name="telefone"
+                  inputMode="tel"
+                  value={telefone}
+                  placeholder="(00) 00000-0000"
+                  onChange={(e) => setTelefone(mascararTelefone(e.target.value))}
+                  className="tabular-nums"
+                />
+              </Field>
+              <Field id="rt-email" label="E-mail do RT" erro={erros.email}>
+                <Input name="email" type="email" defaultValue={rt?.email} />
+              </Field>
+            </FieldRow>
+          </div>
+          <Fieldset legenda="Endereço">
+            <EnderecoCampos
+              valor={rt?.endereco}
+              erros={erros}
+              bairroObrigatorio={true}
+              prefixo="rt-"
+            />
+          </Fieldset>
         </div>
-      )}
-      {campo("nome", "Nome do RT")}
-      <div className="grade">
-        {campo("titulo", "Título profissional")}
-        {campo("registro", "Nº de registro")}
-      </div>
-      <div className="grade">
-        <div className="campo">
-          <label htmlFor="rt-telefone">Telefone do RT</label>
-          <input
-            id="rt-telefone"
-            name="telefone"
-            inputMode="tel"
-            value={telefone}
-            onChange={(e) => setTelefone(mascararTelefone(e.target.value))}
-            aria-invalid={Boolean(erros.telefone)}
-          />
-          {erro("telefone")}
-        </div>
-        <div className="campo">
-          <label htmlFor="rt-email">E-mail do RT</label>
-          <input
-            id="rt-email"
-            name="email"
-            type="email"
-            defaultValue={rt?.email}
-            aria-invalid={Boolean(erros.email)}
-          />
-          {erro("email")}
-        </div>
-      </div>
-      <EnderecoCampos valor={rt?.endereco} erros={erros} bairroObrigatorio={true} prefixo="rt-" />
-      <button className="botao" type="submit" disabled={!pronto || enviando}>
-        {enviando ? "Salvando…" : "Salvar RT"}
-      </button>
+      </Card>
     </form>
   );
 }

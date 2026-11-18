@@ -1,4 +1,12 @@
+import { Building2, Plus, Search } from "lucide-react";
 import Link from "next/link";
+import { buttonClasses } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field, Input } from "@/components/ui/field";
+import { FilterBar, urlCom } from "@/components/ui/filter-bar";
+import { Page, PageHeader } from "@/components/ui/page-header";
+import { Pagination } from "@/components/ui/pagination";
 import { mascararCnpj } from "@/lib/formato";
 import { listarClientes } from "@/modules/clientes";
 import { exigirArea } from "@/server/auth/sessao";
@@ -8,8 +16,9 @@ export const metadata = { title: "Clientes – Sistema PMOC" };
 
 type SP = Record<string, string | string[] | undefined>;
 const um = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+const BASE = "/adm/clientes";
 
-/** TL-108 – Clientes (FL-04; RF-05). */
+/** TL-108 – Clientes (FL-04; RF-05). Template T-LIST (doc 08 §4.3). */
 export default async function ClientesPage({ searchParams }: { searchParams: Promise<SP> }) {
   const s = await exigirArea(["ADM"]);
   const sp = await searchParams;
@@ -19,94 +28,78 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
     { busca, pagina: um(sp.pagina) ?? null },
     { db: getDatabase() },
   );
-  const paginas = Math.max(1, Math.ceil(r.total / r.porPagina));
-  const urlPagina = (p: number) => {
-    const q = new URLSearchParams();
-    if (busca) q.set("busca", busca);
-    q.set("pagina", String(p));
-    return `/adm/clientes?${q}`;
-  };
+  const novo = (
+    <Link href={`${BASE}/novo`} className={buttonClasses({ variant: "primary" })}>
+      <Plus size={20} aria-hidden="true" />
+      Novo cliente
+    </Link>
+  );
 
   return (
-    <section className="pagina">
-      <div className="titulo-pagina">
-        <h1>Clientes</h1>
-        <Link className="botao" href="/adm/clientes/novo">
-          Novo cliente
-        </Link>
-      </div>
+    <Page>
+      <PageHeader
+        titulo="Clientes"
+        meta={`${r.total} ${r.total === 1 ? "cliente" : "clientes"}`}
+        acoes={novo}
+      />
 
-      <form className="filtros" method="get">
-        <div className="campo">
-          <label htmlFor="busca">Buscar</label>
-          <input
-            id="busca"
+      <FilterBar
+        limparHref={BASE}
+        chips={busca ? [{ rotulo: `Busca: ${busca}`, removerHref: BASE }] : []}
+      >
+        <Field id="busca" label="Buscar" className="md:w-96">
+          <Input
             name="busca"
+            type="search"
             defaultValue={busca ?? ""}
             placeholder="Razão social, nome fantasia ou CNPJ"
           />
-        </div>
-        <button className="botao" type="submit">
-          Filtrar
-        </button>
-      </form>
+        </Field>
+      </FilterBar>
 
-      {r.linhas.length === 0 ? (
-        <div className="vazio">
-          {busca ? (
-            <>
-              <p>Nenhum resultado para a busca.</p>
-              <Link href="/adm/clientes">Limpar busca</Link>
-            </>
+      <DataTable
+        rotulo="Clientes"
+        linhas={r.linhas}
+        chave={(c) => c.id}
+        href={(c) => `${BASE}/${c.id}`}
+        colunas={[
+          { titulo: "Razão social", celula: (c) => c.razaoSocial },
+          { titulo: "Nome fantasia", celula: (c) => c.nomeFantasia ?? "—", ocultarNoCelular: true },
+          { titulo: "CNPJ", celula: (c) => mascararCnpj(c.cnpj), numerico: true },
+          { titulo: "Cidade/UF", celula: (c) => `${c.cidade}/${c.uf}` },
+          { titulo: "Locais", celula: (c) => c.locais, numerico: true },
+        ]}
+        vazio={
+          busca ? (
+            <EmptyState
+              icone={Search}
+              titulo="Nenhum resultado para os filtros."
+              acao={
+                <Link href={BASE} className={buttonClasses({ variant: "secondary" })}>
+                  Limpar filtros
+                </Link>
+              }
+            />
           ) : (
-            <>
-              <p>Nenhum cliente cadastrado.</p>
-              <Link className="botao" href="/adm/clientes/novo">
-                Novo cliente
-              </Link>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="tabela-rolagem">
-          <table className="tabela">
-            <thead>
-              <tr>
-                <th>Razão social</th>
-                <th>Nome fantasia</th>
-                <th>CNPJ</th>
-                <th>Cidade/UF</th>
-                <th>Locais</th>
-              </tr>
-            </thead>
-            <tbody>
-              {r.linhas.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <Link href={`/adm/clientes/${c.id}`}>{c.razaoSocial}</Link>
-                  </td>
-                  <td>{c.nomeFantasia ?? "—"}</td>
-                  <td>{mascararCnpj(c.cnpj)}</td>
-                  <td>
-                    {c.cidade}/{c.uf}
-                  </td>
-                  <td>{c.locais}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {paginas > 1 && (
-        <nav className="paginacao" aria-label="Paginação">
-          {r.pagina > 1 && <Link href={urlPagina(r.pagina - 1)}>Anterior</Link>}
-          <span>
-            Página {r.pagina} de {paginas}
-          </span>
-          {r.pagina < paginas && <Link href={urlPagina(r.pagina + 1)}>Próxima</Link>}
-        </nav>
-      )}
-    </section>
+            <EmptyState
+              icone={Building2}
+              titulo="Nenhum cliente cadastrado."
+              descricao="Cadastre o cliente; depois, os locais, os equipamentos e o contrato."
+              acao={novo}
+            />
+          )
+        }
+        rodape={
+          r.total > 0 && (
+            <Pagination
+              pagina={r.pagina}
+              porPagina={r.porPagina}
+              total={r.total}
+              url={(p) => urlCom(BASE, { busca }, { pagina: String(p) })}
+            />
+          )
+        }
+      />
+    </Page>
   );
 }

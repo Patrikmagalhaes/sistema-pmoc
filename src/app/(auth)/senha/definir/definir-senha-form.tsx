@@ -2,6 +2,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button, buttonClasses } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useHidratado } from "@/lib/use-hidratado";
 import { definirSenhaAction } from "./actions";
 
@@ -11,13 +15,10 @@ const MIN = 8; // SEG-01; RN-180
 export function LinkInvalido() {
   return (
     <>
-      <div className="alerta erro" role="alert">
-        Link inválido ou expirado.
-      </div>
+      <Alert tom="danger">Link inválido ou expirado.</Alert>
       <Link
-        className="botao"
         href="/senha/esqueci"
-        style={{ display: "block", textAlign: "center" }}
+        className={buttonClasses({ variant: "primary", size: "lg", className: "w-full" })}
       >
         Pedir novo link
       </Link>
@@ -34,13 +35,19 @@ export function DefinirSenhaForm() {
 
   async function salvar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const f = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const f = new FormData(form);
     const senha = String(f.get("senha") ?? "");
     const repetir = String(f.get("repetir") ?? "");
     // UF-01 / E-01.5: valida antes de enviar; o servidor revalida tudo (UF-02).
-    if (senha.length < MIN)
-      return setErros({ senha: `A senha precisa ter pelo menos ${MIN} caracteres.` });
-    if (senha !== repetir) return setErros({ repetir: "As senhas não são iguais." });
+    if (senha.length < MIN) {
+      setErros({ senha: `A senha precisa ter pelo menos ${MIN} caracteres.` });
+      return (form.elements.namedItem("senha") as HTMLElement | null)?.focus();
+    }
+    if (senha !== repetir) {
+      setErros({ repetir: "As senhas não são iguais." });
+      return (form.elements.namedItem("repetir") as HTMLElement | null)?.focus();
+    }
     setErros({});
     setEnviando(true);
     try {
@@ -51,7 +58,7 @@ export function DefinirSenhaForm() {
       if (d && !d.ok && d.erro === "SENHA") return setErros({ senha: d.mensagem });
       setErros({ geral: r?.serverError ?? "Não foi possível salvar. Tente novamente." });
     } catch {
-      setErros({ geral: "Sem conexão. Tente novamente." });
+      setErros({ geral: "Não foi possível salvar. Verifique a conexão e tente novamente." });
     } finally {
       setEnviando(false);
     }
@@ -60,47 +67,29 @@ export function DefinirSenhaForm() {
   if (invalido) return <LinkInvalido />;
 
   return (
-    <form onSubmit={salvar} noValidate>
-      {erros.geral && (
-        <div className="alerta erro" role="alert">
-          {erros.geral}
-        </div>
-      )}
-      <div className="campo">
-        <label htmlFor="senha">Nova senha</label>
-        <input
-          id="senha"
-          name="senha"
-          type="password"
-          required
-          autoComplete="new-password"
-          aria-invalid={Boolean(erros.senha)}
-          aria-describedby="senha-dica"
-        />
-        {erros.senha ? (
-          <span className="erro">{erros.senha}</span>
-        ) : (
-          <span className="dica" id="senha-dica">
-            Mínimo de {MIN} caracteres. Uma frase com algumas palavras é fácil de lembrar e difícil
-            de adivinhar.
-          </span>
-        )}
-      </div>
-      <div className="campo">
-        <label htmlFor="repetir">Repetir senha</label>
-        <input
-          id="repetir"
-          name="repetir"
-          type="password"
-          required
-          autoComplete="new-password"
-          aria-invalid={Boolean(erros.repetir)}
-        />
-        {erros.repetir && <span className="erro">{erros.repetir}</span>}
-      </div>
-      <button className="botao" type="submit" disabled={!pronto || enviando}>
+    <form onSubmit={salvar} noValidate className="flex flex-col gap-4">
+      {erros.geral && <Alert tom="danger">{erros.geral}</Alert>}
+      <Field
+        id="senha"
+        label="Nova senha"
+        erro={erros.senha}
+        dica={`Mínimo de ${MIN} caracteres. Uma frase com algumas palavras é fácil de lembrar e difícil de adivinhar.`}
+      >
+        <PasswordInput name="senha" required autoComplete="new-password" />
+      </Field>
+      <Field id="repetir" label="Repetir senha" erro={erros.repetir}>
+        <PasswordInput name="repetir" required autoComplete="new-password" />
+      </Field>
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        className="w-full"
+        disabled={!pronto}
+        loading={enviando}
+      >
         {enviando ? "Salvando…" : "Salvar senha"}
-      </button>
+      </Button>
     </form>
   );
 }

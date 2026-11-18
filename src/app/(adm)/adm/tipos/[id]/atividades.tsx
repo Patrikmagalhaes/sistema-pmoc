@@ -1,8 +1,14 @@
 "use client";
+import { Camera, Pencil, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, Fragment, useState } from "react";
+import { StatusBadge } from "@/components/status-badge";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Checkbox, Field, Input, Select } from "@/components/ui/field";
+import { avisar } from "@/components/ui/toaster";
 import { chamarAcao } from "@/lib/chamar-acao";
-import { ROTULO_SITUACAO } from "@/lib/formato";
+import { cn } from "@/lib/cn";
 import { useHidratado } from "@/lib/use-hidratado";
 import { atualizarAtividadeAction, incluirAtividadeAction } from "../actions";
 import { AcoesItem } from "./acoes-item";
@@ -30,7 +36,13 @@ export interface Rotulos {
   unidadeMax: number;
 }
 
-/** TL-105 – atividades padrão, na ordem periodicidade → ordem de exibição (RN-051). */
+const th = "border-b border-border px-4 py-3 text-left text-h5 text-text-label";
+const td = "px-4 align-middle md:h-12 md:py-2";
+
+/**
+ * TL-105 – atividades padrão, na ordem periodicidade → ordem de exibição (RN-051). Tabela editável
+ * dentro do Card (doc 08 §7.4); abaixo de md cada atividade vira um card empilhado.
+ */
 export function Atividades({
   tipoId,
   atividades,
@@ -41,58 +53,94 @@ export function Atividades({
   rotulos: Rotulos;
 }) {
   const [editando, setEditando] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
 
   return (
-    <>
-      {aviso && (
-        <div className="alerta ok" role="status">
-          {aviso}
-        </div>
-      )}
+    <div className="flex flex-col gap-4">
       {atividades.length === 0 ? (
-        <p className="vazio">Inclua a primeira atividade.</p>
+        <p className="text-body text-text-muted">Inclua a primeira atividade.</p>
       ) : (
-        <div className="tabela-rolagem">
-          <table className="tabela">
-            <thead>
+        <div className="overflow-hidden rounded-md border border-border">
+          <table
+            className="w-full border-collapse text-body max-md:block"
+            aria-label="Atividades padrão"
+          >
+            <thead className="bg-surface-muted max-md:sr-only">
               <tr>
-                <th>Periodicidade</th>
-                <th>Ordem</th>
-                <th>Título</th>
-                <th>Natureza</th>
-                <th>Exige foto</th>
-                <th>Estado</th>
-                <th />
+                <th scope="col" className={th}>
+                  Título
+                </th>
+                <th scope="col" className={th}>
+                  Periodicidade
+                </th>
+                <th scope="col" className={th}>
+                  Ordem
+                </th>
+                <th scope="col" className={th}>
+                  Natureza
+                </th>
+                <th scope="col" className={th}>
+                  Estado
+                </th>
+                <th scope="col" className={th}>
+                  <span className="sr-only">Ações</span>
+                </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="max-md:block">
               {atividades.map((a) => (
                 <Fragment key={`${a.id}-${a.rowVersion}`}>
-                  <tr>
-                    <td>{rotulos.periodicidade[a.periodicidade]}</td>
-                    <td>{a.ordem}</td>
-                    <td>{a.titulo}</td>
-                    <td>
+                  <tr
+                    className={cn(
+                      "border-b border-border-subtle last:border-b-0",
+                      "max-md:flex max-md:flex-wrap max-md:gap-x-2 max-md:gap-y-1 max-md:py-3",
+                    )}
+                  >
+                    <td className={cn(td, "font-medium text-text max-md:min-w-0 max-md:flex-1")}>
+                      <span className="inline-flex items-center gap-2">
+                        {a.titulo}
+                        {a.exigeFoto && (
+                          <Camera
+                            size={16}
+                            className="shrink-0 text-text-muted"
+                            aria-label="Exige foto"
+                          />
+                        )}
+                      </span>
+                    </td>
+                    <td
+                      className={cn(
+                        td,
+                        "max-md:order-2 max-md:basis-full max-md:text-small max-md:text-text-muted",
+                      )}
+                    >
+                      {rotulos.periodicidade[a.periodicidade]}
+                    </td>
+                    <td className={cn(td, "tabular-nums max-md:hidden")}>{a.ordem}</td>
+                    <td
+                      className={cn(
+                        td,
+                        "max-md:order-2 max-md:basis-full max-md:text-small max-md:text-text-muted",
+                      )}
+                    >
                       {rotulos.natureza[a.natureza]}
                       {a.unidade ? ` (${a.unidade})` : ""}
                     </td>
-                    <td>{a.exigeFoto ? "Sim" : "Não"}</td>
-                    <td>
-                      <span className={`etiqueta ${a.situacao === "ATIVO" ? "ok" : "neutra"}`}>
-                        {ROTULO_SITUACAO[a.situacao]}
-                      </span>
+                    <td className={cn(td, "max-md:order-1")}>
+                      <StatusBadge tipo="situacao" valor={a.situacao} />
                     </td>
-                    <td>
-                      <div className="acoes-linha">
-                        <button
-                          type="button"
-                          className="botao secundario"
+                    <td className={cn(td, "max-md:order-3 max-md:basis-full max-md:pt-2 md:w-px")}>
+                      <div className="flex flex-wrap items-start gap-2 md:flex-nowrap md:justify-end">
+                        <Button
+                          size="sm"
+                          variant="tertiary"
+                          icon={<Pencil size={16} aria-hidden="true" />}
+                          aria-expanded={editando === a.id}
                           onClick={() => setEditando(editando === a.id ? null : a.id)}
                         >
                           {editando === a.id ? "Fechar" : "Editar"}
-                        </button>
+                        </Button>
                         <AcoesItem
+                          compacto
                           alvo="atividade"
                           id={a.id}
                           rowVersion={a.rowVersion}
@@ -104,8 +152,8 @@ export function Atividades({
                     </td>
                   </tr>
                   {editando === a.id && (
-                    <tr>
-                      <td colSpan={7}>
+                    <tr className="border-b border-border-subtle bg-surface-muted max-md:block">
+                      <td colSpan={6} className="p-4 max-md:block">
                         <AtividadeForm
                           tipoId={tipoId}
                           atividade={a}
@@ -113,12 +161,13 @@ export function Atividades({
                           aoSalvar={(mudouPeriodicidade) => {
                             setEditando(null);
                             // E-03.5: a biblioteca é padrão; PMOCs já criados têm a cópia deles.
-                            setAviso(
+                            avisar.sucesso(
                               mudouPeriodicidade
                                 ? "Atividade salva. A nova periodicidade não altera PMOCs já criados."
                                 : "Atividade salva.",
                             );
                           }}
+                          aoCancelar={() => setEditando(null)}
                         />
                       </td>
                     </tr>
@@ -130,31 +179,28 @@ export function Atividades({
         </div>
       )}
       {editando === "nova" ? (
-        <AtividadeForm
-          tipoId={tipoId}
-          rotulos={rotulos}
-          aoSalvar={() => {
-            setEditando(null);
-            setAviso("Atividade incluída.");
-          }}
-          aoCancelar={() => setEditando(null)}
-        />
-      ) : (
-        <p>
-          <button
-            type="button"
-            className="botao secundario"
-            style={{ width: "auto" }}
-            onClick={() => {
-              setAviso(null);
-              setEditando("nova");
+        <div className="rounded-md border border-border bg-surface-muted p-4">
+          <h3 className="mb-4 text-h4 text-text">Nova atividade</h3>
+          <AtividadeForm
+            tipoId={tipoId}
+            rotulos={rotulos}
+            aoSalvar={() => {
+              setEditando(null);
+              avisar.sucesso("Atividade incluída.");
             }}
-          >
-            Nova atividade
-          </button>
-        </p>
+            aoCancelar={() => setEditando(null)}
+          />
+        </div>
+      ) : (
+        <Button
+          className="self-start"
+          icon={<Plus size={20} aria-hidden="true" />}
+          onClick={() => setEditando("nova")}
+        >
+          Nova atividade
+        </Button>
       )}
-    </>
+    </div>
   );
 }
 
@@ -169,7 +215,7 @@ function AtividadeForm({
   atividade?: Atividade;
   rotulos: Rotulos;
   aoSalvar: (mudouPeriodicidade: boolean) => void;
-  aoCancelar?: () => void;
+  aoCancelar: () => void;
 }) {
   const router = useRouter();
   const pronto = useHidratado();
@@ -181,7 +227,8 @@ function AtividadeForm({
 
   async function salvar(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const f = new FormData(ev.currentTarget);
+    const form = ev.currentTarget;
+    const f = new FormData(form);
     const d = {
       titulo: String(f.get("titulo") ?? "").trim(),
       periodicidade: String(f.get("periodicidade") ?? ""),
@@ -198,7 +245,11 @@ function AtividadeForm({
     if (!/^-?\d+$/.test(d.ordem)) e.ordem = "A ordem é um número inteiro.";
     setErros(e);
     setGeral(null);
-    if (Object.keys(e).length) return;
+    const primeiro = Object.keys(e)[0];
+    if (primeiro) {
+      (form.elements.namedItem(primeiro) as HTMLElement | null)?.focus();
+      return;
+    }
     setEnviando(true);
     const dados = d as typeof d & { periodicidade: Periodicidade; natureza: Natureza };
     const r = atividade
@@ -221,104 +272,77 @@ function AtividadeForm({
     router.refresh();
   }
 
-  const erro = (k: string) => (erros[k] ? <span className="erro">{erros[k]}</span> : null);
-
   return (
-    <form onSubmit={salvar} noValidate className="formulario" style={{ maxWidth: 720 }}>
-      {geral && (
-        <div className="alerta erro" role="status">
-          {geral}
-        </div>
-      )}
-      <div className="campo">
-        <label htmlFor={`${pre}-titulo`}>Título</label>
-        <input
-          id={`${pre}-titulo`}
-          name="titulo"
-          defaultValue={atividade?.titulo}
-          aria-invalid={Boolean(erros.titulo)}
-        />
-        {erro("titulo")}
-      </div>
-      <div className="grade">
-        <div className="campo">
-          <label htmlFor={`${pre}-periodicidade`}>Periodicidade padrão</label>
-          <select
-            id={`${pre}-periodicidade`}
-            name="periodicidade"
-            defaultValue={atividade?.periodicidade ?? ""}
-            aria-invalid={Boolean(erros.periodicidade)}
-          >
-            <option value="">Escolha</option>
+    <form onSubmit={salvar} noValidate className="flex flex-col gap-4">
+      {geral && <Alert tom="danger">{geral}</Alert>}
+      <Field id={`${pre}-titulo`} label="Título" erro={erros.titulo}>
+        <Input name="titulo" defaultValue={atividade?.titulo} />
+      </Field>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Field id={`${pre}-periodicidade`} label="Periodicidade padrão" erro={erros.periodicidade}>
+          <Select name="periodicidade" defaultValue={atividade?.periodicidade ?? ""}>
+            <option value="">Selecione…</option>
             {Object.entries(rotulos.periodicidade).map(([v, l]) => (
               <option key={v} value={v}>
                 {l}
               </option>
             ))}
-          </select>
-          {erro("periodicidade")}
-        </div>
-        <div className="campo">
-          <label htmlFor={`${pre}-natureza`}>Natureza</label>
-          <select
-            id={`${pre}-natureza`}
+          </Select>
+        </Field>
+        <Field id={`${pre}-natureza`} label="Natureza" erro={erros.natureza}>
+          <Select
             name="natureza"
             value={natureza}
             onChange={(e) => setNatureza(e.target.value as Natureza)}
-            aria-invalid={Boolean(erros.natureza)}
           >
-            <option value="">Escolha</option>
+            <option value="">Selecione…</option>
             {Object.entries(rotulos.natureza).map(([v, l]) => (
               <option key={v} value={v}>
                 {l}
               </option>
             ))}
-          </select>
-          {erro("natureza")}
-        </div>
-        <div className="campo">
-          <label htmlFor={`${pre}-unidade`}>Unidade</label>
-          <input
-            id={`${pre}-unidade`}
+          </Select>
+        </Field>
+        <Field
+          id={`${pre}-unidade`}
+          label="Unidade"
+          erro={erros.unidade}
+          dica={natureza === "MEDICAO" ? undefined : "Só para medição."}
+        >
+          <Input
             name="unidade"
             defaultValue={atividade?.unidade ?? ""}
             maxLength={rotulos.unidadeMax}
             disabled={natureza !== "MEDICAO"}
-            placeholder={natureza === "MEDICAO" ? "Ex.: V, A, psi" : "Só para medição"}
-            aria-invalid={Boolean(erros.unidade)}
+            placeholder={natureza === "MEDICAO" ? "Ex.: V, A, psi" : undefined}
           />
-          {erro("unidade")}
-        </div>
-        <div className="campo">
-          <label htmlFor={`${pre}-ordem`}>Ordem</label>
-          <input
-            id={`${pre}-ordem`}
+        </Field>
+        <Field id={`${pre}-ordem`} label="Ordem" erro={erros.ordem}>
+          <Input
             name="ordem"
             inputMode="numeric"
             defaultValue={atividade?.ordem ?? 1}
-            aria-invalid={Boolean(erros.ordem)}
+            className="tabular-nums"
           />
-          {erro("ordem")}
-        </div>
+        </Field>
       </div>
-      <div className="campo">
-        <label className="caixa">
-          <input type="checkbox" name="exigeFoto" defaultChecked={atividade?.exigeFoto ?? false} />
-          Exige foto
-        </label>
-        <span className="dica">
+      <div className="flex flex-col gap-1">
+        <Checkbox
+          label="Exige foto"
+          name="exigeFoto"
+          defaultChecked={atividade?.exigeFoto ?? false}
+        />
+        <p className="text-small text-text-muted">
           A ocorrência só é finalizada com ao menos 1 foto do equipamento na visita (RN-185).
-        </span>
+        </p>
       </div>
-      <div className="linha">
-        <button className="botao" type="submit" disabled={!pronto || enviando}>
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button disabled={enviando} onClick={aoCancelar}>
+          Cancelar
+        </Button>
+        <Button type="submit" variant="primary" disabled={!pronto} loading={enviando}>
           {enviando ? "Salvando…" : atividade ? "Salvar atividade" : "Incluir atividade"}
-        </button>
-        {aoCancelar && (
-          <button type="button" className="botao secundario" onClick={aoCancelar}>
-            Cancelar
-          </button>
-        )}
+        </Button>
       </div>
     </form>
   );

@@ -1,6 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ROTULO_SITUACAO } from "@/lib/formato";
+import { StatusBadge } from "@/components/status-badge";
+import { Alert } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
+import { Page, PageHeader } from "@/components/ui/page-header";
 import {
   obterTipo,
   ROTULO_NATUREZA,
@@ -17,7 +19,10 @@ import { Grupos } from "./grupos";
 
 export const metadata = { title: "Tipo de equipamento – Sistema PMOC" };
 
-/** TL-105 – Tipo de equipamento: dados, grupos e atividades padrão (FL-03; RF-08). */
+/**
+ * TL-105 – Tipo de equipamento: dados, grupos e atividades padrão (FL-03; RF-08). Tela de gestão em
+ * seções (doc 08 §5.11): Dados do tipo, Grupos permitidos e Atividades padrão, cada uma em Card.
+ */
 export default async function TipoPage({
   params,
   searchParams,
@@ -32,53 +37,51 @@ export default async function TipoPage({
   const { tipo, grupos, atividades } = r;
 
   return (
-    <section className="pagina">
-      <p>
-        <Link href="/adm/tipos">← Tipos de equipamento</Link>
-      </p>
-      <div className="titulo-pagina">
-        <h1>
-          {tipo.nome} ({tipo.sigla})
-        </h1>
-        <span className={`etiqueta ${tipo.situacao === "ATIVO" ? "ok" : "neutra"}`}>
-          {ROTULO_SITUACAO[tipo.situacao]}
-        </span>
-      </div>
+    <Page>
+      <PageHeader
+        migalhas={[{ rotulo: "Tipos de equipamento", href: "/adm/tipos" }, { rotulo: tipo.nome }]}
+        titulo={`${tipo.nome} (${tipo.sigla})`}
+        estado={<StatusBadge tipo="situacao" valor={tipo.situacao} tamanho="lg" />}
+        meta={
+          tipo.emUso
+            ? "Este tipo já foi usado (PMOC ou equipamento): só pode ser inativado."
+            : undefined
+        }
+        acoes={
+          <AcoesItem
+            alvo="tipo"
+            id={tipo.id}
+            rowVersion={tipo.rowVersion}
+            nome={tipo.nome}
+            situacao={tipo.situacao}
+            emUso={tipo.emUso}
+            aoExcluir="/adm/tipos"
+            motivoSemExcluir={tipo.filhosVivos ? SEM_EXCLUIR_TIPO_FILHOS : undefined}
+          />
+        }
+      />
       {sp.aviso === "criado" && (
-        <div className="alerta ok" role="status">
-          Tipo criado. Agora inclua as atividades padrão.
-        </div>
+        <Alert tom="success">Tipo criado. Agora inclua as atividades padrão.</Alert>
       )}
-      <p className="dica">
+      <Alert tom="info">
         A biblioteca é o padrão: alterações aqui não mudam PMOCs já criados (RF-08.5).
-      </p>
+      </Alert>
 
       <TipoForm key={tipo.rowVersion} tipo={tipo} />
-      <div className="acoes">
-        <AcoesItem
-          alvo="tipo"
-          id={tipo.id}
-          rowVersion={tipo.rowVersion}
-          nome={tipo.nome}
-          situacao={tipo.situacao}
-          emUso={tipo.emUso}
-          aoExcluir="/adm/tipos"
-          motivoSemExcluir={tipo.filhosVivos ? SEM_EXCLUIR_TIPO_FILHOS : undefined}
-        />
-        {tipo.emUso && (
-          <p className="dica">
-            Este tipo já foi usado (PMOC ou equipamento): só pode ser inativado.
-          </p>
-        )}
-      </div>
 
-      <div className="secao">
-        <h2>Grupos permitidos</h2>
+      <Card
+        id="grupos"
+        titulo="Grupos permitidos"
+        descricao="O tipo ativo mantém ao menos um grupo ativo."
+      >
         <Grupos tipoId={tipo.id} grupos={grupos} />
-      </div>
+      </Card>
 
-      <div className="secao">
-        <h2>Atividades padrão</h2>
+      <Card
+        id="atividades"
+        titulo="Atividades padrão"
+        descricao="Ordenadas por periodicidade e depois pela ordem de exibição."
+      >
         <Atividades
           tipoId={tipo.id}
           atividades={atividades}
@@ -88,7 +91,7 @@ export default async function TipoPage({
             unidadeMax: UNIDADE_MAX,
           }}
         />
-      </div>
-    </section>
+      </Card>
+    </Page>
   );
 }

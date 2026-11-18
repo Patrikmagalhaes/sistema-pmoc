@@ -1,6 +1,10 @@
 "use client";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
+import { AuthCard } from "@/components/layout/auth-card";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
 import { authClient } from "@/lib/auth-client";
 import { useHidratado } from "@/lib/use-hidratado";
 
@@ -26,40 +30,40 @@ export default function EsqueciSenhaPage() {
         return setErro("Não foi possível enviar. Tente novamente.");
       setEnviado(true);
     } catch {
-      setErro("Sem conexão. Tente novamente.");
+      setErro("Não foi possível enviar. Verifique a conexão e tente novamente.");
     } finally {
       setEnviando(false);
     }
   }
 
   return (
-    <main className="centro">
-      <div className="cartao">
-        <h1>Esqueci minha senha</h1>
-        {enviado ? (
-          <div className="alerta ok" role="status">
-            Se o e-mail estiver cadastrado, você receberá um link.
-          </div>
-        ) : (
-          <form onSubmit={enviar} noValidate>
-            {erro && (
-              <div className="alerta erro" role="alert">
-                {erro}
-              </div>
-            )}
-            <div className="campo">
-              <label htmlFor="email">E-mail</label>
-              <input id="email" name="email" type="email" required autoComplete="username" />
-            </div>
-            <button className="botao" type="submit" disabled={!pronto || enviando}>
-              {enviando ? "Enviando…" : "Enviar link"}
-            </button>
-          </form>
-        )}
-        <div className="links">
-          <Link href="/login">Voltar ao login</Link>
-        </div>
-      </div>
-    </main>
+    <AuthCard
+      titulo="Esqueci minha senha"
+      descricao={enviado ? undefined : "Informe seu e-mail para receber o link de nova senha."}
+    >
+      {enviado ? (
+        <Alert tom="success">Se o e-mail estiver cadastrado, você receberá um link.</Alert>
+      ) : (
+        <form onSubmit={enviar} noValidate className="flex flex-col gap-4">
+          {erro && <Alert tom="danger">{erro}</Alert>}
+          <Field id="email" label="E-mail">
+            <Input name="email" type="email" required autoComplete="username" />
+          </Field>
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            className="w-full"
+            disabled={!pronto}
+            loading={enviando}
+          >
+            {enviando ? "Enviando…" : "Enviar link"}
+          </Button>
+        </form>
+      )}
+      <Link href="/login" className="self-center text-body">
+        Voltar ao login
+      </Link>
+    </AuthCard>
   );
 }

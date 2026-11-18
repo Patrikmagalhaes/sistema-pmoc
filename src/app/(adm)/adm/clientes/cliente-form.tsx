@@ -4,6 +4,12 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Conflito } from "@/components/conflito";
 import { EnderecoCampos, lerEndereco } from "@/components/endereco-campos";
+import { Alert } from "@/components/ui/alert";
+import { Button, buttonClasses } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Field, FieldRow, Input } from "@/components/ui/field";
+import { FormActions } from "@/components/ui/form-actions";
+import { avisar } from "@/components/ui/toaster";
 import { chamarAcao } from "@/lib/chamar-acao";
 import { cnpjValido, normalizarCnpj } from "@/lib/cnpj";
 import type { Endereco } from "@/lib/endereco";
@@ -26,7 +32,10 @@ export interface ClienteEditavel {
 
 const digitos = (v: string) => v.replace(/\D/g, "");
 
-/** TL-109 aba Dados (RF-05; FL-04 passo 2). Máscara só na tela; grava sem máscara (RF-05.5). */
+/**
+ * TL-109 aba Dados (RF-05; FL-04 passo 2). Template T-FORM: seções Identificação, Contato e
+ * Endereço; Cancelar/Salvar na ActionBar. Máscara só na tela; grava sem máscara (RF-05.5).
+ */
 export function ClienteForm({ cliente }: { cliente?: ClienteEditavel }) {
   const novo = !cliente;
   const router = useRouter();
@@ -36,7 +45,7 @@ export function ClienteForm({ cliente }: { cliente?: ClienteEditavel }) {
   const [tel2, setTel2] = useState(mascararTelefone(cliente?.telefone2 ?? ""));
   const [erros, setErros] = useState<Erros>({});
   const [existente, setExistente] = useState<string | null>(null);
-  const [geral, setGeral] = useState<{ tipo: "erro" | "ok"; texto: string } | null>(null);
+  const [geral, setGeral] = useState<string | null>(null);
   const [conflito, setConflito] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
@@ -84,90 +93,115 @@ export function ClienteForm({ cliente }: { cliente?: ClienteEditavel }) {
     if (r.tipo === "erro") {
       if (r.campos) setErros(r.campos);
       setExistente(r.falha?.existenteId ?? null);
-      return setGeral({ tipo: "erro", texto: r.mensagem });
+      return setGeral(r.mensagem);
     }
     if (novo && "id" in r.dados) {
       router.push(`/adm/clientes/${String(r.dados.id)}?aviso=criado`);
       return;
     }
-    setGeral({ tipo: "ok", texto: "Dados salvos." });
+    avisar.sucesso("Dados salvos.");
     router.refresh();
   }
 
   if (conflito) return <Conflito />;
 
-  const erro = (k: string) => (erros[k] ? <span className="erro">{erros[k]}</span> : null);
-
   return (
-    <form onSubmit={salvar} noValidate className="formulario" style={{ maxWidth: 720 }}>
+    <form onSubmit={salvar} noValidate className="flex flex-col gap-6">
       {geral && (
-        <div className={`alerta ${geral.tipo}`} role="status">
-          {geral.texto}
-          {existente && (
-            <>
-              {" "}
-              <Link href={`/adm/clientes/${existente}`}>Abrir o cliente existente</Link>
-            </>
-          )}
-        </div>
+        <Alert
+          tom="danger"
+          acao={
+            existente && (
+              <Link href={`/adm/clientes/${existente}`} className={buttonClasses({ size: "sm" })}>
+                Abrir o cliente existente
+              </Link>
+            )
+          }
+        >
+          {geral}
+        </Alert>
       )}
-      <div className="campo">
-        <label htmlFor="razaoSocial">Razão social</label>
-        <input
-          id="razaoSocial"
-          name="razaoSocial"
-          defaultValue={cliente?.razaoSocial}
-          aria-invalid={Boolean(erros.razaoSocial)}
-        />
-        {erro("razaoSocial")}
-      </div>
-      <div className="grade">
-        <div className="campo">
-          <label htmlFor="nomeFantasia">Nome fantasia (opcional)</label>
-          <input id="nomeFantasia" name="nomeFantasia" defaultValue={cliente?.nomeFantasia ?? ""} />
+      <Card titulo="Identificação">
+        <div className="flex flex-col gap-4">
+          <Field id="razaoSocial" label="Razão social" erro={erros.razaoSocial}>
+            <Input name="razaoSocial" defaultValue={cliente?.razaoSocial} />
+          </Field>
+          <FieldRow className="lg:grid-cols-2">
+            <Field id="nomeFantasia" label="Nome fantasia" opcional>
+              <Input name="nomeFantasia" defaultValue={cliente?.nomeFantasia ?? ""} />
+            </Field>
+            <Field
+              id="cnpj"
+              label="CNPJ"
+              erro={erros.cnpj}
+              dica={novo ? "Aceita letras (CNPJ alfanumérico)." : undefined}
+            >
+              <Input
+                name="cnpj"
+                value={cnpj}
+                placeholder="00.000.000/0000-00"
+                onChange={(e) => setCnpj(mascararCnpj(e.target.value))}
+                className="tabular-nums"
+              />
+            </Field>
+          </FieldRow>
         </div>
-        <div className="campo">
-          <label htmlFor="cnpj">CNPJ</label>
-          <input
-            id="cnpj"
-            name="cnpj"
-            value={cnpj}
-            onChange={(e) => setCnpj(mascararCnpj(e.target.value))}
-            aria-invalid={Boolean(erros.cnpj)}
-          />
-          {erro("cnpj")}
-        </div>
-      </div>
-      <div className="grade">
-        <div className="campo">
-          <label htmlFor="telefone1">Telefone 1 (opcional)</label>
-          <input
-            id="telefone1"
-            name="telefone1"
-            inputMode="tel"
-            value={tel1}
-            onChange={(e) => setTel1(mascararTelefone(e.target.value))}
-            aria-invalid={Boolean(erros.telefone1)}
-          />
-          {erro("telefone1")}
-        </div>
-        <div className="campo">
-          <label htmlFor="telefone2">Telefone 2 (opcional)</label>
-          <input
-            id="telefone2"
-            name="telefone2"
-            inputMode="tel"
-            value={tel2}
-            onChange={(e) => setTel2(mascararTelefone(e.target.value))}
-            aria-invalid={Boolean(erros.telefone2)}
-          />
-          {erro("telefone2")}
-        </div>
-      </div>
-      <EnderecoCampos valor={cliente?.endereco} erros={erros} bairroObrigatorio={false} />
-      <button className="botao" type="submit" disabled={!pronto || enviando}>
-        {enviando ? "Salvando…" : "Salvar"}
-      </button>
+      </Card>
+
+      <Card titulo="Contato">
+        <FieldRow className="lg:grid-cols-2">
+          <Field id="telefone1" label="Telefone 1" opcional erro={erros.telefone1}>
+            <Input
+              name="telefone1"
+              inputMode="tel"
+              value={tel1}
+              placeholder="(00) 00000-0000"
+              onChange={(e) => setTel1(mascararTelefone(e.target.value))}
+              className="tabular-nums"
+            />
+          </Field>
+          <Field id="telefone2" label="Telefone 2" opcional erro={erros.telefone2}>
+            <Input
+              name="telefone2"
+              inputMode="tel"
+              value={tel2}
+              placeholder="(00) 00000-0000"
+              onChange={(e) => setTel2(mascararTelefone(e.target.value))}
+              className="tabular-nums"
+            />
+          </Field>
+        </FieldRow>
+      </Card>
+
+      <Card titulo="Endereço">
+        <EnderecoCampos valor={cliente?.endereco} erros={erros} bairroObrigatorio={false} />
+      </Card>
+
+      <FormActions>
+        {novo ? (
+          <Link href="/adm/clientes" className={buttonClasses({ variant: "secondary" })}>
+            Cancelar
+          </Link>
+        ) : (
+          <Button
+            type="reset"
+            disabled={enviando}
+            onClick={() => {
+              // Volta aos valores salvos (o reset nativo cuida dos campos não controlados).
+              setCnpj(mascararCnpj(cliente.cnpj));
+              setTel1(mascararTelefone(cliente.telefone1 ?? ""));
+              setTel2(mascararTelefone(cliente.telefone2 ?? ""));
+              setErros({});
+              setGeral(null);
+            }}
+          >
+            Cancelar
+          </Button>
+        )}
+        <Button type="submit" variant="primary" disabled={!pronto} loading={enviando}>
+          {enviando ? "Salvando…" : "Salvar"}
+        </Button>
+      </FormActions>
     </form>
   );
 }

@@ -1,17 +1,25 @@
+import { ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Tag } from "@/components/status-badge";
+import { Alert } from "@/components/ui/alert";
+import { buttonClasses } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DataTable } from "@/components/ui/data-table";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Page, PageHeader } from "@/components/ui/page-header";
 import { formatarData, formatarDataHora } from "@/lib/formato";
 import { CERTIFICADO_MAX, EXTENSOES_CERTIFICADO, obterConfiguracao } from "@/modules/empresa";
 import { empresaDeps } from "@/server/arquivos";
 import { exigirArea } from "@/server/auth/sessao";
-import { classeCertificado, EstadoCertificado, rotuloCertificado } from "../certificado-resumo";
+import { EstadoCertificado, rotuloCertificado } from "../certificado-resumo";
 import { CertificadoForm } from "./certificado-form";
 
 export const metadata = { title: "Certificado do RT – Sistema PMOC" };
 
 /**
- * TL-103 – Certificado do RT (RF-04.4; FL-02 passos 4–6). Mostra só titular, série, emissor e validade;
- * nunca baixa o arquivo nem mostra a senha (RN-121).
+ * TL-103 – Certificado do RT (RF-04.4; FL-02 passos 4–6). Template T-FORM. Mostra só titular, série,
+ * emissor e validade; nunca baixa o arquivo nem mostra a senha (RN-121).
  */
 export default async function CertificadoPage() {
   const s = await exigirArea(["ADM"]);
@@ -21,69 +29,84 @@ export default async function CertificadoPage() {
   const todos = [...(atual ? [atual] : []), ...c.historico];
 
   return (
-    <section className="pagina">
-      <p>
-        <Link href="/adm/empresa">← Empresa e RT</Link>
-      </p>
-      <h1>Certificado do RT</h1>
+    <Page>
+      <PageHeader
+        migalhas={[
+          { rotulo: "Empresa e RT", href: "/adm/empresa" },
+          { rotulo: "Certificado do RT" },
+        ]}
+        titulo="Certificado do RT"
+        estado={atual && <EstadoCertificado c={atual} />}
+      />
       {atual && atual.estado !== "VALIDO" && (
         // TL-103 estados A_VENCER / VENCIDO (RN-114)
-        <div className={`alerta ${classeCertificado(atual.estado)}`} role="status">
+        <Alert tom={atual.estado === "VENCIDO" ? "danger" : "warning"}>
           {atual.estado === "VENCIDO"
             ? `Certificado vencido em ${formatarData(atual.validoAte)}. Envie um novo para emitir PMOCs.`
             : `${rotuloCertificado(atual)} (${formatarData(atual.validoAte)}).`}
-        </div>
-      )}
-      {!c.rt ? (
-        <p className="vazio">Cadastre o responsável técnico antes do certificado.</p>
-      ) : (
-        <CertificadoForm tamanhoMax={CERTIFICADO_MAX} extensoes={EXTENSOES_CERTIFICADO} />
+        </Alert>
       )}
 
-      <div className="secao">
-        <h2>Certificados enviados</h2>
-        {todos.length === 0 ? (
-          <p className="vazio">
-            Nenhum certificado enviado. Sem certificado o PMOC não pode ser emitido.
-          </p>
+      <div className="max-w-content-form">
+        {!c.rt ? (
+          <Card>
+            <EmptyState
+              icone={UserRound}
+              titulo="Cadastre o responsável técnico antes do certificado."
+              acao={
+                <Link href="/adm/empresa" className={buttonClasses({ variant: "primary" })}>
+                  Ir para Empresa e RT
+                </Link>
+              }
+            />
+          </Card>
         ) : (
-          <div className="tabela-rolagem">
-            <table className="tabela">
-              <thead>
-                <tr>
-                  <th>Titular</th>
-                  <th>Nº de série</th>
-                  <th>Emissor</th>
-                  <th>Válido de</th>
-                  <th>Válido até</th>
-                  <th>Estado</th>
-                  <th>Enviado em</th>
-                  <th>Enviado por</th>
-                </tr>
-              </thead>
-              <tbody>
-                {todos.map((x) => (
-                  <tr key={x.id}>
-                    <td>
-                      {x.titular}
-                      {x.atual && <span className="etiqueta neutra"> atual</span>}
-                    </td>
-                    <td>{x.serie}</td>
-                    <td>{x.emissor ?? "—"}</td>
-                    <td>{formatarData(x.validoDe)}</td>
-                    <td>{formatarData(x.validoAte)}</td>
-                    <td>
-                      <EstadoCertificado c={x} />
-                    </td>
-                    <td>{formatarDataHora(x.enviadoEm)}</td>
-                    <td>{x.enviadoPor ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <CertificadoForm tamanhoMax={CERTIFICADO_MAX} extensoes={EXTENSOES_CERTIFICADO} />
         )}
       </div>
-    </section>
+
+      <section aria-labelledby="enviados" className="flex flex-col gap-4">
+        <h2 id="enviados" className="text-h2 text-text">
+          Certificados enviados
+        </h2>
+        <DataTable
+          rotulo="Certificados enviados"
+          linhas={todos}
+          chave={(x) => x.id}
+          colunas={[
+            {
+              titulo: "Titular",
+              celula: (x) => (
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  {x.titular}
+                  {x.atual && <Tag>atual</Tag>}
+                </span>
+              ),
+            },
+            { titulo: "Nº de série", celula: (x) => <span className="font-mono">{x.serie}</span> },
+            { titulo: "Emissor", celula: (x) => x.emissor ?? "—", ocultarNoCelular: true },
+            {
+              titulo: "Validade",
+              celula: (x) => `${formatarData(x.validoDe)} a ${formatarData(x.validoAte)}`,
+              numerico: true,
+            },
+            {
+              titulo: "Enviado",
+              celula: (x) => `${formatarDataHora(x.enviadoEm)} · ${x.enviadoPor ?? "—"}`,
+              numerico: true,
+              ocultarNoCelular: true,
+            },
+          ]}
+          estado={{ titulo: "Estado", celula: (x) => <EstadoCertificado c={x} /> }}
+          vazio={
+            <EmptyState
+              icone={ShieldCheck}
+              titulo="Nenhum certificado enviado."
+              descricao="Sem certificado o PMOC não pode ser emitido."
+            />
+          }
+        />
+      </section>
+    </Page>
   );
 }

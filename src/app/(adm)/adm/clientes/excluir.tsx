@@ -1,15 +1,24 @@
 "use client";
+import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { Field, Textarea } from "@/components/ui/field";
+import { avisar } from "@/components/ui/toaster";
 import { chamarAcao } from "@/lib/chamar-acao";
-import { useHidratado } from "@/lib/use-hidratado";
 import { excluirEquipamentoAction } from "../equipamentos/actions";
 import { excluirClienteAction, excluirContratoAction, excluirLocalAction } from "./actions";
 
+const ROTULO = {
+  cliente: { botao: "Excluir cliente", feito: "Cliente excluído." },
+  local: { botao: "Excluir local", feito: "Local excluído." },
+  contrato: { botao: "Excluir contrato", feito: "Contrato excluído." },
+  equipamento: { botao: "Excluir equipamento", feito: "Equipamento excluído." },
+} as const;
+
 /**
  * "Excluir cliente" (TL-109), "Excluir local" (TL-110), "Excluir" do contrato (TL-112) e do
- * equipamento (TL-111): exclusão lógica com motivo opcional (UF-10). Com filhos vivos, o botão fica
- * desabilitado com a dica do motivo (E-04.7; EL-7).
+ * equipamento (TL-111): exclusão lógica com motivo opcional (UF-10), em AlertDialog (doc 08 §3.8).
+ * Com filhos vivos, o botão fica desabilitado com a dica do motivo (E-04.7; EL-7).
  */
 export function Excluir({
   alvo,
@@ -29,80 +38,39 @@ export function Excluir({
   depois: string;
 }) {
   const router = useRouter();
-  const pronto = useHidratado();
-  const [aberto, setAberto] = useState(false);
-  const [enviando, setEnviando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-
-  async function confirmar(ev: FormEvent<HTMLFormElement>) {
-    ev.preventDefault();
-    const motivo = String(new FormData(ev.currentTarget).get("motivo") ?? "").trim() || null;
-    setEnviando(true);
-    const entrada = { id, rowVersion, motivo };
-    const r =
-      alvo === "cliente"
-        ? await chamarAcao(excluirClienteAction(entrada))
-        : alvo === "local"
-          ? await chamarAcao(excluirLocalAction(entrada))
-          : alvo === "contrato"
-            ? await chamarAcao(excluirContratoAction(entrada))
-            : await chamarAcao(excluirEquipamentoAction(entrada));
-    setEnviando(false);
-    if (r.tipo === "conflito")
-      return setErro("Este registro foi alterado por outra pessoa. Recarregue a página.");
-    if (r.tipo === "erro") return setErro(r.mensagem);
-    router.push(depois);
-  }
-
-  if (!aberto) {
-    return (
-      <div className="acoes">
-        <div className="linha">
-          <button
-            type="button"
-            className="botao secundario perigo"
-            style={{ width: "auto" }}
-            disabled={!pronto || Boolean(bloqueio)}
-            title={bloqueio ?? undefined}
-            onClick={() => setAberto(true)}
-          >
-            Excluir {alvo}
-          </button>
-        </div>
-        {bloqueio && <p className="dica">{bloqueio}</p>}
-      </div>
-    );
-  }
+  const r = ROTULO[alvo];
 
   return (
-    <form
-      onSubmit={confirmar}
-      noValidate
-      className="confirmacao"
-      role="dialog"
-      aria-labelledby="confirmar-excluir"
+    <ConfirmDialog
+      gatilho={{
+        rotulo: r.botao,
+        bloqueio,
+        icone: <Trash2 size={20} aria-hidden="true" />,
+      }}
+      titulo={`Excluir ${nome}?`}
+      efeito="O registro sai das telas e listas; o histórico fica na auditoria."
+      confirmar={{ rotulo: r.botao, carregando: "Excluindo…" }}
+      onConfirmar={async (f) => {
+        const motivo = String(f.get("motivo") ?? "").trim() || null;
+        const entrada = { id, rowVersion, motivo };
+        const res =
+          alvo === "cliente"
+            ? await chamarAcao(excluirClienteAction(entrada))
+            : alvo === "local"
+              ? await chamarAcao(excluirLocalAction(entrada))
+              : alvo === "contrato"
+                ? await chamarAcao(excluirContratoAction(entrada))
+                : await chamarAcao(excluirEquipamentoAction(entrada));
+        if (res.tipo === "conflito")
+          return "Este registro foi alterado por outra pessoa. Recarregue a página.";
+        if (res.tipo === "erro") return res.mensagem;
+        avisar.sucesso(r.feito);
+        router.push(depois);
+      }}
     >
-      <p id="confirmar-excluir">
-        Excluir <strong>{nome}</strong>? O registro sai das telas e listas; o histórico fica na
-        auditoria.
-      </p>
-      <div className="campo">
-        <label htmlFor="motivo">Motivo (opcional)</label>
-        <textarea id="motivo" name="motivo" rows={2} />
-      </div>
-      {erro && (
-        <div className="alerta erro" role="status">
-          {erro}
-        </div>
-      )}
-      <div className="linha">
-        <button type="submit" className="botao perigo" disabled={!pronto || enviando}>
-          {enviando ? "Excluindo…" : "Confirmar exclusão"}
-        </button>
-        <button type="button" className="botao secundario" onClick={() => setAberto(false)}>
-          Voltar
-        </button>
-      </div>
-    </form>
+      <Field id="motivo" label="Motivo" opcional>
+        <Textarea name="motivo" rows={2} />
+      </Field>
+    </ConfirmDialog>
   );
 }

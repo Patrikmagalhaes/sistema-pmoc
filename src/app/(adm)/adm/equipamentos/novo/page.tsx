@@ -1,5 +1,10 @@
+import { Library } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
+import { buttonClasses } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Page, PageHeader } from "@/components/ui/page-header";
 import { prepararNovoEquipamento, UNIDADE_MAX, UNIDADE_PADRAO } from "@/modules/equipamentos";
 import { exigirArea } from "@/server/auth/sessao";
 import { getDatabase } from "@/server/db";
@@ -7,7 +12,7 @@ import { EquipamentoForm } from "../equipamento-form";
 
 export const metadata = { title: "Novo equipamento – Sistema PMOC" };
 
-/** TL-111 vazio (FL-07 criar), aberto da aba Equipamentos do local (`?local=`). */
+/** TL-111 vazio (FL-07 criar), aberto da aba Equipamentos do local (`?local=`). Template T-FORM. */
 export default async function NovoEquipamentoPage({
   searchParams,
 }: {
@@ -21,23 +26,31 @@ export default async function NovoEquipamentoPage({
   if (!n) notFound();
 
   return (
-    <section className="pagina">
-      <p>
-        <Link href={`/adm/locais/${n.local.id}?aba=equipamentos`}>
-          ← {n.local.nome} ({n.local.codigo})
-        </Link>
-      </p>
-      <h1>Novo equipamento</h1>
+    <Page largura="form">
+      <PageHeader
+        migalhas={[
+          { rotulo: "Clientes", href: "/adm/clientes" },
+          {
+            rotulo: `${n.local.nome} (${n.local.codigo})`,
+            href: `/adm/locais/${n.local.id}?aba=equipamentos`,
+          },
+          { rotulo: "Novo equipamento" },
+        ]}
+        titulo="Novo equipamento"
+      />
       {n.bloqueio ? (
-        <div className="alerta erro" role="status">
-          {n.bloqueio}
-        </div>
+        <Alert tom="danger">{n.bloqueio}</Alert>
       ) : n.tipos.length === 0 ? (
-        <div className="vazio">
-          <p>Cadastre um tipo de equipamento antes.</p>
-          <Link className="botao" href="/adm/tipos/novo">
-            Novo tipo
-          </Link>
+        <div className="rounded-lg border border-border bg-surface shadow-1">
+          <EmptyState
+            icone={Library}
+            titulo="Cadastre um tipo de equipamento antes."
+            acao={
+              <Link href="/adm/tipos/novo" className={buttonClasses({ variant: "primary" })}>
+                Novo tipo
+              </Link>
+            }
+          />
         </div>
       ) : (
         <EquipamentoForm
@@ -47,6 +60,6 @@ export default async function NovoEquipamentoPage({
           unidadeMax={UNIDADE_MAX}
         />
       )}
-    </section>
+    </Page>
   );
 }

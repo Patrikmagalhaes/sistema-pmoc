@@ -1,7 +1,16 @@
 "use client";
+import { Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Conflito } from "@/components/conflito";
+import { Alert } from "@/components/ui/alert";
+import { Button, buttonClasses } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DescriptionList } from "@/components/ui/description-list";
+import { Field, FieldError, FieldRow, Input } from "@/components/ui/field";
+import { FormActions } from "@/components/ui/form-actions";
+import { avisar } from "@/components/ui/toaster";
 import { chamarAcao } from "@/lib/chamar-acao";
 import { useHidratado } from "@/lib/use-hidratado";
 import { atualizarTipoAction, criarTipoAction } from "./actions";
@@ -19,14 +28,14 @@ export interface TipoEditavel {
 
 const SIGLA = /^[A-Z]{2,5}$/; // E-03.1 [A VALIDAR: formato]
 
-/** TL-105 – dados do tipo. Na criação inclui os grupos (RN-040: ao menos um). */
+/** TL-105 – dados do tipo (T-FORM). Na criação inclui os grupos (RN-040: ao menos um). */
 export function TipoForm({ tipo }: { tipo?: TipoEditavel }) {
   const novo = !tipo;
   const router = useRouter();
   const pronto = useHidratado();
   const [grupos, setGrupos] = useState<{ chave: number; nome: string }[]>([{ chave: 0, nome: "" }]);
   const [erros, setErros] = useState<Erros>({});
-  const [geral, setGeral] = useState<{ tipo: "erro" | "ok"; texto: string } | null>(null);
+  const [geral, setGeral] = useState<string | null>(null);
   const [conflito, setConflito] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
@@ -36,9 +45,11 @@ export function TipoForm({ tipo }: { tipo?: TipoEditavel }) {
     const f = new FormData(form);
     const nome = String(f.get("nome") ?? "").trim();
     const plural = String(f.get("plural") ?? "").trim();
-    const sigla = String(f.get("sigla") ?? "")
-      .trim()
-      .toUpperCase();
+    const sigla = tipo?.siglaTravada
+      ? tipo.sigla
+      : String(f.get("sigla") ?? "")
+          .trim()
+          .toUpperCase();
     const gs = grupos.map((g) => g.nome.trim()).filter(Boolean);
     const e: Erros = {};
     if (!nome) e.nome = "Informe o nome.";
@@ -63,103 +74,137 @@ export function TipoForm({ tipo }: { tipo?: TipoEditavel }) {
     if (r.tipo === "conflito") return setConflito(true);
     if (r.tipo === "erro") {
       if (r.campos) setErros(r.campos);
-      return setGeral({ tipo: "erro", texto: r.mensagem });
+      return setGeral(r.mensagem);
     }
     if (novo && "id" in r.dados) {
       router.push(`/adm/tipos/${String(r.dados.id)}?aviso=criado`);
       return;
     }
-    setGeral({ tipo: "ok", texto: "Dados salvos." });
+    avisar.sucesso("Dados salvos.");
     router.refresh();
   }
 
   if (conflito) return <Conflito />;
 
-  const erro = (k: string) => (erros[k] ? <span className="erro">{erros[k]}</span> : null);
-
   return (
-    <form onSubmit={salvar} noValidate className="formulario">
-      {geral && (
-        <div className={`alerta ${geral.tipo}`} role="status">
-          {geral.texto}
-        </div>
-      )}
-      <div className="campo">
-        <label htmlFor="nome">Nome</label>
-        <input id="nome" name="nome" defaultValue={tipo?.nome} aria-invalid={Boolean(erros.nome)} />
-        {erro("nome")}
-      </div>
-      <div className="campo">
-        <label htmlFor="plural">Plural (opcional)</label>
-        <input id="plural" name="plural" defaultValue={tipo?.plural ?? ""} />
-        <span className="dica">Usado no PMOC ("2 (dois) Splits"). Em branco, repete o nome.</span>
-      </div>
-      <div className="campo">
-        <label htmlFor="sigla">Sigla</label>
-        <input
-          id="sigla"
-          name="sigla"
-          defaultValue={tipo?.sigla}
-          maxLength={5}
-          readOnly={tipo?.siglaTravada}
-          style={{ textTransform: "uppercase" }}
-          aria-invalid={Boolean(erros.sigla)}
-        />
-        {erro("sigla") ??
-          (tipo?.siglaTravada ? (
-            <span className="dica">A sigla compõe as TAGs e não pode mudar.</span>
+    <form onSubmit={salvar} noValidate className="flex flex-col gap-6">
+      {geral && <Alert tom="danger">{geral}</Alert>}
+      <Card titulo="Dados do tipo">
+        <div className="flex flex-col gap-4">
+          <FieldRow className="lg:grid-cols-2">
+            <Field id="nome" label="Nome" erro={erros.nome}>
+              <Input name="nome" defaultValue={tipo?.nome} />
+            </Field>
+            <Field
+              id="plural"
+              label="Plural"
+              opcional
+              dica='Usado no PMOC ("2 (dois) Splits"). Em branco, repete o nome.'
+            >
+              <Input name="plural" defaultValue={tipo?.plural ?? ""} />
+            </Field>
+          </FieldRow>
+          {tipo?.siglaTravada ? (
+            <DescriptionList
+              itens={[
+                {
+                  rotulo: "Sigla",
+                  valor: <span className="font-mono">{tipo.sigla}</span>,
+                  ajuda: "A sigla compõe as TAGs e não pode mudar.",
+                },
+              ]}
+            />
           ) : (
-            <span className="dica">2 a 5 letras; vai na TAG do equipamento (ex.: SPL).</span>
-          ))}
-      </div>
-      {novo && (
-        <fieldset className="campo">
-          <legend>Grupos permitidos</legend>
-          {grupos.map((g, i) => (
-            <div className="linha" key={g.chave}>
-              <input
-                name={`grupo-${i}`}
-                aria-label={`Grupo ${i + 1}`}
-                value={g.nome}
-                placeholder="Ex.: Hi-Wall"
-                aria-invalid={Boolean(erros.grupos)}
-                onChange={(e) =>
-                  setGrupos(
-                    grupos.map((x) => (x.chave === g.chave ? { ...x, nome: e.target.value } : x)),
-                  )
-                }
+            <Field
+              id="sigla"
+              label="Sigla"
+              erro={erros.sigla}
+              dica="2 a 5 letras; vai na TAG do equipamento (ex.: SPL)."
+            >
+              <Input
+                name="sigla"
+                defaultValue={tipo?.sigla}
+                maxLength={5}
+                className="max-w-40 font-mono uppercase"
               />
-              {grupos.length > 1 && (
-                <button
-                  type="button"
-                  className="botao secundario"
-                  style={{ width: "auto" }}
-                  onClick={() => setGrupos(grupos.filter((x) => x.chave !== g.chave))}
-                >
-                  Remover
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            type="button"
-            className="botao secundario"
-            style={{ width: "auto" }}
-            onClick={() =>
-              setGrupos([
-                ...grupos,
-                { chave: Math.max(...grupos.map((x) => x.chave)) + 1, nome: "" },
-              ])
-            }
-          >
-            Incluir grupo
-          </button>
-          {erro("grupos")}
-        </fieldset>
+            </Field>
+          )}
+        </div>
+      </Card>
+
+      {novo && (
+        <Card
+          titulo="Grupos permitidos"
+          descricao="Ao menos um grupo. Os equipamentos deste tipo escolhem um destes grupos."
+        >
+          <fieldset className="flex flex-col gap-3">
+            <legend className="sr-only">Grupos permitidos</legend>
+            {grupos.map((g, i) => (
+              <div className="flex items-center gap-2" key={g.chave}>
+                <Input
+                  name={`grupo-${i}`}
+                  aria-label={`Grupo ${i + 1}`}
+                  value={g.nome}
+                  placeholder="Ex.: Hi-Wall"
+                  aria-invalid={Boolean(erros.grupos) || undefined}
+                  onChange={(e) =>
+                    setGrupos(
+                      grupos.map((x) => (x.chave === g.chave ? { ...x, nome: e.target.value } : x)),
+                    )
+                  }
+                />
+                {grupos.length > 1 && (
+                  <Button
+                    variant="tertiary"
+                    aria-label={`Remover grupo ${i + 1}`}
+                    title="Remover"
+                    className="px-3"
+                    onClick={() => setGrupos(grupos.filter((x) => x.chave !== g.chave))}
+                  >
+                    <Trash2 size={20} aria-hidden="true" />
+                    <span className="sr-only md:not-sr-only">Remover</span>
+                  </Button>
+                )}
+              </div>
+            ))}
+            <FieldError erro={erros.grupos} />
+            <Button
+              className="self-start"
+              icon={<Plus size={20} aria-hidden="true" />}
+              onClick={() =>
+                setGrupos([
+                  ...grupos,
+                  { chave: Math.max(...grupos.map((x) => x.chave)) + 1, nome: "" },
+                ])
+              }
+            >
+              Incluir grupo
+            </Button>
+          </fieldset>
+        </Card>
       )}
-      <button className="botao" type="submit" disabled={!pronto || enviando}>
-        {enviando ? "Salvando…" : "Salvar"}
-      </button>
+
+      <FormActions>
+        {novo ? (
+          <Link href="/adm/tipos" className={buttonClasses({ variant: "secondary" })}>
+            Cancelar
+          </Link>
+        ) : (
+          <Button
+            type="reset"
+            disabled={enviando}
+            onClick={() => {
+              setErros({});
+              setGeral(null);
+            }}
+          >
+            Cancelar
+          </Button>
+        )}
+        <Button type="submit" variant="primary" disabled={!pronto} loading={enviando}>
+          {enviando ? "Salvando…" : "Salvar"}
+        </Button>
+      </FormActions>
     </form>
   );
 }

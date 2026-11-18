@@ -1,6 +1,12 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/password-input";
+import { avisar } from "@/components/ui/toaster";
 import { authClient } from "@/lib/auth-client";
 import { useHidratado } from "@/lib/use-hidratado";
 
@@ -14,7 +20,7 @@ export function SenhaForm() {
   const router = useRouter();
   const pronto = useHidratado();
   const [erros, setErros] = useState<Record<string, string | undefined>>({});
-  const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   async function trocar(e: FormEvent<HTMLFormElement>) {
@@ -29,8 +35,9 @@ export function SenhaForm() {
     if (nova.length < MIN) err.nova = `A senha precisa ter pelo menos ${MIN} caracteres.`;
     else if (nova !== repetir) err.repetir = "As senhas não são iguais.";
     setErros(err);
-    setMsg(null);
-    if (Object.keys(err).length) return;
+    setErro(null);
+    const primeiro = Object.keys(err)[0];
+    if (primeiro) return (form.elements.namedItem(primeiro) as HTMLElement | null)?.focus();
     setEnviando(true);
     try {
       const { error } = await authClient.changePassword({
@@ -42,72 +49,47 @@ export function SenhaForm() {
         if (error.code === "INVALID_PASSWORD") return setErros({ atual: "Senha atual incorreta." });
         if (error.status === 400 && error.message) return setErros({ nova: error.message });
         if (error.status === 401) return window.location.assign("/login?voltar=%2Fconta");
-        return setMsg({ tipo: "erro", texto: "Não foi possível trocar a senha. Tente novamente." });
+        return setErro("Não foi possível trocar a senha. Tente novamente.");
       }
       form.reset();
-      setMsg({ tipo: "ok", texto: "Senha alterada. As outras sessões foram encerradas." });
+      avisar.sucesso("Senha alterada. As outras sessões foram encerradas.");
       router.refresh();
     } catch {
-      setMsg({ tipo: "erro", texto: "Sem conexão. Tente novamente." });
+      setErro("Não foi possível trocar a senha. Verifique a conexão e tente novamente.");
     } finally {
       setEnviando(false);
     }
   }
 
-  const erro = (k: string) => (erros[k] ? <span className="erro">{erros[k]}</span> : null);
-
   return (
-    <form onSubmit={trocar} noValidate className="formulario">
-      {msg && (
-        <div className={`alerta ${msg.tipo}`} role="status">
-          {msg.texto}
-        </div>
-      )}
-      <div className="campo">
-        <label htmlFor="atual">Senha atual</label>
-        <input
-          id="atual"
-          name="atual"
-          type="password"
-          autoComplete="current-password"
-          aria-invalid={Boolean(erros.atual)}
-        />
-        {erro("atual")}
-      </div>
-      <div className="campo">
-        <label htmlFor="nova">Nova senha</label>
-        <input
-          id="nova"
-          name="nova"
-          type="password"
-          autoComplete="new-password"
-          aria-invalid={Boolean(erros.nova)}
-        />
-        {erro("nova") ?? (
-          <span className="dica">
-            Mínimo de {MIN} caracteres. Uma frase com algumas palavras funciona bem.
-          </span>
-        )}
-      </div>
-      <div className="campo">
-        <label htmlFor="repetir">Repetir nova senha</label>
-        <input
-          id="repetir"
-          name="repetir"
-          type="password"
-          autoComplete="new-password"
-          aria-invalid={Boolean(erros.repetir)}
-        />
-        {erro("repetir")}
-      </div>
-      <button
-        className="botao"
-        type="submit"
-        disabled={!pronto || enviando}
-        style={{ width: "auto" }}
+    <form onSubmit={trocar} noValidate aria-labelledby="titulo-senha">
+      <Card
+        titulo={<span id="titulo-senha">Senha</span>}
+        descricao="Ao trocar, as outras sessões abertas são encerradas."
+        rodape={
+          <Button type="submit" variant="secondary" disabled={!pronto} loading={enviando}>
+            {enviando ? "Trocando…" : "Trocar senha"}
+          </Button>
+        }
       >
-        {enviando ? "Trocando…" : "Trocar senha"}
-      </button>
+        <div className="flex flex-col gap-4">
+          {erro && <Alert tom="danger">{erro}</Alert>}
+          <Field id="atual" label="Senha atual" erro={erros.atual}>
+            <PasswordInput name="atual" autoComplete="current-password" />
+          </Field>
+          <Field
+            id="nova"
+            label="Nova senha"
+            erro={erros.nova}
+            dica={`Mínimo de ${MIN} caracteres. Uma frase com algumas palavras funciona bem.`}
+          >
+            <PasswordInput name="nova" autoComplete="new-password" />
+          </Field>
+          <Field id="repetir" label="Repetir nova senha" erro={erros.repetir}>
+            <PasswordInput name="repetir" autoComplete="new-password" />
+          </Field>
+        </div>
+      </Card>
     </form>
   );
 }

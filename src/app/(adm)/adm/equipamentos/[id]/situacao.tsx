@@ -1,11 +1,20 @@
 "use client";
+import { Ban, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { avisar } from "@/components/ui/toaster";
 import { chamarAcao } from "@/lib/chamar-acao";
 import { useHidratado } from "@/lib/use-hidratado";
 import { alterarSituacaoEquipamentoAction } from "../actions";
 
-/** TL-111 "Inativar" (RN-152) e "Reativar" [A VALIDAR], com confirmação. */
+const CONFLITO = "Este registro foi alterado por outra pessoa. Recarregue a página.";
+
+/**
+ * TL-111 "Inativar" (RN-152), com confirmação (FE-H5.1), e "Reativar" [A VALIDAR], sem confirmação
+ * (doc 08 §5.3).
+ */
 export function SituacaoEquipamento({
   id,
   rowVersion,
@@ -20,66 +29,48 @@ export function SituacaoEquipamento({
 }) {
   const router = useRouter();
   const pronto = useHidratado();
-  const [aberto, setAberto] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-  const inativar = situacao === "ATIVO";
-  const rotulo = inativar ? "Inativar" : "Reativar";
 
-  async function confirmar() {
-    setEnviando(true);
-    setErro(null);
+  const alterar = async (nova: "ATIVO" | "INATIVO") => {
     const r = await chamarAcao(
-      alterarSituacaoEquipamentoAction({
-        id,
-        rowVersion,
-        situacao: inativar ? "INATIVO" : "ATIVO",
-      }),
+      alterarSituacaoEquipamentoAction({ id, rowVersion, situacao: nova }),
     );
-    setEnviando(false);
-    if (r.tipo === "conflito")
-      return setErro("Este registro foi alterado por outra pessoa. Recarregue a página.");
-    if (r.tipo === "erro") return setErro(r.mensagem);
-    setAberto(false);
+    if (r.tipo === "conflito") return CONFLITO;
+    if (r.tipo === "erro") return r.mensagem;
+    avisar.sucesso(nova === "INATIVO" ? "Equipamento inativado." : "Equipamento reativado.");
     router.refresh();
-  }
+    return null;
+  };
 
-  if (!aberto) {
+  if (situacao === "ATIVO") {
     return (
-      <div className="acoes">
-        <div className="linha">
-          <button
-            type="button"
-            className="botao secundario"
-            style={{ width: "auto" }}
-            disabled={!pronto || Boolean(bloqueio)}
-            title={bloqueio ?? undefined}
-            onClick={() => setAberto(true)}
-          >
-            {rotulo}
-          </button>
-        </div>
-        {bloqueio && <p className="dica">{bloqueio}</p>}
-      </div>
+      <ConfirmDialog
+        gatilho={{ rotulo: "Inativar", bloqueio, icone: <Ban size={20} aria-hidden="true" /> }}
+        titulo="Inativar o equipamento?"
+        efeito="Ele deixa de entrar em novos PMOCs, ocorrências e visitas; o histórico continua. A TAG não é reaproveitada."
+        confirmar={{ rotulo: "Inativar equipamento", carregando: "Inativando…" }}
+        onConfirmar={() => alterar("INATIVO")}
+      />
     );
   }
 
   return (
-    <div className="confirmacao" role="dialog" aria-labelledby="confirmar-situacao">
-      <p id="confirmar-situacao">
-        {inativar
-          ? "Inativar o equipamento? Ele deixa de entrar em novos PMOCs, ocorrências e visitas; o histórico continua. A TAG não é reaproveitada."
-          : "Reativar o equipamento? Ele volta a entrar nos novos PMOCs."}
-      </p>
-      {erro && <p className="alerta erro">{erro}</p>}
-      <div className="linha">
-        <button type="button" className="botao" disabled={!pronto || enviando} onClick={confirmar}>
-          {enviando ? "Salvando…" : `Confirmar: ${rotulo.toLowerCase()}`}
-        </button>
-        <button type="button" className="botao secundario" onClick={() => setAberto(false)}>
-          Voltar
-        </button>
-      </div>
+    <div className="flex flex-col items-start gap-1 sm:items-end">
+      <Button
+        icon={<RotateCcw size={20} aria-hidden="true" />}
+        disabled={!pronto || Boolean(bloqueio)}
+        loading={enviando}
+        title={bloqueio ?? undefined}
+        onClick={async () => {
+          setEnviando(true);
+          const erro = await alterar("ATIVO");
+          setEnviando(false);
+          if (erro) avisar.erro(erro);
+        }}
+      >
+        {enviando ? "Reativando…" : "Reativar"}
+      </Button>
+      {bloqueio && <p className="max-w-prose text-small text-text-muted">{bloqueio}</p>}
     </div>
   );
 }

@@ -29,6 +29,13 @@ function totp(base32: string): string {
  */
 let ipDoTeste = 0;
 
+/** "Sair" fica no menu do usuário (doc 08 §3.9); na TL-004 é um botão direto. */
+async function sair(page: Page) {
+  const menu = page.getByRole("button", { name: /^Menu do usuário/ });
+  if (await menu.count()) await menu.click();
+  await page.getByRole("button", { name: "Sair" }).click();
+}
+
 async function entrar(page: Page, email: string, senha: string) {
   ipDoTeste += 1;
   await page.setExtraHTTPHeaders({
@@ -56,9 +63,9 @@ test("sem sessão: rota protegida leva ao login com retorno (SESSAO_EXPIRADA)", 
 
 test("E-01.1: senha errada mostra mensagem única", async ({ page }) => {
   await entrar(page, usuario("CLIENTE").email, "senha totalmente errada");
-  await expect(page.locator(".alerta.erro")).toHaveText("E-mail ou senha incorretos.");
+  await expect(page.locator('[data-tom="danger"]')).toHaveText("E-mail ou senha incorretos.");
   await entrar(page, "ninguem@exemplo.test", "senha totalmente errada");
-  await expect(page.locator(".alerta.erro")).toHaveText("E-mail ou senha incorretos.");
+  await expect(page.locator('[data-tom="danger"]')).toHaveText("E-mail ou senha incorretos.");
 });
 
 test("CLIENTE entra no portal e não acessa a administração (CA-01.3)", async ({ page }) => {
@@ -78,7 +85,7 @@ test("TECNICO entra no app e volta para a rota pedida", async ({ page }) => {
   await page.getByLabel("Senha", { exact: true }).fill(u.senha);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/tecnico$/);
-  await page.getByRole("button", { name: "Sair" }).click();
+  await sair(page);
   await expect(page).toHaveURL(/\/login$/);
   await page.goto("/tecnico");
   await expect(page).toHaveURL(/\/login\?voltar=/);
@@ -96,16 +103,18 @@ test("RN-194: ADM sem segundo fator só acessa TL-004; ativa e recebe 10 código
   await page.getByLabel("Confirme sua senha").fill(u.senha);
   await page.getByRole("button", { name: "Continuar" }).click();
   await expect(page.getByAltText("QR code para o aplicativo autenticador")).toBeVisible();
-  segredoAdm = (await page.locator(".chave").textContent()) ?? "";
+  segredoAdm = (await page.locator('[data-slot="chave"]').textContent()) ?? "";
   expect(segredoAdm).toMatch(/^[A-Z2-7]+=*$/);
 
   await page.getByLabel("Código do aplicativo").fill("000000");
   await page.getByRole("button", { name: "Confirmar código" }).click();
-  await expect(page.locator(".alerta.erro")).toHaveText("Código incorreto.");
+  await expect(page.locator('[data-tom="danger"]')).toHaveText("Código incorreto.");
 
   await page.getByLabel("Código do aplicativo").fill(totp(segredoAdm));
   await page.getByRole("button", { name: "Confirmar código" }).click();
-  await expect(page.locator(".codigos li")).toHaveCount(10);
+  await expect(
+    page.getByRole("list", { name: "Códigos de recuperação" }).getByRole("listitem"),
+  ).toHaveCount(10);
   const concluir = page.getByRole("button", { name: "Concluir" });
   await expect(concluir).toBeDisabled();
   await page.getByLabel("Guardei os códigos em local seguro").check();
@@ -196,7 +205,7 @@ test("isolamento: CLIENTE e TECNICO não abrem a gestão de usuários (CA-01.3)"
       .getByRole("button", { name: "Ir para o início" })
       .or(page.getByRole("link", { name: "Ir para o início" }))
       .click();
-    await page.getByRole("button", { name: "Sair" }).click();
+    await sair(page);
     await expect(page).toHaveURL(/\/login$/);
   }
 });
@@ -230,7 +239,7 @@ test("ADM cria técnico; o link inicial define a senha e o técnico entra (FL-05
   await page.getByLabel("E-mail").fill("rafael.novo@exemplo.test");
   await page.getByLabel("Perfil").selectOption("TECNICO");
   await page.getByRole("button", { name: "Salvar" }).click();
-  await expect(page.locator(".campo .erro")).toHaveText("Este e-mail já está em uso.");
+  await expect(page.locator('[data-slot="erro-campo"]')).toHaveText("Este e-mail já está em uso.");
 
   // Lista com busca (UL-02: filtro na URL)
   await page.goto("/adm/usuarios");
@@ -240,7 +249,7 @@ test("ADM cria técnico; o link inicial define a senha e o técnico entra (FL-05
   await expect(page.locator("tbody tr")).toHaveCount(1);
 
   // O técnico define a senha pelo link e entra
-  await page.getByRole("button", { name: "Sair" }).click();
+  await sair(page);
   await expect(page).toHaveURL(/\/login$/);
   await page.goto(ultimoLink());
   await page.getByLabel("Nova senha").fill("frase do rafael novo");
@@ -258,13 +267,13 @@ test("ADM inativa com confirmação; o usuário perde o acesso; reativar devolve
   await entrarAdm(page);
   await page.goto("/adm/usuarios?busca=rafael.novo");
   await page.getByRole("link", { name: "Rafael Técnico Novo" }).click();
-  await page.getByRole("button", { name: "Inativar" }).click();
+  await page.getByRole("button", { name: "Inativar", exact: true }).click();
   await expect(page.getByText(/O usuário perde o acesso na hora/)).toBeVisible();
-  await page.getByRole("button", { name: "Confirmar inativação" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Inativar usuário" }).click();
   await expect(
     page.getByText("Usuário inativado. As sessões dele foram encerradas."),
   ).toBeVisible();
-  await expect(page.locator(".titulo-pagina .etiqueta")).toContainText("Inativo");
+  await expect(page.locator('h1 + [data-slot="estado"]')).toContainText("Inativo");
 
   // Inativo some da lista padrão (UL-03) e aparece com o filtro
   await page.goto("/adm/usuarios?busca=rafael.novo");
@@ -280,10 +289,10 @@ test("ADM inativa com confirmação; o usuário perde o acesso; reativar devolve
     .click();
   await expect(page.getByRole("button", { name: "Inativar" })).toBeDisabled();
 
-  await page.getByRole("button", { name: "Sair" }).click();
+  await sair(page);
   await expect(page).toHaveURL(/\/login$/);
   await entrar(page, "rafael.novo@exemplo.test", "frase do rafael novo");
-  await expect(page.locator(".alerta.erro")).toHaveText("E-mail ou senha incorretos."); // E-01.2
+  await expect(page.locator('[data-tom="danger"]')).toHaveText("E-mail ou senha incorretos."); // E-01.2
 
   await entrarAdm(page);
   await page.goto("/adm/usuarios?busca=rafael.novo&situacao=INATIVO");
@@ -376,10 +385,7 @@ test("FL-03: ADM cria tipo com grupo, inclui atividades e inativa (CA-08.1, E-03
   await expect(page.getByText("Atividade incluída.")).toBeVisible();
 
   // RN-051: mensal antes de trimestral
-  const tabela = page
-    .locator(".secao")
-    .filter({ hasText: "Atividades padrão" })
-    .locator("tbody tr");
+  const tabela = page.getByRole("table", { name: "Atividades padrão" }).locator("tbody tr");
   await expect(tabela.nth(0)).toContainText("Limpar filtro");
   await expect(tabela.nth(1)).toContainText("Medir tensão");
   await expect(tabela.nth(1)).toContainText("Medição (V)");
@@ -391,16 +397,22 @@ test("FL-03: ADM cria tipo com grupo, inclui atividades e inativa (CA-08.1, E-03
   await expect(page.getByText("A nova periodicidade não altera PMOCs já criados.")).toBeVisible();
 
   // E-03.2: o único grupo de tipo ativo não pode ser inativado
-  const grupos = page.locator(".secao").filter({ hasText: "Grupos permitidos" });
-  await grupos.getByRole("button", { name: "Inativar" }).click();
-  await grupos.getByRole("button", { name: "Confirmar inativação" }).click();
+  const grupos = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Grupos permitidos" }) });
+  await grupos.getByRole("button", { name: "Inativar", exact: true }).click();
+  await grupos.getByRole("dialog").getByRole("button", { name: "Inativar grupo" }).click();
   await expect(grupos.getByText("Inclua ao menos um grupo.")).toBeVisible();
   await grupos.getByRole("button", { name: "Voltar" }).click();
 
   // Tipo sem uso: inativar (UF-09) e ver na lista só com o filtro (UL-03)
-  await page.locator(".acoes").first().getByRole("button", { name: "Inativar" }).click();
-  await page.getByRole("button", { name: "Confirmar inativação" }).click();
-  await expect(page.locator(".titulo-pagina .etiqueta")).toHaveText("Inativo");
+  await page
+    .locator("header")
+    .filter({ has: page.getByRole("heading", { level: 1 }) })
+    .getByRole("button", { name: "Inativar", exact: true })
+    .click();
+  await page.getByRole("dialog").getByRole("button", { name: "Inativar tipo" }).click();
+  await expect(page.locator('h1 + [data-slot="estado"]')).toHaveText("Inativo");
   await page.goto("/adm/tipos");
   await expect(page.getByRole("link", { name: "Janela E2E" })).toHaveCount(0);
   await page.getByLabel("Mostrar inativos").check();
@@ -431,7 +443,7 @@ test("FL-04: ADM cria cliente e local; código gerado; exclusão bloqueada com m
   await page.getByLabel("CEP").fill("88020300");
   await expect(page.getByLabel("CEP")).toHaveValue("88020-300");
   await page.getByRole("button", { name: "Salvar" }).click();
-  await expect(page.locator(".alerta.erro")).toContainText(
+  await expect(page.locator('[data-tom="danger"]')).toContainText(
     "Já existe cliente com este CNPJ: Clínica Alfa Ltda.",
   );
   await expect(page.getByRole("link", { name: "Abrir o cliente existente" })).toBeVisible();
@@ -447,9 +459,7 @@ test("FL-04: ADM cria cliente e local; código gerado; exclusão bloqueada com m
 
   // Aba Locais: novo local com código gerado (DM-19)
   await page.getByRole("link", { name: "Locais" }).click();
-  await expect(
-    page.getByText("Nenhum local. Cadastre o primeiro local deste cliente."),
-  ).toBeVisible();
+  await expect(page.getByText("Cadastre o primeiro local deste cliente.")).toBeVisible();
   await page.getByRole("link", { name: "Novo local" }).click();
   await page.getByLabel("Nome do local").fill("Unidade Centro");
   await page.getByLabel("Logradouro").fill("Av. Beira-Mar");
@@ -459,7 +469,8 @@ test("FL-04: ADM cria cliente e local; código gerado; exclusão bloqueada com m
   await page.getByLabel("CEP").fill("88015000");
   await page.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText(/Local criado com o código L\d{3,}\./)).toBeVisible();
-  const codigo = await page.getByLabel("Código").inputValue();
+  const codigo =
+    (await page.getByText(/Local criado com o código/).textContent())?.match(/Ld{3,}/)?.[0] ?? "";
   expect(codigo).toMatch(/^L\d{3,}$/);
 
   // E-04.7: cliente com local vivo não pode ser excluído
@@ -475,14 +486,15 @@ test("FL-04: ADM cria cliente e local; código gerado; exclusão bloqueada com m
   await page.getByRole("link", { name: "Unidade Centro" }).click();
   await page.getByRole("button", { name: "Excluir local" }).click();
   await page.getByLabel("Motivo (opcional)").fill("cadastro de teste");
-  await page.getByRole("button", { name: "Confirmar exclusão" }).click();
-  await expect(
-    page.getByText("Nenhum local. Cadastre o primeiro local deste cliente."),
-  ).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /^Excluir / })
+    .click();
+  await expect(page.getByText("Cadastre o primeiro local deste cliente.")).toBeVisible();
 
   // Aba Usuários: "Novo usuário" abre a TL-107 com perfil e cliente travados (FL-04 passo 4)
   await page.getByRole("link", { name: "Usuários" }).last().click();
-  await expect(page.getByText("Nenhum usuário. O cliente não terá acesso ao portal")).toBeVisible();
+  await expect(page.getByText("O cliente não terá acesso ao portal")).toBeVisible();
   await page.getByRole("link", { name: "Novo usuário" }).click();
   await expect(page.getByLabel("Perfil")).toBeDisabled();
   await expect(page.getByLabel("Perfil")).toHaveValue("CLIENTE");
@@ -510,7 +522,7 @@ test("FL-06: sobreposição, renovar, confirmar renovação e cancelar (CA-07.1,
   await expect(page.getByText("Informe o nº da ART.")).toBeVisible(); // CA-07.2
   await page.getByLabel("Nº da ART").fill("ART-E2E-1");
   await page.getByRole("button", { name: "Salvar" }).click();
-  await expect(page.locator(".campo .erro")).toHaveText(
+  await expect(page.locator('[data-slot="erro-campo"]')).toHaveText(
     "Período sobrepõe o contrato 01/01/2026–31/12/2026.",
   );
 
@@ -534,18 +546,20 @@ test("FL-06: sobreposição, renovar, confirmar renovação e cancelar (CA-07.1,
     page.getByText(/Renovação confirmada em .* por Ana Administradora E2E/),
   ).toBeVisible();
   await page.getByRole("link", { name: "01/01/2026 a 31/12/2026" }).click();
-  await expect(page.getByText("PMOC: Histórico.")).toBeVisible();
+  await expect(
+    page.locator("section").filter({ hasText: "Estado do PMOC" }).getByText("Histórico"),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: "Renovar" })).toHaveCount(0);
 
   // Cancelar o contrato novo: motivo obrigatório; depois tudo somente leitura (E-06.7)
   await page.goto(`/adm/locais/${LOCAL_SEED_A}?aba=contratos`);
   await page.getByRole("link", { name: "01/01/2027" }).click();
-  await page.getByRole("button", { name: "Cancelar contrato" }).click();
+  await page.getByRole("button", { name: "Cancelar contrato", exact: true }).click();
   await page.getByLabel("Data de cancelamento").fill("2027-03-15");
-  await page.getByRole("button", { name: "Confirmar cancelamento" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancelar contrato" }).click();
   await expect(page.getByText("Informe o motivo do cancelamento.")).toBeVisible();
   await page.getByLabel("Motivo").fill("Imóvel vendido");
-  await page.getByRole("button", { name: "Confirmar cancelamento" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancelar contrato" }).click();
   await expect(page.getByText("Contrato cancelado em 15/03/2027: Imóvel vendido")).toBeVisible();
   await expect(page.getByRole("button", { name: "Salvar" })).toHaveCount(0);
   await expect(page.getByLabel("Nº da ART")).toHaveAttribute("readonly", "");
@@ -589,9 +603,9 @@ test("FL-07: TAG gerada e não reaproveitada; ambiente obrigatório; inativar e 
   await expect(page.getByLabel("Capacidade (opcional)")).toHaveValue("12000");
 
   // Inativar (UF-09): some da lista; aparece com "Mostrar inativos" (UL-03)
-  await page.getByRole("button", { name: "Inativar" }).click();
-  await page.getByRole("button", { name: "Confirmar: inativar" }).click();
-  await expect(page.locator(".titulo-pagina .etiqueta")).toHaveText("Inativo");
+  await page.getByRole("button", { name: "Inativar", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Inativar equipamento" }).click();
+  await expect(page.locator('h1 + [data-slot="estado"]')).toHaveText("Inativo");
   await page.getByRole("link", { name: /\(L001\)/ }).click();
   await expect(page.getByRole("link", { name: "L001-SPL-001" })).toBeVisible();
   await expect(page.getByRole("link", { name: "L001-SPL-002" })).toHaveCount(0);
@@ -601,7 +615,10 @@ test("FL-07: TAG gerada e não reaproveitada; ambiente obrigatório; inativar e 
 
   // Sem registro: exclui (RN-048); o próximo não reaproveita o sequencial (CA-09.2)
   await page.getByRole("button", { name: "Excluir equipamento" }).click();
-  await page.getByRole("button", { name: "Confirmar exclusão" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /^Excluir / })
+    .click();
   await expect(page).toHaveURL(/aba=equipamentos/);
   await page.getByRole("link", { name: "Novo equipamento" }).click();
   // a aba do local também tem um "Tipo" (filtro): espera a TL-111
@@ -677,7 +694,9 @@ test("FL-02: logo enviado e servido, RT salvo e certificado A1 enviado (E-02.2, 
   await page.getByLabel("Arquivo do certificado (.pfx ou .p12)").setInputFiles(arquivo);
   await page.getByLabel("Senha do certificado").fill("errada");
   await page.getByRole("button", { name: "Enviar certificado" }).click();
-  await expect(page.locator(".campo .erro")).toHaveText("Senha do certificado incorreta.");
+  await expect(page.locator('[data-slot="erro-campo"]')).toHaveText(
+    "Senha do certificado incorreta.",
+  );
   await expect(page.getByLabel("Senha do certificado")).toHaveValue(""); // RN-121
   await page.getByLabel("Senha do certificado").fill("senha-do-a1");
   await page.getByRole("button", { name: "Enviar certificado" }).click();

@@ -1,7 +1,10 @@
 "use client";
+import { KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
-import { useHidratado } from "@/lib/use-hidratado";
+import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { Field, Textarea } from "@/components/ui/field";
+import { avisar } from "@/components/ui/toaster";
 import { redefinirSegundoFatorAction } from "../actions";
 
 /**
@@ -18,102 +21,57 @@ export function RedefinirSegundoFator({
   motivoMax: number;
 }) {
   const router = useRouter();
-  const pronto = useHidratado();
-  const [aberto, setAberto] = useState(false);
-  const [enviando, setEnviando] = useState(false);
   const [erroMotivo, setErroMotivo] = useState<string | null>(null);
-  const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
-
-  async function confirmar(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const motivo = String(new FormData(e.currentTarget).get("motivo") ?? "").trim();
-    setMsg(null);
-    if (!motivo) return setErroMotivo("Informe o motivo.");
-    setErroMotivo(null);
-    setEnviando(true);
-    try {
-      const r = await redefinirSegundoFatorAction({ id, motivo });
-      if (r?.serverError === "SESSAO_EXPIRADA") {
-        window.location.assign(`/login?voltar=${encodeURIComponent(window.location.pathname)}`);
-        return;
-      }
-      const d = r?.data;
-      if (!d)
-        return setMsg({ tipo: "erro", texto: r?.serverError ?? "Não foi possível concluir." });
-      if (!d.ok) {
-        if (d.campos?.motivo) return setErroMotivo(d.campos.motivo);
-        return setMsg({ tipo: "erro", texto: d.mensagem });
-      }
-      setAberto(false);
-      setMsg({
-        tipo: "ok",
-        texto:
-          "Segundo fator redefinido. As sessões foram encerradas; no próximo login o usuário configura o aplicativo de novo.",
-      });
-      router.refresh();
-    } catch {
-      setMsg({ tipo: "erro", texto: "Sem conexão. Tente novamente." });
-    } finally {
-      setEnviando(false);
-    }
-  }
 
   return (
-    <div className="acoes">
-      {msg && (
-        <div className={`alerta ${msg.tipo}`} role="status">
-          {msg.texto}
-        </div>
-      )}
-      {aberto ? (
-        <form
-          onSubmit={confirmar}
-          noValidate
-          className="confirmacao"
-          role="dialog"
-          aria-labelledby="confirmar-redefinir"
-        >
-          <p id="confirmar-redefinir">
-            Redefinir o segundo fator de <strong>{nome}</strong>? O aplicativo autenticador e os
-            códigos de recuperação atuais deixam de valer, as sessões abertas são encerradas e, no
-            próximo login, o usuário precisa configurar o aplicativo de novo.
-          </p>
-          <div className="campo">
-            <label htmlFor="motivo">Motivo</label>
-            <textarea
-              id="motivo"
-              name="motivo"
-              rows={3}
-              maxLength={motivoMax}
-              aria-invalid={Boolean(erroMotivo)}
-            />
-            {erroMotivo ? (
-              <span className="erro">{erroMotivo}</span>
-            ) : (
-              <span className="dica">Fica registrado na auditoria.</span>
-            )}
-          </div>
-          <div className="linha">
-            <button type="submit" className="botao perigo" disabled={!pronto || enviando}>
-              {enviando ? "Redefinindo…" : "Confirmar redefinição"}
-            </button>
-            <button type="button" className="botao secundario" onClick={() => setAberto(false)}>
-              Voltar
-            </button>
-          </div>
-        </form>
-      ) : (
-        <div className="linha">
-          <button
-            type="button"
-            className="botao secundario"
-            disabled={!pronto}
-            onClick={() => setAberto(true)}
-          >
-            Redefinir segundo fator
-          </button>
-        </div>
-      )}
-    </div>
+    <ConfirmDialog
+      gatilho={{
+        rotulo: "Redefinir segundo fator",
+        variant: "secondary",
+        icone: <KeyRound size={20} aria-hidden="true" />,
+      }}
+      titulo={`Redefinir o segundo fator de ${nome}?`}
+      efeito="O aplicativo autenticador e os códigos de recuperação atuais deixam de valer, as sessões abertas são encerradas e, no próximo login, o usuário precisa configurar o aplicativo de novo."
+      confirmar={{ rotulo: "Redefinir segundo fator", carregando: "Redefinindo…" }}
+      onConfirmar={async (f) => {
+        const motivo = String(f.get("motivo") ?? "").trim();
+        if (!motivo) {
+          setErroMotivo("Informe o motivo.");
+          return false;
+        }
+        setErroMotivo(null);
+        try {
+          const r = await redefinirSegundoFatorAction({ id, motivo });
+          if (r?.serverError === "SESSAO_EXPIRADA") {
+            window.location.assign(`/login?voltar=${encodeURIComponent(window.location.pathname)}`);
+            return;
+          }
+          const d = r?.data;
+          if (!d) return r?.serverError ?? "Não foi possível concluir.";
+          if (!d.ok) {
+            if (d.campos?.motivo) {
+              setErroMotivo(d.campos.motivo);
+              return false;
+            }
+            return d.mensagem;
+          }
+          avisar.sucesso(
+            "Segundo fator redefinido. As sessões foram encerradas; no próximo login o usuário configura o aplicativo de novo.",
+          );
+          router.refresh();
+        } catch {
+          return "Não foi possível concluir. Verifique a conexão e tente novamente.";
+        }
+      }}
+    >
+      <Field
+        id="motivo-2fa"
+        label="Motivo"
+        erro={erroMotivo}
+        dica={erroMotivo ? undefined : "Fica registrado na auditoria."}
+      >
+        <Textarea name="motivo" rows={3} maxLength={motivoMax} />
+      </Field>
+    </ConfirmDialog>
   );
 }

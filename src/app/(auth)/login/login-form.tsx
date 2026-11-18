@@ -1,6 +1,10 @@
 "use client";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/password-input";
 import { authClient, mensagemDeLogin } from "@/lib/auth-client";
 import { useHidratado } from "@/lib/use-hidratado";
 
@@ -12,7 +16,6 @@ export function LoginForm({ voltar }: { voltar: string | null }) {
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const pronto = useHidratado();
-  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   // O servidor decide o destino de cada perfil (04 §1.1 regra 1); recarga completa leva o cookie novo.
   const concluir = () => window.location.assign(voltar ?? "/");
@@ -56,81 +59,75 @@ export function LoginForm({ voltar }: { voltar: string | null }) {
     }
   }
 
-  const alerta = erro && (
-    <div className="alerta erro" role="alert">
-      {erro}
-    </div>
-  );
+  const alerta = erro && <Alert tom="danger">{erro}</Alert>;
 
   if (etapa !== "senha") {
     const totp = etapa === "codigo";
     return (
-      <form onSubmit={confirmarCodigo} noValidate>
+      // `key`: sem ela o React reaproveita o <input> do e-mail e o código nasce preenchido.
+      <form key={etapa} onSubmit={confirmarCodigo} noValidate className="flex flex-col gap-4">
         {alerta}
-        <div className="campo">
-          <label htmlFor="codigo">
-            {totp ? "Código do aplicativo autenticador" : "Código de recuperação"}
-          </label>
-          <input
-            id="codigo"
+        <Field
+          id="codigo"
+          label={totp ? "Código do aplicativo autenticador" : "Código de recuperação"}
+          dica={totp ? "Os 6 dígitos que aparecem no aplicativo." : undefined}
+        >
+          <Input
             name="codigo"
             required
             autoComplete="one-time-code"
             inputMode={totp ? "numeric" : "text"}
             pattern={totp ? "[0-9]{6}" : undefined}
             maxLength={totp ? 6 : 32}
+            className="tabular-nums"
           />
-        </div>
-        <button className="botao" type="submit" disabled={!pronto || enviando}>
+        </Field>
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          className="w-full"
+          disabled={!pronto}
+          loading={enviando}
+        >
           {enviando ? "Entrando…" : "Entrar"}
-        </button>
-        <div className="links">
-          <button
-            type="button"
-            className="botao secundario"
-            onClick={() => {
-              setErro(null);
-              setEtapa(totp ? "recuperacao" : "codigo");
-            }}
-          >
-            {totp ? "Usar código de recuperação" : "Usar o aplicativo autenticador"}
-          </button>
-        </div>
+        </Button>
+        <Button
+          variant="tertiary"
+          className="self-center"
+          onClick={() => {
+            setErro(null);
+            setEtapa(totp ? "recuperacao" : "codigo");
+          }}
+        >
+          {totp ? "Usar código de recuperação" : "Usar o aplicativo autenticador"}
+        </Button>
       </form>
     );
   }
 
   return (
-    <form onSubmit={entrar} noValidate>
+    <form key="senha" onSubmit={entrar} noValidate className="flex flex-col gap-4">
       {alerta}
-      <div className="campo">
-        <label htmlFor="email">E-mail</label>
-        <input id="email" name="email" type="email" required autoComplete="username" />
-      </div>
-      <div className="campo">
-        <label htmlFor="senha">Senha</label>
-        <input
-          id="senha"
-          name="senha"
-          type={mostrarSenha ? "text" : "password"}
-          required
-          autoComplete="current-password"
-        />
-        <label style={{ fontWeight: 400 }}>
-          <input
-            type="checkbox"
-            checked={mostrarSenha}
-            onChange={(e) => setMostrarSenha(e.target.checked)}
-          />{" "}
-          Mostrar senha
-        </label>
-      </div>
-      <button className="botao" type="submit" disabled={!pronto || enviando}>
+      <Field id="email" label="E-mail">
+        <Input name="email" type="email" required autoComplete="username" />
+      </Field>
+      <Field id="senha" label="Senha">
+        <PasswordInput name="senha" required autoComplete="current-password" />
+      </Field>
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        className="w-full"
+        disabled={!pronto}
+        loading={enviando}
+      >
         {enviando ? "Entrando…" : "Entrar"}
-      </button>
-      <div className="links">
-        <Link href="/senha/esqueci">Esqueci minha senha</Link>
-      </div>
+      </Button>
+      <Link href="/senha/esqueci" className="self-center text-body">
+        Esqueci minha senha
+      </Link>
     </form>
   );
 }
