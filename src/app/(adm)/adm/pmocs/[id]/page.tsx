@@ -22,6 +22,12 @@ import { EmitirPmoc } from "./emitir";
 import { Plano } from "./plano";
 
 export const metadata = { title: "PMOC – Sistema PMOC" };
+export const runtime = "nodejs";
+/**
+ * RN-188: a emissão (Server Action desta página) é síncrona. 800 s é o limite da função na Vercel
+ * (AF-11); o S-01 mediu 29 s para 200 equipamentos.
+ */
+export const maxDuration = 800;
 
 const ABAS = [
   { id: "plano", rotulo: "Plano" },
@@ -70,6 +76,7 @@ export default async function PmocPage({
           p.podeAlterarPlano && (
             <EmitirPmoc
               pmocId={p.id}
+              rowVersion={p.rowVersion}
               contratoId={p.contratoId}
               localId={p.localId}
               bloqueio={

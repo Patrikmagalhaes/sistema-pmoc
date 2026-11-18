@@ -369,7 +369,7 @@ Blocos: `[P]`. Uma linha por emissão (RN-016, RNF-15).
 | `verification_code` | `text` | sim | Código de verificação impresso no PDF, aleatório de 128 bits, `UNIQUE` (INT-14; decisões B7 e D6). |
 | `superseded_at` | `timestamptz` | cond. | Obrigatório se `is_current = false`. |
 
-Todas as colunas, exceto `status`, `is_current`, `client_signed_pdf_*` e `superseded_at`, são imutáveis após o `INSERT` (trigger).
+Todas as colunas, exceto `status`, `is_current`, `client_signed_pdf_*` e `superseded_at`, são imutáveis após o `INSERT` (trigger `pmoc_version_rules`, migração 0015, que também aceita só as transições da §4.2).
 
 #### `pmoc_ficha_export` – "ficha atualizada" gerada sob demanda
 Blocos: `[I]`. Registro de cada PDF gerado pela RN-131 (DM-16).
@@ -399,7 +399,7 @@ Blocos: `[P]`. Criada na **1ª emissão** do PMOC (DM-05); só para meses previs
 | `unscheduled_reason` | `text` enum `unscheduled_reason` | cond. | Obrigatório se e somente se `status = 'NAO_PREVISTA'`. |
 | `unscheduled_at` | `timestamptz` | cond. | Idem. |
 
-Restrições: `UNIQUE (pmoc_activity_id, equipment_id, month_index)`. `status IN ('OK','NOK')` só com `occurrence_record` finalizado (trigger em `occurrence_record`). `OK`/`NOK` nunca voltam para `PREVISTA`/`PENDENTE` (RN-149) – trigger.
+Restrições: `UNIQUE (pmoc_activity_id, equipment_id, month_index)`. `status IN ('OK','NOK')` só com `occurrence_record` finalizado (trigger em `occurrence_record`). `OK`/`NOK` nunca voltam para `PREVISTA`/`PENDENTE` (RN-149) – trigger. PMOC, local, tipo e mês (`pmoc_id`, `equipment_id`, `month_index ≤ contract.month_count`): trigger `occurrence_consistency` (migração 0015).
 
 #### `occurrence_record` – registro da execução da ocorrência
 Blocos: `[P]`. **Um** registro por ocorrência (DM-06). Corrigido no lugar pelo ADM; cada correção vai para `audit_log` (RN-092).
@@ -474,7 +474,7 @@ Blocos: `[I]` + colunas de remoção (únicas atualizáveis).
 
 Restrições:
 - `UNIQUE (occurrence_id) WHERE removed_at IS NULL` – uma ocorrência em no máximo uma visita ativa (RN-061).
-- Trigger: `occurrence.month_index = visit.reference_month_index`, **exceto** se `occurrence.status = 'PENDENTE'` (RN-064, D-06 a).
+- Trigger: `occurrence.month_index = visit.reference_month_index`, **exceto** se `occurrence.status = 'PENDENTE'` (RN-064, D-06 a), e ocorrência do mesmo PMOC da visita (`visit_occurrence_month`, migração 0015). O local da visita é o do contrato (`visit_site`, migração 0015).
 - Cancelar a visita preenche `removed_at` em todos os vínculos ativos (RN-075).
 
 #### `visit_schedule_change` – histórico de agendamento

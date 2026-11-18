@@ -5,11 +5,14 @@ import type { RequestContext } from "@/server/context";
 import type { Database, Tx } from "@/server/db";
 import type { Armazenamento } from "@/server/storage";
 import {
+  type ArquivoGerado,
   assinaturaConfere,
+  chaveDoArquivoGerado,
   chaveDoObjeto,
   conferirEnvio,
   FINALIDADES,
   type Finalidade,
+  GERADOS,
   PRAZO_ENVIO_S,
   SHA256,
 } from "./domain/arquivos";
@@ -193,5 +196,49 @@ export async function lerArquivo(
   const a = await deps.db.withTransaction(ctx, (tx) => repo.buscarArquivo(tx, id));
   if (a?.kind !== "LOGO_EMPRESA" || !can(ctx, PERMISSAO.LOGO_EMPRESA)) return null;
   const bytes = await deps.armazenamento.ler(a.chave);
+  return bytes ? { mime: a.mime, bytes } : null;
+}
+
+/**
+ * Arquivo gerado no servidor (ex.: PDF do PMOC, RN-009): grava o objeto e o `stored_file` na transação de
+ * quem chama (MOD-05a). A permissão é de quem chama. `clienteId` vem do documento de origem (SEG-22).
+ *
+ * O objeto é gravado antes do `COMMIT`: se a transação for desfeita, ele fica no armazenamento sem
+ * `stored_file` que o referencie, como o envio preparado e nunca confirmado. Nada é apagado (RN-126).
+ */
+export async function gravarArquivoGeradoNaTransacao(
+  tx: Tx,
+  a: { tipo: ArquivoGerado; clienteId: string | null; bytes: Buffer },
+  armazenamento: Armazenamento,
+  agora = new Date(),
+): Promise<{ id: string; sha256: string }> {
+  const { mime } = GERADOS[a.tipo];
+  const chave = chaveDoArquivoGerado(a.tipo, agora, randomUUID());
+  await armazenamento.gravar(chave, a.bytes, mime);
+  const sha256 = createHash("sha256").update(a.bytes).digest("hex");
+  const id = await repo.inserirArquivo(tx, {
+    kind: a.tipo,
+    clienteId: a.clienteId,
+    chave,
+    nomeOriginal: null,
+    mime,
+    tamanho: a.bytes.length,
+    sha256,
+  });
+  return { id, sha256 };
+}
+
+/**
+ * Bytes de um arquivo, na transação de quem chama e sem checar permissão (uso interno do servidor: ex.
+ * o logo da empresa no PDF do PMOC). `null` = não existe ou o objeto sumiu.
+ */
+export async function lerArquivoNaTransacao(
+  tx: Tx,
+  id: string,
+  armazenamento: Armazenamento,
+): Promise<{ mime: string; bytes: Buffer } | null> {
+  const a = await repo.buscarArquivo(tx, id);
+  if (!a) return null;
+  const bytes = await armazenamento.ler(a.chave);
   return bytes ? { mime: a.mime, bytes } : null;
 }

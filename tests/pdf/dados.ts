@@ -2,12 +2,7 @@
  * Retrato fictício para os testes do PDF do PMOC (06 LG-06: nada de dado real). Tipos com o número de
  * atividades da análise §4 (até 23), como no spike S-01.
  */
-import type { DadosDoDocumento } from "../../src/modules/pmoc";
-import {
-  ANEXO1_PARAGRAFOS,
-  ANEXO1_TITULO,
-  ANEXO1_VERSAO,
-} from "../../src/server/pdf/textos/anexo1";
+import { ANEXO1, type DadosDoDocumento } from "../../src/modules/pmoc";
 
 type Periodicidade = "MM" | "MB" | "MT" | "MS" | "MA";
 const CICLO: Periodicidade[] = ["MM", "MB", "MT", "MT", "MS", "MA"];
@@ -144,9 +139,9 @@ export function dadosFicticios(n: number, meses = 12): DadosDoDocumento {
         paragrafos: ["Recomendações fictícias para falha e emergência."],
       },
       anexo1: {
-        versao: ANEXO1_VERSAO,
-        titulo: ANEXO1_TITULO,
-        paragrafos: [...ANEXO1_PARAGRAFOS],
+        versao: ANEXO1.versao,
+        titulo: ANEXO1.titulo,
+        paragrafos: [...ANEXO1.paragrafos],
       },
     },
     tipos: tipos.map(({ id, nome, nomePlural, sigla }) => ({ id, nome, nomePlural, sigla })),

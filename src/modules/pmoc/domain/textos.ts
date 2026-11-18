@@ -7,13 +7,13 @@
  * Técnico não são reproduzidos (C3). Os "considerandos" do preâmbulo ficam de fora.
  *
  * Texto fixo, fora de `standard_text` (o CHECK da tabela não tem código para ele). Trocar o texto =
- * mudar `ANEXO1_VERSAO` aqui: a versão vai no retrato da emissão, junto com o texto.
+ * mudar `VERSAO` aqui: a versão vai no retrato da emissão, junto com o texto.
  */
-export const ANEXO1_VERSAO = "rascunho-1";
+const VERSAO = "rascunho-1";
 
-export const ANEXO1_TITULO = "Portaria do Ministério da Saúde nº 3.523, de 28 de agosto de 1998";
+const TITULO = "Portaria do Ministério da Saúde nº 3.523, de 28 de agosto de 1998";
 
-export const ANEXO1_PARAGRAFOS: readonly string[] = [
+const PARAGRAFOS: readonly string[] = [
   "[A VALIDAR – transcrição em revisão] Texto dos artigos da Portaria MS nº 3.523/1998, sem o preâmbulo.",
   "Art. 1º Aprovar Regulamento Técnico contendo medidas básicas referentes aos procedimentos de verificação visual do estado de limpeza, remoção de sujidades por métodos físicos e manutenção do estado de integridade e eficiência de todos os componentes dos sistemas de climatização, para garantir a qualidade do ar de interiores e prevenção de riscos à saúde dos ocupantes de ambientes climatizados.",
   "Art. 2º Determinar que serão objeto de Regulamento Técnico a ser elaborado por este Ministério medidas específicas referentes a padrões de qualidade do ar em ambientes climatizados, no que diz respeito à definição de parâmetros físicos e composição química do ar de interiores, à identificação dos poluentes de natureza física, química e biológica, suas tolerâncias e métodos de controle, bem como pré-requisitos de projetos de instalação e de execução de sistemas de climatização.",
@@ -46,3 +46,6 @@ export const ANEXO1_PARAGRAFOS: readonly string[] = [
   "Art. 10. Esta Portaria entra em vigor na data de sua publicação.",
   "Nota: os Anexos I e II do Regulamento Técnico, citados no texto da Portaria, não são reproduzidos neste documento.",
 ];
+
+/** Anexo 1 como entra no retrato da emissão (`textos.anexo1`). */
+export const ANEXO1 = { versao: VERSAO, titulo: TITULO, paragrafos: PARAGRAFOS } as const;

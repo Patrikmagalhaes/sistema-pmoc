@@ -17,6 +17,10 @@ export interface Armazenamento {
   ): Promise<string>;
   /** Bytes gravados na chave, ou `null` se não existe. */
   ler(chave: string): Promise<Buffer | null>;
+  /**
+   * Arquivo gerado no servidor (ex.: PDF do PMOC). Nunca sobrescreve: chave já usada falha (RN-126).
+   */
+  gravar(chave: string, bytes: Uint8Array, mime: string): Promise<void>;
 }
 
 export type RecebimentoLocal = "OK" | "INVALIDO" | "EXPIRADO" | "JA_ENVIADO" | "TAMANHO" | "TIPO";
@@ -61,6 +65,13 @@ export function armazenamentoLocal(
       }
     },
 
+    async gravar(chave, bytes) {
+      const p = caminho(chave);
+      await mkdir(dirname(p), { recursive: true });
+      // `wx`: nunca sobrescreve (RN-126).
+      await writeFile(p, bytes, { flag: "wx" });
+    },
+
     async receber(token, bytes, mime) {
       const [carga = "", assinatura = ""] = token.split(".");
       const esperada = assinar(carga);
@@ -96,7 +107,7 @@ export function armazenamentoNaoConfigurado(): Armazenamento {
   const falhar = async (): Promise<never> => {
     throw new Error("Armazenamento de produção ainda não configurado (Supabase Storage, 05 §3.7).");
   };
-  return { urlDeEnvio: falhar, ler: falhar };
+  return { urlDeEnvio: falhar, ler: falhar, gravar: falhar };
 }
 
 let shared: Armazenamento | undefined;
