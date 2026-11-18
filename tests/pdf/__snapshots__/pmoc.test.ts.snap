@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`PDF do PMOC > 200 equipamentos: dentro do limite do S-01 e snapshot pelo hash do texto 1`] = `"220 páginas · sha256 305182acc8405ff4b444ff54ef79ccc7937aeb4db06f3ce6d974d8483f3bc1c2"`;

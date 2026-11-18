@@ -171,6 +171,7 @@ Versões = última estável publicada no npm em 17/10/2026. **Fixar versão exat
 | IA do relatório | Anthropic API (`@anthropic-ai/sdk`) | 0.135.0 | — | RNF-10.1 [A VALIDAR], §3.12 |
 | Testes unitários/integração | Vitest + Testcontainers Postgres | 5.0.5 / 12.2.1 | Jest | Mais rápido, ESM nativo |
 | Testes E2E | Playwright | 1.64.1 | Cypress | Emula celular e modo offline (`context.setOffline`) |
+| Texto do PDF nos testes (só dev) | pdfjs-dist | 6.4.299 | unpdf, pdf-parse | §3.11; escolha do usuário em 18/11/2026 (Etapa 4). Projeto Vitest `pdf` (`pnpm test:pdf`) |
 | Lint + formatação | Biome | 2.5.15 | ESLint 10.13 + Prettier 3.9 | §3.14 |
 | Erros | Sentry (`@sentry/nextjs`) | 11.8.0 | Só logs da Vercel | §7.6 |
 | Disponibilidade | Better Stack (uptime + heartbeat) | — | UptimeRobot | §7.6 |
@@ -1011,7 +1012,8 @@ Observação: a Lei 14.063/2020 define assinatura simples, avançada e qualifica
 | 500 × 12 meses (folga) | 80 s, pico 1,71 GB, 515 páginas |
 | RNF-07 | `Página n de total` correto em todas as páginas; acentuação legível; nenhum `null`/`undefined`; mesmo dado → PDF idêntico byte a byte (com `creationDate` fixo). |
 | Leitura | Folga de ~30× sobre os 800 s e ~3× sobre os 3,5 GB. O tempo cresce um pouco acima do linear (200 → 500: 3,3×). Plano B (geração em partes) **não** é necessário. Ainda a medir na Etapa 4: logo embutido em toda página e fonte própria, se o layout final usar. |
-| Snapshot de texto (05 §3.11) | O spike usa um extrator mínimo (`s01/texto.ts`), suficiente para fontes padrão. O snapshot da Etapa 4 precisa de um extrator de texto de verdade: **escolha de biblioteca pendente** (pergunta ao usuário). |
+| Snapshot de texto (05 §3.11) | O spike usa um extrator mínimo (`s01/texto.ts`), suficiente para fontes padrão. O snapshot da Etapa 4 usa **pdfjs-dist 6.4.299** (escolha do usuário em 18/11/2026): `tests/pdf/`, texto completo para 1 e 30 equipamentos e hash do texto para 200. |
+| Layout final (Etapa 4, 18/11/2026) | PDF do PMOC real (`src/server/pdf/pmoc`), com bordas de tabela e rodapé completo: **200 equipamentos × 12 meses em 29 s** no mesmo ambiente local (o spike mediu 24 s). Logo ainda sem medida (o teste gera sem logo). |
 
 **Resultado do S-02 – parte local (teste `tests/spikes/s02.test.ts`, 12/11/2026): APROVADO na estrutura.** Critério oficial (CA-13.1, validador do ITI com A1 ICP-Brasil): **pendente**, feito à mão com `tests/spikes/s02/assinar.ts`.
 

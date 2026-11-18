@@ -399,6 +399,7 @@ De onde veio cada antigo `PEND` (para quem achar o ID em algum texto antigo):
 | Empresa é ME/EPP? (OP-Q1) | Prazos normais da LGPD, os mais curtos. | Go-live (Etapa 10) |
 | Itens `[A VALIDAR – advogado]`: política de privacidade, termo de uso, cláusula de aceite no contrato (GL-30, GL-31), valor jurídico do comprovante | Padrão conservador de cada doc; textos provisórios. O usuário disse que não precisa de advogado (R2 bloco 4), mas cada item só muda quando ele assumir por escrito. | Go-live (Etapa 10) |
 | Textos padrão: recomendações do PMOC (P2), aceite da assinatura (P5), termo do comprovante | Texto provisório inserido por migração de dados. | Go-live (Etapa 10) |
+| Texto do Anexo 1 do PMOC: Portaria MS 3.523/1998 (P3; análise C1–C4) | Em 18/11/2026 o usuário autorizou a IA a redigir o texto normativo como **rascunho**, para ele revisar. Fica em `src/server/pdf/textos/anexo1.ts`, marcado `[A VALIDAR]` e impresso com esse aviso, fora de `standard_text` (o CHECK da tabela não tem código para ele). A versão do texto vai no retrato da emissão. | Go-live (Etapa 10) |
 | CPF, cargo ou localização no comprovante | Não coletar (R2 2.9 a). Só muda com decisão nova. | — |
 | Confirmações técnicas dos spikes S-01 a S-06 | Seguir o desenho dos docs; se um spike reprovar, parar e perguntar. | A etapa indicada no doc 07 |
 | Demais `[A VALIDAR]` pontuais nos docs (textos de tela, limites, prazos de link) | Implementar como descrito, isolado em configuração (CLAUDE.md, "Sempre"). | — |

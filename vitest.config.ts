@@ -29,6 +29,15 @@ export default defineConfig({
         },
       },
       {
+        // PDFs (05 §3.11): snapshot de texto com 1, 30 e 200 equipamentos (o de 200 leva dezenas de s).
+        resolve: { alias },
+        test: {
+          name: "pdf",
+          include: ["tests/pdf/**/*.test.ts"],
+          testTimeout: 300_000,
+        },
+      },
+      {
         // Spikes (05 §10.4): banco próprio, porque alteram esquema (S-04) e carregam volume (S-05).
         resolve: { alias },
         test: {

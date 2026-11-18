@@ -1,0 +1,1291 @@
+Empresa Fictícia de Climatização Ltda
+Rua das Palmeiras Fictícias, 100, Centro, Florianópolis/SC
+Telefone (48) 3000-0000
+Loja Fictícia
+Plano de Manutenção, Operação e Controle do Sistema de Ar
+Condicionado
+PMOC
+TH12326-R1
+Vigência de 01/04/2025 até 31/03/2026
+Florianópolis, 1 de abril de 2025
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 1 de 42
+
+Empresa Fictícia de Climatização Ltda
+Rua das Palmeiras Fictícias, 100, Centro, Florianópolis/SC
+Telefone (48) 3000-0000
+1. DADOS DA INSTALAÇÃO
+Instalação: Loja Fictícia – Centro Cliente: Loja Fictícia
+Endereço: Rua das Palmeiras Fictícias Nº: s/n
+Complemento: KM 1 Cidade: Florianópolis
+UF: SC CEP: 88010-000
+2. DADOS DO PROPRIETÁRIO
+Razão Social: Cliente Fictício Comércio Ltda CNPJ: 11.444.777/0001-61
+Endereço: Rua das Palmeiras Fictícias Nº: 100
+Cidade: Florianópolis UF: SC
+CEP: 88010-000
+3. DADOS DA EMPRESA EXECUTORA
+Razão Social: Empresa Fictícia de Climatização Ltda CNPJ: 11.222.333/0001-81
+Fone: (48) 3000-0000 Endereço: Rua das Palmeiras Fictícias
+Nº: 100 Bairro: Centro
+Cidade: Florianópolis UF: SC
+CEP: 88010-000 Registro CREA: 000000-0
+ART: ART-FICTICIA-1
+4. DADOS DO RESPONSÁVEL TÉCNICO
+Profissional: Responsável Técnico Fictício Título: Engenheiro Responsável
+Registro: 000000-0 Fone: (48) 99999-0000
+E-mail: rt@exemplo.test Endereço: Rua das Palmeiras Fictícias
+Nº: 100 Bairro: Centro
+Cidade: Florianópolis UF: SC
+CEP: 88010-000
+Assinado digitalmente por Responsável Técnico Fictício
+Assinatura digital com certificado ICP-Brasil (e-CPF) do responsável técnico, em 18/11/2026.
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 2 de 42
+
+Empresa Fictícia de Climatização Ltda
+Rua das Palmeiras Fictícias, 100, Centro, Florianópolis/SC
+Telefone (48) 3000-0000
+5. LISTAGEM DE EQUIPAMENTOS
+- 1 (um) Fancolete, tipo Built-in
+TAGs: L012-FCL-001
+- 6 (seis) Splits, tipo Cassete
+TAGs: L012-SPL-002, L012-SPL-005, L012-SPL-008, L012-SPL-011, L012-SPL-014, L012-SPL-017
+- 6 (seis) Splits, tipo Hi-Wall
+TAGs: L012-SPL-003, L012-SPL-006, L012-SPL-009, L012-SPL-012, L012-SPL-015, L012-SPL-018
+- 6 (seis) Splits, Tipo Piso-Teto
+TAGs: L012-SPL-001, L012-SPL-004, L012-SPL-007, L012-SPL-010, L012-SPL-013, L012-SPL-016
+- 5 (cinco) VRF Condensador, tipo Condensadora
+TAGs: L012-VRC-001, L012-VRC-002, L012-VRC-003, L012-VRC-004, L012-VRC-005
+- 3 (três) VRF Evaporador, tipo Built-in
+TAGs: L012-VRE-001, L012-VRE-003, L012-VRE-005
+- 3 (três) VRF Evaporador, tipo Cassete
+TAGs: L012-VRE-002, L012-VRE-004, L012-VRE-006
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 3 de 42
+
+Empresa Fictícia de Climatização Ltda
+Rua das Palmeiras Fictícias, 100, Centro, Florianópolis/SC
+Telefone (48) 3000-0000
+6. CRONOGRAMA
+6.1 Fancolete
+DESCRIÇÃO MM MB MT MS MA
+Verificação do componente 1 do fancolete e conexões X
+Verificação do componente 7 do fancolete e conexões X
+Verificação do componente 2 do fancolete e conexões X
+Verificação do componente 8 do fancolete e conexões X
+Medição da corrente elétrica do fancolete (A) X
+Verificação do componente 4 do fancolete e conexões X
+Verificação do componente 9 do fancolete e conexões X
+Verificação do componente 5 do fancolete e conexões X
+Verificação do componente 6 do fancolete e conexões X
+6.2 Split
+DESCRIÇÃO MM MB MT MS MA
+Verificação do componente 1 do split e conexões X
+Verificação do componente 7 do split e conexões X
+Verificação do componente 13 do split e conexões X
+Verificação do componente 2 do split e conexões X
+Verificação do componente 8 do split e conexões X
+Verificação do componente 14 do split e conexões X
+Medição da corrente elétrica do split (A) X
+Verificação do componente 4 do split e conexões X
+Verificação do componente 9 do split e conexões X
+Verificação do componente 10 do split e conexões X
+Verificação do componente 5 do split e conexões X
+Verificação do componente 11 do split e conexões X
+Verificação do componente 6 do split e conexões X
+Verificação do componente 12 do split e conexões X
+6.3 VRF Condensador
+DESCRIÇÃO MM MB MT MS MA
+Verificação do componente 1 do vrf condensador e conexões X
+Verificação do componente 7 do vrf condensador e conexões X
+Verificação do componente 13 do vrf condensador e conexões X
+Verificação do componente 19 do vrf condensador e conexões X
+Verificação do componente 2 do vrf condensador e conexões X
+Verificação do componente 8 do vrf condensador e conexões X
+Verificação do componente 14 do vrf condensador e conexões X
+Verificação do componente 20 do vrf condensador e conexões X
+Medição da corrente elétrica do vrf condensador (A) X
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 4 de 42
+
+Empresa Fictícia de Climatização Ltda
+Rua das Palmeiras Fictícias, 100, Centro, Florianópolis/SC
+Telefone (48) 3000-0000
+DESCRIÇÃO MM MB MT MS MA
+Verificação do componente 4 do vrf condensador e conexões X
+Verificação do componente 9 do vrf condensador e conexões X
+Verificação do componente 10 do vrf condensador e conexões X
+Verificação do componente 15 do vrf condensador e conexões X
+Verificação do componente 16 do vrf condensador e conexões X
+Verificação do componente 21 do vrf condensador e conexões X
+Verificação do componente 22 do vrf condensador e conexões X
+Verificação do componente 5 do vrf condensador e conexões X
+Verificação do componente 11 do vrf condensador e conexões X
+Verificação do componente 17 do vrf condensador e conexões X
+Verificação do componente 23 do vrf condensador e conexões X
+Verificação do componente 6 do vrf condensador e conexões X
+Verificação do componente 12 do vrf condensador e conexões X
+Verificação do componente 18 do vrf condensador e conexões X
+6.4 VRF Evaporador
+DESCRIÇÃO MM MB MT MS MA
+Verificação do componente 1 do vrf evaporador e conexões X
+Verificação do componente 7 do vrf evaporador e conexões X
+Verificação do componente 2 do vrf evaporador e conexões X
+Verificação do componente 8 do vrf evaporador e conexões X
+Medição da corrente elétrica do vrf evaporador (A) X
+Verificação do componente 4 do vrf evaporador e conexões X
+Verificação do componente 9 do vrf evaporador e conexões X
+Verificação do componente 10 do vrf evaporador e conexões X
+Verificação do componente 5 do vrf evaporador e conexões X
+Verificação do componente 11 do vrf evaporador e conexões X
+Verificação do componente 6 do vrf evaporador e conexões X
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 5 de 42
+
+Empresa Fictícia de Climatização Ltda
+Rua das Palmeiras Fictícias, 100, Centro, Florianópolis/SC
+Telefone (48) 3000-0000
+RECOMENDAÇÕES PARA FALHA E EMERGÊNCIA
+Recomendações fictícias para falha e emergência.
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 6 de 42
+
+Empresa Fictícia de Climatização Ltda
+Rua das Palmeiras Fictícias, 100, Centro, Florianópolis/SC
+Telefone (48) 3000-0000
+ANEXO 1
+Portaria do Ministério da Saúde nº 3.523, de 28 de agosto de 1998
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 7 de 42
+
+Empresa Fictícia de Climatização Ltda
+Rua das Palmeiras Fictícias, 100, Centro, Florianópolis/SC
+Telefone (48) 3000-0000
+Portaria do Ministério da Saúde nº 3.523, de 28 de agosto de 1998
+[A VALIDAR – transcrição em revisão] Texto dos artigos da Portaria MS nº 3.523/1998, sem o preâmbulo.
+Art. 1º Aprovar Regulamento Técnico contendo medidas básicas referentes aos procedimentos de verificação visual do estado de
+limpeza, remoção de sujidades por métodos físicos e manutenção do estado de integridade e eficiência de todos os componentes dos
+sistemas de climatização, para garantir a qualidade do ar de interiores e prevenção de riscos à saúde dos ocupantes de ambientes
+climatizados.
+Art. 2º Determinar que serão objeto de Regulamento Técnico a ser elaborado por este Ministério medidas específicas referentes a
+padrões de qualidade do ar em ambientes climatizados, no que diz respeito à definição de parâmetros físicos e composição química
+do ar de interiores, à identificação dos poluentes de natureza física, química e biológica, suas tolerâncias e métodos de controle,
+bem como pré-requisitos de projetos de instalação e de execução de sistemas de climatização.
+Art. 3º As medidas aprovadas por este Regulamento Técnico aplicam-se aos ambientes climatizados de uso coletivo já existentes e
+àqueles a serem executados e, de forma complementar, aos regidos por normas e regulamentos específicos.
+Art. 4º Adotar, para fins deste Regulamento Técnico, as seguintes definições:
+a) ambientes climatizados: ambientes submetidos ao processo de climatização;
+b) ar de renovação: ar externo que é introduzido no ambiente climatizado;
+c) ar de retorno: ar que recircula no ambiente climatizado;
+d) boa qualidade do ar interno: conjunto de propriedades físicas, químicas e biológicas do ar que não apresentem agravos à saúde
+humana;
+e) climatização: conjunto de processos empregados para se obter, por meio de equipamentos em recintos fechados, condições
+específicas de conforto e boa qualidade do ar, adequadas ao bem-estar dos ocupantes;
+f) manutenção: atividades técnicas e administrativas destinadas a preservar as características de desempenho técnico dos
+componentes ou sistemas de climatização, garantindo as condições previstas neste Regulamento Técnico;
+g) Síndrome dos Edifícios Doentes: surgimento de sintomas que são comuns à população em geral, mas que, numa situação
+temporal, podem ser relacionados a um edifício em particular. Um incremento substancial na prevalência dos níveis dos sintomas,
+antes relacionados, proporciona a relação entre o edifício e seus ocupantes.
+Art. 5º Todos os sistemas de climatização devem estar em condições adequadas de limpeza, manutenção, operação e controle,
+observadas as determinações abaixo relacionadas, visando à prevenção de riscos à saúde dos ocupantes:
+a) manter limpos os componentes do sistema de climatização, tais como bandejas, serpentinas, umidificadores, ventiladores e dutos,
+de forma a evitar a difusão ou multiplicação de agentes nocivos à saúde humana e manter a boa qualidade do ar interno;
+b) utilizar, na limpeza dos componentes do sistema de climatização, produtos biodegradáveis devidamente registrados no Ministério
+da Saúde para esse fim;
+c) verificar periodicamente as condições físicas dos filtros e providenciar a sua substituição quando necessária;
+d) restringir a utilização do compartimento onde está instalada a caixa de mistura do ar de retorno e ar de renovação ao uso exclusivo
+do sistema de climatização, sendo proibido conter no mesmo compartimento materiais, produtos ou utensílios;
+e) preservar a captação de ar externo livre de possíveis fontes poluentes externas que apresentem riscos à saúde humana e dotá-la,
+no mínimo, de filtro classe G1 (um);
+f) garantir a adequada renovação do ar de interior dos ambientes climatizados, ou seja, no mínimo de 27 m³/h/pessoa;
+g) descartar as sujidades sólidas retiradas do sistema de climatização após a limpeza, acondicionadas em sacos de material
+resistente e porosidade adequada, para evitar o espalhamento de partículas inaláveis.
+Art. 6º Os proprietários, locatários e prepostos responsáveis por sistemas de climatização com capacidade acima de 5 TR (15.000
+kcal/h = 60.000 BTU/h) deverão manter um responsável técnico habilitado, com as seguintes atribuições:
+a) implantar e manter disponível no imóvel um Plano de Manutenção, Operação e Controle – PMOC, adotado para o sistema
+de climatização. Este Plano deve conter a identificação do estabelecimento que possui ambientes climatizados, a descrição das
+atividades a serem desenvolvidas, a periodicidade das mesmas, as recomendações a serem adotadas em situações de falha
+do equipamento e de emergência, para garantia de segurança do sistema de climatização, e outros de interesse, conforme
+especificações contidas no Anexo I deste Regulamento Técnico e na NBR 13971/97 da Associação Brasileira de Normas Técnicas
+– ABNT;
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 8 de 42
+
+Empresa Fictícia de Climatização Ltda
+Rua das Palmeiras Fictícias, 100, Centro, Florianópolis/SC
+Telefone (48) 3000-0000
+b) garantir a aplicação do PMOC por intermédio da execução contínua, direta ou indireta, deste serviço;
+c) manter disponível o registro da execução dos procedimentos estabelecidos no PMOC;
+d) divulgar os procedimentos e resultados das atividades de manutenção, operação e controle aos ocupantes.
+Parágrafo único. O PMOC deverá ser implantado no prazo máximo de 180 (cento e oitenta) dias a partir da vigência deste
+Regulamento Técnico.
+Art. 7º O PMOC do sistema de climatização deve estar coerente com a legislação de Segurança e Medicina do Trabalho. Os
+procedimentos de manutenção, operação e controle dos sistemas de climatização e limpeza dos ambientes climatizados não devem
+trazer riscos à saúde dos trabalhadores que os executam, nem aos ocupantes dos ambientes climatizados.
+Art. 8º Os órgãos competentes de Vigilância Sanitária farão cumprir este Regulamento Técnico, mediante a realização de inspeções
+e de outras ações pertinentes, com o apoio de órgãos governamentais, organismos representativos da comunidade e ocupantes dos
+ambientes climatizados.
+Art. 9º O não cumprimento deste Regulamento Técnico configura infração sanitária, sujeitando o proprietário ou locatário do imóvel
+ou preposto, bem como o responsável técnico, quando exigido, às penalidades previstas na Lei nº 6.437, de 20 de agosto de 1977,
+sem prejuízo de outras penalidades previstas em legislação específica.
+Art. 10. Esta Portaria entra em vigor na data de sua publicação.
+Nota: os Anexos I e II do Regulamento Técnico, citados no texto da Portaria, não são reproduzidos neste documento.
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 9 de 42
+
+Empresa Fictícia de Climatização Ltda
+Rua das Palmeiras Fictícias, 100, Centro, Florianópolis/SC
+Telefone (48) 3000-0000
+ANEXO 2
+FICHA HISTÓRICO
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 10 de 42
+
+Fancolete · L012-FCL-001
+Grupo: Built-in Local: Sala 101
+Marca: Fabricante Fictício Modelo: MOD-1
+Capacidade: 12.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do fancolete e conexões
+Verificação do componente 7 do fancolete e conexões
+Verificação do componente 2 do fancolete e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do fancolete e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do fancolete (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do fancolete e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do fancolete e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do fancolete e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do fancolete e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 11 de 42
+
+Split · L012-SPL-001
+Grupo: Tipo Piso-Teto Local: Sala 101
+Marca: Fabricante Fictício Modelo: MOD-1
+Capacidade: 12.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 12 de 42
+
+Split · L012-SPL-002
+Grupo: Cassete Local: Sala 102
+Marca: Fabricante Fictício Capacidade: 15.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 13 de 42
+
+Split · L012-SPL-003
+Grupo: Hi-Wall Local: Sala 103
+Modelo: MOD-3 Capacidade: 18.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 14 de 42
+
+Split · L012-SPL-004
+Grupo: Tipo Piso-Teto Local: Sala 104
+Marca: Fabricante Fictício
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 15 de 42
+
+Split · L012-SPL-005
+Grupo: Cassete Local: Sala 105
+Marca: Fabricante Fictício Modelo: MOD-5
+Capacidade: 12.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 16 de 42
+
+Split · L012-SPL-006
+Grupo: Hi-Wall Local: Sala 106
+Capacidade: 15.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 17 de 42
+
+Split · L012-SPL-007
+Grupo: Tipo Piso-Teto Local: Sala 107
+Marca: Fabricante Fictício Modelo: MOD-7
+Capacidade: 18.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 18 de 42
+
+Split · L012-SPL-008
+Grupo: Cassete Local: Sala 108
+Marca: Fabricante Fictício
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 19 de 42
+
+Split · L012-SPL-009
+Grupo: Hi-Wall Local: Sala 109
+Modelo: MOD-9 Capacidade: 12.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 20 de 42
+
+Split · L012-SPL-010
+Grupo: Tipo Piso-Teto Local: Sala 110
+Marca: Fabricante Fictício Capacidade: 15.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 21 de 42
+
+Split · L012-SPL-011
+Grupo: Cassete Local: Sala 111
+Marca: Fabricante Fictício Modelo: MOD-11
+Capacidade: 18.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 22 de 42
+
+Split · L012-SPL-012
+Grupo: Hi-Wall Local: Sala 112
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 23 de 42
+
+Split · L012-SPL-013
+Grupo: Tipo Piso-Teto Local: Sala 113
+Marca: Fabricante Fictício Modelo: MOD-13
+Capacidade: 12.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 24 de 42
+
+Split · L012-SPL-014
+Grupo: Cassete Local: Sala 114
+Marca: Fabricante Fictício Capacidade: 15.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 25 de 42
+
+Split · L012-SPL-015
+Grupo: Hi-Wall Local: Sala 115
+Modelo: MOD-15 Capacidade: 18.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 26 de 42
+
+Split · L012-SPL-016
+Grupo: Tipo Piso-Teto Local: Sala 116
+Marca: Fabricante Fictício
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 27 de 42
+
+Split · L012-SPL-017
+Grupo: Cassete Local: Sala 117
+Marca: Fabricante Fictício Modelo: MOD-17
+Capacidade: 12.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 28 de 42
+
+Split · L012-SPL-018
+Grupo: Hi-Wall Local: Sala 118
+Capacidade: 15.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do split e conexões
+Verificação do componente 7 do split e conexões
+Verificação do componente 13 do split e conexões
+Verificação do componente 2 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do split e conexões Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do split e conexões Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do split (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do split e conexões Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 29 de 42
+
+VRF Condensador · L012-VRC-001
+Grupo: Condensadora Local: Sala 101
+Marca: Fabricante Fictício Modelo: MOD-1
+Capacidade: 12.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do vrf condensador e
+conexões
+Verificação do componente 7 do vrf condensador e
+conexões
+Verificação do componente 13 do vrf condensador e
+conexões
+Verificação do componente 19 do vrf condensador e
+conexões
+Verificação do componente 2 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 20 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do vrf condensador (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 15 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 16 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 21 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 22 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 17 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 23 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 18 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 30 de 42
+
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 31 de 42
+
+VRF Condensador · L012-VRC-002
+Grupo: Condensadora Local: Sala 102
+Marca: Fabricante Fictício Capacidade: 15.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do vrf condensador e
+conexões
+Verificação do componente 7 do vrf condensador e
+conexões
+Verificação do componente 13 do vrf condensador e
+conexões
+Verificação do componente 19 do vrf condensador e
+conexões
+Verificação do componente 2 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 20 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do vrf condensador (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 15 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 16 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 21 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 22 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 17 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 23 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 18 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 32 de 42
+
+VRF Condensador · L012-VRC-003
+Grupo: Condensadora Local: Sala 103
+Modelo: MOD-3 Capacidade: 18.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do vrf condensador e
+conexões
+Verificação do componente 7 do vrf condensador e
+conexões
+Verificação do componente 13 do vrf condensador e
+conexões
+Verificação do componente 19 do vrf condensador e
+conexões
+Verificação do componente 2 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 20 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do vrf condensador (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 15 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 16 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 21 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 22 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 17 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 23 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 18 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 33 de 42
+
+VRF Condensador · L012-VRC-004
+Grupo: Condensadora Local: Sala 104
+Marca: Fabricante Fictício
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do vrf condensador e
+conexões
+Verificação do componente 7 do vrf condensador e
+conexões
+Verificação do componente 13 do vrf condensador e
+conexões
+Verificação do componente 19 do vrf condensador e
+conexões
+Verificação do componente 2 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 20 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do vrf condensador (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 15 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 16 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 21 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 22 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 17 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 23 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 18 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 34 de 42
+
+VRF Condensador · L012-VRC-005
+Grupo: Condensadora Local: Sala 105
+Marca: Fabricante Fictício Modelo: MOD-5
+Capacidade: 12.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do vrf condensador e
+conexões
+Verificação do componente 7 do vrf condensador e
+conexões
+Verificação do componente 13 do vrf condensador e
+conexões
+Verificação do componente 19 do vrf condensador e
+conexões
+Verificação do componente 2 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 14 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 20 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do vrf condensador (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 15 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 16 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 21 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 22 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 17 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 23 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 12 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 18 do vrf condensador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 35 de 42
+
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 36 de 42
+
+VRF Evaporador · L012-VRE-001
+Grupo: Built-in Local: Sala 101
+Marca: Fabricante Fictício Modelo: MOD-1
+Capacidade: 12.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do vrf evaporador e
+conexões
+Verificação do componente 7 do vrf evaporador e
+conexões
+Verificação do componente 2 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do vrf evaporador (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 37 de 42
+
+VRF Evaporador · L012-VRE-002
+Grupo: Cassete Local: Sala 102
+Marca: Fabricante Fictício Capacidade: 15.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do vrf evaporador e
+conexões
+Verificação do componente 7 do vrf evaporador e
+conexões
+Verificação do componente 2 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do vrf evaporador (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 38 de 42
+
+VRF Evaporador · L012-VRE-003
+Grupo: Built-in Local: Sala 103
+Modelo: MOD-3 Capacidade: 18.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do vrf evaporador e
+conexões
+Verificação do componente 7 do vrf evaporador e
+conexões
+Verificação do componente 2 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do vrf evaporador (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 39 de 42
+
+VRF Evaporador · L012-VRE-004
+Grupo: Cassete Local: Sala 104
+Marca: Fabricante Fictício
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do vrf evaporador e
+conexões
+Verificação do componente 7 do vrf evaporador e
+conexões
+Verificação do componente 2 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do vrf evaporador (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 40 de 42
+
+VRF Evaporador · L012-VRE-005
+Grupo: Built-in Local: Sala 105
+Marca: Fabricante Fictício Modelo: MOD-5
+Capacidade: 12.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do vrf evaporador e
+conexões
+Verificação do componente 7 do vrf evaporador e
+conexões
+Verificação do componente 2 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do vrf evaporador (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 41 de 42
+
+VRF Evaporador · L012-VRE-006
+Grupo: Cassete Local: Sala 106
+Capacidade: 15.000 BTU/h
+DESCRIÇÃO Abr/25 Mai/25 Jun/25 Jul/25 Ago/25 Set/25 Out/25 Nov/25 Dez/25 Jan/26 Fev/26 Mar/26
+Verificação do componente 1 do vrf evaporador e
+conexões
+Verificação do componente 7 do vrf evaporador e
+conexões
+Verificação do componente 2 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Verificação do componente 8 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø
+Medição da corrente elétrica do vrf evaporador (A) Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 4 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 9 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 10 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 5 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 11 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+Verificação do componente 6 do vrf evaporador e
+conexões
+Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø Ø
+OK – efetuado NOK – não efetuado Ø – não previsto Pendente
+PMOC gerado digitalmente em 18/11/2026 · TH12326-R1 · v1
+Código de verificação: ABCD-EFGH-JKMN-PQRS
+PMOCPágina 42 de 42
