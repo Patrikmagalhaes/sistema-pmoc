@@ -1,6 +1,12 @@
 "use client";
+import { Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Field, FileInput } from "@/components/ui/field";
+import { PasswordInput } from "@/components/ui/password-input";
 import { chamarAcao } from "@/lib/chamar-acao";
 import { useHidratado } from "@/lib/use-hidratado";
 import { enviarCertificadoAction } from "../actions";
@@ -15,7 +21,7 @@ function emBase64(b: ArrayBuffer): string {
 
 /**
  * TL-103 "Enviar certificado" (FL-02 passos 4–6). A senha nunca é reexibida: o campo é limpo depois de
- * cada envio (RN-121).
+ * cada envio (RN-121). O resultado fica em Alert (precisa ser relido: titular e aviso de divergência).
  */
 export function CertificadoForm({
   tamanhoMax,
@@ -27,7 +33,9 @@ export function CertificadoForm({
   const router = useRouter();
   const pronto = useHidratado();
   const [erros, setErros] = useState<Erros>({});
-  const [geral, setGeral] = useState<{ tipo: "erro" | "ok" | "aviso"; texto: string }[]>([]);
+  const [geral, setGeral] = useState<{ tom: "danger" | "success" | "warning"; texto: string }[]>(
+    [],
+  );
   const [enviando, setEnviando] = useState(false);
 
   async function enviar(ev: FormEvent<HTMLFormElement>) {
@@ -64,53 +72,52 @@ export function CertificadoForm({
     if (campoSenha) campoSenha.value = "";
     if (r.tipo !== "ok") {
       if (r.tipo === "erro" && r.campos) setErros(r.campos);
-      return setGeral([{ tipo: "erro", texto: r.tipo === "erro" ? r.mensagem : "Tente de novo." }]);
+      return setGeral([
+        { tom: "danger", texto: r.tipo === "erro" ? r.mensagem : "Tente de novo." },
+      ]);
     }
     form.reset();
     setGeral([
       {
-        tipo: "ok",
+        tom: "success",
         texto: `Certificado de ${String(r.dados.titular)} enviado. Ele passa a ser o atual.`,
       },
-      ...(r.dados.aviso ? [{ tipo: "aviso" as const, texto: String(r.dados.aviso) }] : []),
+      ...(r.dados.aviso ? [{ tom: "warning" as const, texto: String(r.dados.aviso) }] : []),
     ]);
     router.refresh();
   }
 
-  const erro = (k: string) => (erros[k] ? <span className="erro">{erros[k]}</span> : null);
-
   return (
-    <form onSubmit={enviar} noValidate className="formulario" style={{ maxWidth: 560 }}>
-      {geral.map((g) => (
-        <div key={g.texto} className={`alerta ${g.tipo}`} role="status">
-          {g.texto}
+    <form onSubmit={enviar} noValidate aria-labelledby="titulo-envio">
+      <Card
+        titulo={<span id="titulo-envio">Enviar certificado</span>}
+        descricao="Certificado A1 (.pfx ou .p12) do RT. O arquivo e a senha nunca são mostrados de novo."
+        rodape={
+          <Button
+            type="submit"
+            variant="primary"
+            icon={<Upload size={20} aria-hidden="true" />}
+            disabled={!pronto}
+            loading={enviando}
+          >
+            {enviando ? "Validando certificado…" : "Enviar certificado"}
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {geral.map((g) => (
+            <Alert key={g.texto} tom={g.tom}>
+              {g.texto}
+            </Alert>
+          ))}
+          <Field id="arquivo" label="Arquivo do certificado (.pfx ou .p12)" erro={erros.arquivo}>
+            <FileInput name="arquivo" accept=".pfx,.p12,application/x-pkcs12" />
+          </Field>
+          <Field id="senha" label="Senha do certificado" erro={erros.senha}>
+            <PasswordInput name="senha" autoComplete="off" />
+          </Field>
         </div>
-      ))}
-      <div className="campo">
-        <label htmlFor="arquivo">Arquivo do certificado (.pfx ou .p12)</label>
-        <input
-          id="arquivo"
-          name="arquivo"
-          type="file"
-          accept=".pfx,.p12,application/x-pkcs12"
-          aria-invalid={Boolean(erros.arquivo)}
-        />
-        {erro("arquivo")}
-      </div>
-      <div className="campo">
-        <label htmlFor="senha">Senha do certificado</label>
-        <input
-          id="senha"
-          name="senha"
-          type="password"
-          autoComplete="off"
-          aria-invalid={Boolean(erros.senha)}
-        />
-        {erro("senha")}
-      </div>
-      <button className="botao" type="submit" disabled={!pronto || enviando}>
-        {enviando ? "Validando certificado…" : "Enviar certificado"}
-      </button>
+      </Card>
     </form>
   );
 }

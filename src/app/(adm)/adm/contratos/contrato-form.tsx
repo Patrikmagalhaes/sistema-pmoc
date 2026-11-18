@@ -1,8 +1,17 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Conflito } from "@/components/conflito";
+import { Alert } from "@/components/ui/alert";
+import { Button, buttonClasses } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DescriptionList } from "@/components/ui/description-list";
+import { Field, FieldRow, Input } from "@/components/ui/field";
+import { FormActions } from "@/components/ui/form-actions";
+import { avisar } from "@/components/ui/toaster";
 import { chamarAcao } from "@/lib/chamar-acao";
+import { formatarDataIso } from "@/lib/formato";
 import { useHidratado } from "@/lib/use-hidratado";
 import { atualizarContratoAction, criarContratoAction } from "../clientes/actions";
 
@@ -20,8 +29,8 @@ export interface ContratoEditavel {
 }
 
 /**
- * TL-112 – campos do contrato (RF-07; RN-176). Datas somente leitura depois da emissão (E-06.4);
- * tudo somente leitura quando cancelado (E-06.7).
+ * TL-112 – campos do contrato (RF-07; RN-176), em seções Vigência e Documentos (doc 08 §7.3). Datas
+ * somente leitura depois da emissão (E-06.4); tudo somente leitura quando cancelado (E-06.7).
  */
 export function ContratoForm({
   localId,
@@ -44,7 +53,7 @@ export function ContratoForm({
   const router = useRouter();
   const pronto = useHidratado();
   const [erros, setErros] = useState<Erros>({});
-  const [geral, setGeral] = useState<{ tipo: "erro" | "ok"; texto: string } | null>(null);
+  const [geral, setGeral] = useState<string | null>(null);
   const [conflito, setConflito] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
@@ -83,110 +92,118 @@ export function ContratoForm({
     if (r.tipo === "conflito") return setConflito(true);
     if (r.tipo === "erro") {
       if (r.campos) setErros(r.campos);
-      return setGeral({ tipo: "erro", texto: r.mensagem });
+      return setGeral(r.mensagem);
     }
     if (novo && "id" in r.dados) {
       router.push(`/adm/contratos/${String(r.dados.id)}?aviso=criado`);
       return;
     }
-    setGeral({ tipo: "ok", texto: "Contrato salvo." });
+    avisar.sucesso("Contrato salvo.");
     router.refresh();
   }
 
   if (conflito) return <Conflito />;
 
-  const erro = (k: string) => (erros[k] ? <span className="erro">{erros[k]}</span> : null);
-  const travaData = somenteLeitura || datasTravadas;
+  // Cancelado (E-06.7): tudo em leitura (doc 08 §7.2: DescriptionList, nunca campo desabilitado).
+  if (somenteLeitura && contrato) {
+    return (
+      <Card titulo="Dados do contrato">
+        <DescriptionList
+          itens={[
+            { rotulo: "Data de início", valor: formatarDataIso(contrato.inicio) },
+            { rotulo: "Data de fim", valor: formatarDataIso(contrato.fim) },
+            { rotulo: "Nº de meses", valor: contrato.meses },
+            { rotulo: "Nº da ART", valor: contrato.art },
+            { rotulo: "Código TH", valor: contrato.th },
+            { rotulo: "Revisão", valor: contrato.revisao },
+          ]}
+        />
+      </Card>
+    );
+  }
 
   return (
-    <form onSubmit={salvar} noValidate className="formulario" style={{ maxWidth: 720 }}>
-      {geral && (
-        <div className={`alerta ${geral.tipo}`} role="status">
-          {geral.texto}
-        </div>
-      )}
-      <div className="grade">
-        <div className="campo">
-          <label htmlFor="inicio">Data de início</label>
-          <input
-            id="inicio"
-            name="inicio"
-            type="date"
-            defaultValue={contrato?.inicio ?? inicioSugerido}
-            readOnly={travaData}
-            aria-invalid={Boolean(erros.inicio)}
-          />
-          {erro("inicio")}
-        </div>
-        <div className="campo">
-          <label htmlFor="fim">Data de fim</label>
-          <input
-            id="fim"
-            name="fim"
-            type="date"
-            defaultValue={contrato?.fim}
-            readOnly={travaData}
-            aria-invalid={Boolean(erros.fim)}
-          />
-          {erro("fim")}
-        </div>
-        <div className="campo">
-          <label htmlFor="meses">Nº de meses</label>
-          <input
-            id="meses"
-            value={contrato ? String(contrato.meses) : ""}
-            readOnly
-            placeholder="Calculado ao salvar"
-          />
-        </div>
-      </div>
-      {datasTravadas && !somenteLeitura && (
-        <p className="dica">
-          Datas travadas após a emissão. Para encerrar antes, cancele o contrato.
-        </p>
-      )}
-      <div className="grade">
-        <div className="campo">
-          <label htmlFor="art">Nº da ART</label>
-          <input
-            id="art"
-            name="art"
-            defaultValue={contrato?.art}
-            readOnly={somenteLeitura}
-            aria-invalid={Boolean(erros.art)}
-          />
-          {erro("art")}
-        </div>
-        <div className="campo">
-          <label htmlFor="th">Código TH (opcional)</label>
-          <input
-            id="th"
-            name="th"
-            maxLength={30}
-            defaultValue={contrato?.th ?? ""}
-            readOnly={somenteLeitura}
-            aria-invalid={Boolean(erros.th)}
-          />
-          {erro("th")}
-        </div>
-        <div className="campo">
-          <label htmlFor="revisao">Revisão (opcional)</label>
-          <input
-            id="revisao"
-            name="revisao"
-            maxLength={10}
-            defaultValue={contrato?.revisao ?? ""}
-            readOnly={somenteLeitura}
-            aria-invalid={Boolean(erros.revisao)}
-          />
-          {erro("revisao")}
-        </div>
-      </div>
-      {!somenteLeitura && (
-        <button className="botao" type="submit" disabled={!pronto || enviando}>
+    <form onSubmit={salvar} noValidate className="flex flex-col gap-6">
+      {geral && <Alert tom="danger">{geral}</Alert>}
+      <Card titulo="Vigência">
+        {datasTravadas && contrato ? (
+          <div className="flex flex-col gap-4">
+            <DescriptionList
+              className="md:grid-cols-3"
+              itens={[
+                { rotulo: "Data de início", valor: formatarDataIso(contrato.inicio) },
+                { rotulo: "Data de fim", valor: formatarDataIso(contrato.fim) },
+                { rotulo: "Nº de meses", valor: contrato.meses },
+              ]}
+            />
+            <p className="text-small text-text-muted">
+              Datas travadas após a emissão. Para encerrar antes, cancele o contrato.
+            </p>
+          </div>
+        ) : (
+          <FieldRow>
+            <Field id="inicio" label="Data de início" erro={erros.inicio}>
+              <Input
+                name="inicio"
+                type="date"
+                defaultValue={contrato?.inicio ?? inicioSugerido}
+                className="tabular-nums"
+              />
+            </Field>
+            <Field id="fim" label="Data de fim" erro={erros.fim}>
+              <Input name="fim" type="date" defaultValue={contrato?.fim} className="tabular-nums" />
+            </Field>
+            <DescriptionList
+              className="md:grid-cols-1"
+              itens={[
+                {
+                  rotulo: "Nº de meses",
+                  valor: contrato ? contrato.meses : "Calculado ao salvar",
+                },
+              ]}
+            />
+          </FieldRow>
+        )}
+      </Card>
+
+      <Card titulo="Documentos">
+        <FieldRow>
+          <Field id="art" label="Nº da ART" erro={erros.art}>
+            <Input name="art" defaultValue={contrato?.art} />
+          </Field>
+          <Field id="th" label="Código TH" opcional erro={erros.th}>
+            <Input name="th" maxLength={30} defaultValue={contrato?.th ?? ""} />
+          </Field>
+          <Field id="revisao" label="Revisão" opcional erro={erros.revisao}>
+            <Input name="revisao" maxLength={10} defaultValue={contrato?.revisao ?? ""} />
+          </Field>
+        </FieldRow>
+      </Card>
+
+      <FormActions>
+        {novo ? (
+          <Link
+            href={`/adm/locais/${localId}?aba=contratos`}
+            className={buttonClasses({ variant: "secondary" })}
+          >
+            Cancelar
+          </Link>
+        ) : (
+          <Button
+            type="reset"
+            disabled={enviando}
+            onClick={() => {
+              setErros({});
+              setGeral(null);
+            }}
+          >
+            Cancelar
+          </Button>
+        )}
+        <Button type="submit" variant="primary" disabled={!pronto} loading={enviando}>
           {enviando ? "Salvando…" : "Salvar"}
-        </button>
-      )}
+        </Button>
+      </FormActions>
     </form>
   );
 }

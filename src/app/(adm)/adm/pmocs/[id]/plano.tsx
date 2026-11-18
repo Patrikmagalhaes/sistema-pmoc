@@ -1,7 +1,14 @@
 "use client";
+import { Camera, Plus, RotateCcw, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Checkbox, Field, Input, Select } from "@/components/ui/field";
+import { avisar } from "@/components/ui/toaster";
 import { chamarAcao, type Desfecho } from "@/lib/chamar-acao";
+import { cn } from "@/lib/cn";
 import { useHidratado } from "@/lib/use-hidratado";
 import type { TipoNoPlano } from "@/modules/pmoc";
 import {
@@ -29,9 +36,14 @@ const CONFLITO = "Este registro foi alterado por outra pessoa. Recarregue a pág
 const falha = (r: Desfecho<{ ok: true } | { ok: false; codigo: string; mensagem: string }>) =>
   r.tipo === "conflito" ? CONFLITO : r.tipo === "erro" ? r.mensagem : null;
 
+const th = "border-b border-border px-4 py-3 text-left text-h5 text-text-label";
+const td = "px-4 align-middle md:h-12 md:py-2";
+
 /**
- * TL-120 aba Plano: uma tabela por tipo, atividades na ordem da RN-051. Periodicidade vale para
- * todos os equipamentos do tipo neste PMOC (RN-026); remover e incluir atividade (RF-10.3).
+ * TL-120 aba Plano: uma tabela por tipo (doc 08 §7.3), atividades na ordem da RN-051. Periodicidade
+ * em `Select` vale para todos os equipamentos do tipo neste PMOC (RN-026); remover e incluir
+ * atividade (RF-10.3). Remover é reversível ("Voltar ao plano"), por isso não pede confirmação
+ * (FE-P6).
  */
 export function Plano({
   pmocId,
@@ -44,18 +56,12 @@ export function Plano({
   podeAlterar: boolean;
   rotulos: RotulosPlano;
 }) {
-  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
   return (
-    <div className="secao">
-      {aviso && (
-        <div className={`alerta ${aviso.ok ? "ok" : "erro"}`} role="status">
-          {aviso.texto}
-        </div>
-      )}
+    <div className="flex flex-col gap-6">
       {podeAlterar && (
-        <p className="dica">
+        <Alert tom="info">
           A periodicidade vale para todos os equipamentos do tipo neste PMOC. A biblioteca não muda.
-        </p>
+        </Alert>
       )}
       {tipos.map((t) => (
         <BlocoTipo
@@ -64,88 +70,89 @@ export function Plano({
           tipo={t}
           podeAlterar={podeAlterar}
           rotulos={rotulos}
-          avisar={setAviso}
         />
       ))}
     </div>
   );
 }
 
-type Avisar = (a: { ok: boolean; texto: string } | null) => void;
-
 function BlocoTipo({
   pmocId,
   tipo,
   podeAlterar,
   rotulos,
-  avisar,
 }: {
   pmocId: string;
   tipo: TipoNoPlano;
   podeAlterar: boolean;
   rotulos: RotulosPlano;
-  avisar: Avisar;
 }) {
   const [incluindo, setIncluindo] = useState(false);
   return (
-    <div className="secao">
-      <h2>
-        {tipo.nome} ({tipo.equipamentosAtivos}{" "}
-        {tipo.equipamentosAtivos === 1 ? "equipamento ativo" : "equipamentos ativos"})
-      </h2>
-      {tipo.atividades.length === 0 ? (
-        <p className="vazio">Nenhuma atividade deste tipo no plano.</p>
-      ) : (
-        <div className="tabela-rolagem">
-          <table className="tabela">
-            <thead>
-              <tr>
-                <th>Atividade</th>
-                <th>Natureza</th>
-                <th>Exige foto</th>
-                <th>Periodicidade</th>
-                {podeAlterar && <th />}
-              </tr>
-            </thead>
-            <tbody>
-              {tipo.atividades.map((a) => (
-                <LinhaAtividade
-                  key={`${a.id}-${a.rowVersion}`}
-                  atividade={a}
-                  podeAlterar={podeAlterar}
-                  rotulos={rotulos}
-                  avisar={avisar}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {podeAlterar &&
-        (incluindo ? (
+    <Card
+      titulo={tipo.nome}
+      descricao={`${tipo.equipamentosAtivos} ${
+        tipo.equipamentosAtivos === 1 ? "equipamento ativo" : "equipamentos ativos"
+      }`}
+      acao={
+        podeAlterar &&
+        !incluindo && (
+          <Button icon={<Plus size={20} aria-hidden="true" />} onClick={() => setIncluindo(true)}>
+            Incluir atividade
+          </Button>
+        )
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {tipo.atividades.length === 0 ? (
+          <p className="text-body text-text-muted">Nenhuma atividade deste tipo no plano.</p>
+        ) : (
+          <div className="overflow-hidden rounded-md border border-border-subtle">
+            <table
+              className="w-full border-collapse text-body max-md:block"
+              aria-label={`Atividades de ${tipo.nome}`}
+            >
+              <thead className="bg-surface-muted max-md:sr-only">
+                <tr>
+                  <th scope="col" className={th}>
+                    Atividade
+                  </th>
+                  <th scope="col" className={th}>
+                    Natureza
+                  </th>
+                  <th scope="col" className={th}>
+                    Periodicidade
+                  </th>
+                  {podeAlterar && (
+                    <th scope="col" className={th}>
+                      <span className="sr-only">Ações</span>
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="max-md:block">
+                {tipo.atividades.map((a) => (
+                  <LinhaAtividade
+                    key={`${a.id}-${a.rowVersion}`}
+                    atividade={a}
+                    podeAlterar={podeAlterar}
+                    rotulos={rotulos}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {podeAlterar && incluindo && (
           <Incluir
             pmocId={pmocId}
             tipo={tipo}
             rotulos={rotulos}
-            avisar={avisar}
             fechar={() => setIncluindo(false)}
           />
-        ) : (
-          <p>
-            <button
-              type="button"
-              className="botao secundario"
-              style={{ width: "auto" }}
-              onClick={() => {
-                avisar(null);
-                setIncluindo(true);
-              }}
-            >
-              Incluir atividade
-            </button>
-          </p>
-        ))}
-    </div>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -153,99 +160,87 @@ function LinhaAtividade({
   atividade: a,
   podeAlterar,
   rotulos,
-  avisar,
 }: {
   atividade: TipoNoPlano["atividades"][number];
   podeAlterar: boolean;
   rotulos: RotulosPlano;
-  avisar: Avisar;
 }) {
   const router = useRouter();
   const pronto = useHidratado();
-  const [enviando, setEnviando] = useState(false);
-  const [confirmando, setConfirmando] = useState(false);
+  const [enviando, setEnviando] = useState<"periodicidade" | "remover" | null>(null);
 
   async function mudar(periodicidade: Periodicidade) {
-    setEnviando(true);
-    avisar(null);
+    setEnviando("periodicidade");
     const r = await chamarAcao(
       alterarPeriodicidadeAction({ id: a.id, rowVersion: a.rowVersion, periodicidade }),
     );
-    setEnviando(false);
+    setEnviando(null);
     const erro = falha(r);
-    if (erro) return avisar({ ok: false, texto: erro });
-    avisar({ ok: true, texto: `"${a.titulo}" passou a ${rotulos.periodicidade[periodicidade]}.` });
+    if (erro) return avisar.erro(erro);
+    avisar.sucesso(`"${a.titulo}" passou a ${rotulos.periodicidade[periodicidade]}.`);
     router.refresh(); // RN-006: o cronograma de pré-visualização é recalculado na leitura
   }
 
   async function remover() {
-    setEnviando(true);
-    avisar(null);
+    setEnviando("remover");
     const r = await chamarAcao(removerAtividadeAction({ id: a.id, rowVersion: a.rowVersion }));
-    setEnviando(false);
-    setConfirmando(false);
+    setEnviando(null);
     const erro = falha(r);
-    if (erro) return avisar({ ok: false, texto: erro });
-    avisar({ ok: true, texto: `"${a.titulo}" saiu do plano.` });
+    if (erro) return avisar.erro(erro);
+    avisar.sucesso(`"${a.titulo}" saiu do plano. Para voltar, use "Incluir atividade".`);
     router.refresh();
   }
 
   return (
-    <tr>
-      <td>{a.titulo}</td>
-      <td>
+    <tr
+      className={cn(
+        "border-b border-border-subtle last:border-b-0",
+        "max-md:flex max-md:flex-wrap max-md:gap-x-2 max-md:gap-y-2 max-md:py-3",
+      )}
+    >
+      <td className={cn(td, "font-medium text-text max-md:basis-full")}>
+        <span className="inline-flex items-center gap-2">
+          {a.titulo}
+          {a.exigeFoto && (
+            <Camera size={16} className="shrink-0 text-text-muted" aria-label="Exige foto" />
+          )}
+        </span>
+      </td>
+      <td className={cn(td, "max-md:basis-full max-md:text-small max-md:text-text-muted")}>
         {rotulos.natureza[a.natureza]}
         {a.unidade ? ` (${a.unidade})` : ""}
       </td>
-      <td>{a.exigeFoto ? "Sim" : "Não"}</td>
-      <td>
+      <td className={cn(td, "max-md:min-w-0 max-md:flex-1")}>
         {podeAlterar ? (
-          <select
+          <Select
             aria-label={`Periodicidade de ${a.titulo}`}
             defaultValue={a.periodicidade}
-            disabled={!pronto || enviando}
+            disabled={!pronto || enviando !== null}
             onChange={(e) => mudar(e.target.value as Periodicidade)}
+            className="md:w-48"
           >
             {rotulos.periodicidades.map((p) => (
               <option key={p.valor} value={p.valor}>
                 {p.rotulo}
               </option>
             ))}
-          </select>
+          </Select>
         ) : (
           rotulos.periodicidade[a.periodicidade]
         )}
       </td>
       {podeAlterar && (
-        <td>
-          {confirmando ? (
-            <div className="acoes-linha">
-              <button
-                type="button"
-                className="botao"
-                disabled={!pronto || enviando}
-                onClick={remover}
-              >
-                {enviando ? "Removendo…" : "Remover do plano"}
-              </button>
-              <button
-                type="button"
-                className="botao secundario"
-                onClick={() => setConfirmando(false)}
-              >
-                Cancelar
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="botao secundario"
-              disabled={!pronto || enviando}
-              onClick={() => setConfirmando(true)}
-            >
-              Remover
-            </button>
-          )}
+        <td className={cn(td, "text-right")}>
+          <Button
+            size="sm"
+            variant="tertiary"
+            icon={<X size={16} aria-hidden="true" />}
+            disabled={!pronto || enviando !== null}
+            loading={enviando === "remover"}
+            onClick={remover}
+          >
+            {enviando === "remover" ? "Removendo…" : "Remover"}
+          </Button>
         </td>
       )}
     </tr>
@@ -260,43 +255,43 @@ function Incluir({
   pmocId,
   tipo,
   rotulos,
-  avisar,
   fechar,
 }: {
   pmocId: string;
   tipo: TipoNoPlano;
   rotulos: RotulosPlano;
-  avisar: Avisar;
   fechar: () => void;
 }) {
   const router = useRouter();
   const pronto = useHidratado();
-  const [enviando, setEnviando] = useState(false);
+  const [enviando, setEnviando] = useState<string | null>(null);
   const [natureza, setNatureza] = useState<Natureza | "">("");
   const [erros, setErros] = useState<Record<string, string | undefined>>({});
   const [geral, setGeral] = useState<string | null>(null);
 
   async function feito(
+    chave: string,
     p: Promise<Desfecho<{ ok: true } | { ok: false; codigo: string; mensagem: string }>>,
     titulo: string,
   ) {
-    setEnviando(true);
+    setEnviando(chave);
     setGeral(null);
     const r = await p;
-    setEnviando(false);
+    setEnviando(null);
     const erro = falha(r);
     if (erro) {
       if (r.tipo === "erro" && r.campos) setErros(r.campos);
       return setGeral(erro);
     }
-    avisar({ ok: true, texto: `"${titulo}" entrou no plano.` });
+    avisar.sucesso(`"${titulo}" entrou no plano.`);
     fechar();
     router.refresh();
   }
 
   async function criar(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const f = new FormData(ev.currentTarget);
+    const form = ev.currentTarget;
+    const f = new FormData(form);
     const d = {
       titulo: String(f.get("titulo") ?? "").trim(),
       periodicidade: String(f.get("periodicidade") ?? ""),
@@ -310,144 +305,157 @@ function Incluir({
     if (!d.natureza) e.natureza = "Escolha a natureza.";
     if (d.natureza === "MEDICAO" && !d.unidade) e.unidade = "Informe a unidade da medição.";
     setErros(e);
-    if (Object.keys(e).length) return;
-    await feito(chamarAcao(incluirNovaAction({ pmocId, tipoId: tipo.id, ...d })), d.titulo);
+    const primeiro = Object.keys(e)[0];
+    if (primeiro) return (form.elements.namedItem(primeiro) as HTMLElement | null)?.focus();
+    await feito("nova", chamarAcao(incluirNovaAction({ pmocId, tipoId: tipo.id, ...d })), d.titulo);
   }
 
-  const erro = (k: string) => (erros[k] ? <span className="erro">{erros[k]}</span> : null);
   const pre = `nova-${tipo.id}`;
+  const ocupado = !pronto || enviando !== null;
 
   return (
-    <div className="cartao">
-      <h3>Incluir atividade em {tipo.nome}</h3>
-      {geral && (
-        <div className="alerta erro" role="status">
-          {geral}
-        </div>
-      )}
+    <section
+      aria-label={`Incluir atividade em ${tipo.nome}`}
+      className="flex flex-col gap-6 rounded-md border border-border bg-surface-muted p-4"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <h3 className="text-h4 text-text">Incluir atividade em {tipo.nome}</h3>
+        <Button size="sm" variant="tertiary" onClick={fechar}>
+          Fechar
+        </Button>
+      </div>
+      {geral && <Alert tom="danger">{geral}</Alert>}
+
       {tipo.removidas.length > 0 && (
-        <>
-          <p>Removidas deste plano:</p>
-          <ul>
-            {tipo.removidas.map((a) => (
-              <li key={a.id}>
-                {a.titulo} ({rotulos.periodicidade[a.periodicidade]}){" "}
-                <button
-                  type="button"
-                  className="botao secundario"
-                  style={{ width: "auto" }}
-                  disabled={!pronto || enviando}
-                  onClick={() =>
-                    feito(
-                      chamarAcao(restaurarAtividadeAction({ id: a.id, rowVersion: a.rowVersion })),
-                      a.titulo,
-                    )
-                  }
-                >
-                  Voltar ao plano
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
+        <ListaEscolha
+          titulo="Removidas deste plano"
+          itens={tipo.removidas.map((a) => ({
+            id: a.id,
+            texto: `${a.titulo} (${rotulos.periodicidade[a.periodicidade]})`,
+            acao: (
+              <Button
+                size="sm"
+                icon={<RotateCcw size={16} aria-hidden="true" />}
+                disabled={ocupado}
+                loading={enviando === a.id}
+                onClick={() =>
+                  feito(
+                    a.id,
+                    chamarAcao(restaurarAtividadeAction({ id: a.id, rowVersion: a.rowVersion })),
+                    a.titulo,
+                  )
+                }
+              >
+                Voltar ao plano
+              </Button>
+            ),
+          }))}
+        />
       )}
+
       {tipo.disponiveis.length > 0 && (
-        <>
-          <p>Da biblioteca:</p>
-          <ul>
-            {tipo.disponiveis.map((m) => (
-              <li key={m.id}>
-                {m.titulo} ({rotulos.periodicidade[m.periodicidade]}){" "}
-                <button
-                  type="button"
-                  className="botao secundario"
-                  style={{ width: "auto" }}
-                  disabled={!pronto || enviando}
-                  onClick={() =>
-                    feito(
-                      chamarAcao(incluirDaBibliotecaAction({ pmocId, modeloId: m.id })),
-                      m.titulo,
-                    )
-                  }
-                >
-                  Incluir
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
+        <ListaEscolha
+          titulo="Da biblioteca"
+          itens={tipo.disponiveis.map((m) => ({
+            id: m.id,
+            texto: `${m.titulo} (${rotulos.periodicidade[m.periodicidade]})`,
+            acao: (
+              <Button
+                size="sm"
+                icon={<Plus size={16} aria-hidden="true" />}
+                disabled={ocupado}
+                loading={enviando === m.id}
+                onClick={() =>
+                  feito(
+                    m.id,
+                    chamarAcao(incluirDaBibliotecaAction({ pmocId, modeloId: m.id })),
+                    m.titulo,
+                  )
+                }
+              >
+                Incluir
+              </Button>
+            ),
+          }))}
+        />
       )}
-      <p>Nova atividade só deste PMOC:</p>
-      <form onSubmit={criar} noValidate className="formulario" style={{ maxWidth: 720 }}>
-        <div className="campo">
-          <label htmlFor={`${pre}-titulo`}>Título</label>
-          <input id={`${pre}-titulo`} name="titulo" aria-invalid={Boolean(erros.titulo)} />
-          {erro("titulo")}
-        </div>
-        <div className="grade">
-          <div className="campo">
-            <label htmlFor={`${pre}-periodicidade`}>Periodicidade</label>
-            <select
-              id={`${pre}-periodicidade`}
-              name="periodicidade"
-              defaultValue=""
-              aria-invalid={Boolean(erros.periodicidade)}
-            >
-              <option value="">Escolha</option>
+
+      <form onSubmit={criar} noValidate className="flex flex-col gap-4">
+        <h4 className="text-h5 text-text-label">Nova atividade só deste PMOC</h4>
+        <Field id={`${pre}-titulo`} label="Título" erro={erros.titulo}>
+          <Input name="titulo" />
+        </Field>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Field id={`${pre}-periodicidade`} label="Periodicidade" erro={erros.periodicidade}>
+            <Select name="periodicidade" defaultValue="">
+              <option value="">Selecione…</option>
               {rotulos.periodicidades.map((p) => (
                 <option key={p.valor} value={p.valor}>
                   {p.rotulo}
                 </option>
               ))}
-            </select>
-            {erro("periodicidade")}
-          </div>
-          <div className="campo">
-            <label htmlFor={`${pre}-natureza`}>Natureza</label>
-            <select
-              id={`${pre}-natureza`}
+            </Select>
+          </Field>
+          <Field id={`${pre}-natureza`} label="Natureza" erro={erros.natureza}>
+            <Select
               name="natureza"
               value={natureza}
               onChange={(e) => setNatureza(e.target.value as Natureza)}
-              aria-invalid={Boolean(erros.natureza)}
             >
-              <option value="">Escolha</option>
+              <option value="">Selecione…</option>
               {Object.entries(rotulos.natureza).map(([v, l]) => (
                 <option key={v} value={v}>
                   {l}
                 </option>
               ))}
-            </select>
-            {erro("natureza")}
-          </div>
-          <div className="campo">
-            <label htmlFor={`${pre}-unidade`}>Unidade</label>
-            <input
-              id={`${pre}-unidade`}
+            </Select>
+          </Field>
+          <Field
+            id={`${pre}-unidade`}
+            label="Unidade"
+            erro={erros.unidade}
+            dica={natureza === "MEDICAO" ? undefined : "Só para medição."}
+          >
+            <Input
               name="unidade"
               maxLength={rotulos.unidadeMax}
               disabled={natureza !== "MEDICAO"}
-              placeholder={natureza === "MEDICAO" ? "Ex.: V, A, psi" : "Só para medição"}
-              aria-invalid={Boolean(erros.unidade)}
+              placeholder={natureza === "MEDICAO" ? "Ex.: V, A, psi" : undefined}
             />
-            {erro("unidade")}
-          </div>
+          </Field>
         </div>
-        <div className="campo">
-          <label className="caixa">
-            <input type="checkbox" name="exigeFoto" />
-            Exige foto
-          </label>
-        </div>
-        <div className="linha">
-          <button className="botao" type="submit" disabled={!pronto || enviando}>
-            {enviando ? "Incluindo…" : "Incluir nova atividade"}
-          </button>
-          <button type="button" className="botao secundario" onClick={fechar}>
-            Fechar
-          </button>
+        <Checkbox label="Exige foto" name="exigeFoto" />
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button disabled={enviando !== null} onClick={fechar}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" disabled={ocupado} loading={enviando === "nova"}>
+            {enviando === "nova" ? "Incluindo…" : "Incluir nova atividade"}
+          </Button>
         </div>
       </form>
+    </section>
+  );
+}
+
+function ListaEscolha({
+  titulo,
+  itens,
+}: {
+  titulo: string;
+  itens: { id: string; texto: string; acao: ReactNode }[];
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <h4 className="text-h5 text-text-label">{titulo}</h4>
+      <ul className="divide-y divide-border-subtle rounded-md border border-border-subtle bg-surface">
+        {itens.map((i) => (
+          <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+            <span className="text-body text-text">{i.texto}</span>
+            {i.acao}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

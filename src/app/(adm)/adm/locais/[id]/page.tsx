@@ -1,7 +1,16 @@
+import { FileText, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Abas } from "@/components/abas";
-import { formatarDataIso, ROTULO_CONTRATO, ROTULO_PMOC, ROTULO_SITUACAO } from "@/lib/formato";
+import { StatusBadge } from "@/components/status-badge";
+import { Alert } from "@/components/ui/alert";
+import { buttonClasses } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Checkbox, Field, Select } from "@/components/ui/field";
+import { FilterBar, urlCom } from "@/components/ui/filter-bar";
+import { Page, PageHeader } from "@/components/ui/page-header";
+import { Tabs } from "@/components/ui/tabs";
+import { formatarDataIso } from "@/lib/formato";
 import { listarContratosDoLocal, obterLocal } from "@/modules/clientes";
 import { listarEquipamentosDoLocal } from "@/modules/equipamentos";
 import { exigirArea } from "@/server/auth/sessao";
@@ -18,7 +27,10 @@ const ABAS = [
   { id: "contratos", rotulo: "Contratos e PMOC" },
 ];
 
-/** TL-110 – Local: abas Dados, Equipamentos e Contratos e PMOC (RF-06, RF-07, RF-09; FL-04, FL-06, FL-07). */
+/**
+ * TL-110 – Local: abas Dados, Equipamentos e Contratos e PMOC (RF-06, RF-07, RF-09; FL-04, FL-06,
+ * FL-07). Template T-DETAIL com Tabs (doc 08 §7.4).
+ */
 export default async function LocalPage({
   params,
   searchParams,
@@ -38,34 +50,36 @@ export default async function LocalPage({
       : null;
 
   return (
-    <section className="pagina">
-      <p>
-        Cliente:{" "}
-        <Link href={`/adm/clientes/${l.clienteId}?aba=locais`}>{l.clienteRazaoSocial}</Link>
-      </p>
-      <h1>
-        {l.nome} ({l.codigo})
-      </h1>
-      {sp.aviso === "criado" && (
-        <div className="alerta ok" role="status">
-          Local criado com o código {l.codigo}.
-        </div>
-      )}
-      <Abas base={`/adm/locais/${l.id}`} ativa={aba} abas={ABAS} />
+    <Page largura={aba === "dados" ? "form" : "wide"}>
+      <PageHeader
+        migalhas={[
+          { rotulo: "Clientes", href: "/adm/clientes" },
+          { rotulo: l.clienteRazaoSocial, href: `/adm/clientes/${l.clienteId}?aba=locais` },
+          { rotulo: l.nome },
+        ]}
+        titulo={l.nome}
+        meta={
+          <>
+            Local <span className="font-mono">{l.codigo}</span> · {l.clienteRazaoSocial}
+          </>
+        }
+        acoes={
+          aba === "dados" && (
+            <Excluir
+              alvo="local"
+              id={l.id}
+              rowVersion={l.rowVersion}
+              nome={`${l.nome} (${l.codigo})`}
+              bloqueio={bloqueio}
+              depois={`/adm/clientes/${l.clienteId}?aba=locais`}
+            />
+          )
+        }
+      />
+      {sp.aviso === "criado" && <Alert tom="success">Local criado com o código {l.codigo}.</Alert>}
+      <Tabs base={`/adm/locais/${l.id}`} ativa={aba} abas={ABAS} />
 
-      {aba === "dados" && (
-        <>
-          <LocalForm key={l.rowVersion} clienteId={l.clienteId} local={l} />
-          <Excluir
-            alvo="local"
-            id={l.id}
-            rowVersion={l.rowVersion}
-            nome={`${l.nome} (${l.codigo})`}
-            bloqueio={bloqueio}
-            depois={`/adm/clientes/${l.clienteId}?aba=locais`}
-          />
-        </>
-      )}
+      {aba === "dados" && <LocalForm key={l.rowVersion} clienteId={l.clienteId} local={l} />}
 
       {aba === "equipamentos" && (
         <Equipamentos
@@ -79,7 +93,7 @@ export default async function LocalPage({
       {aba === "contratos" && (
         <Contratos localId={l.id} contratos={await listarContratosDoLocal(s.ctx, l.id, deps)} />
       )}
-    </section>
+    </Page>
   );
 }
 
@@ -102,77 +116,83 @@ async function Equipamentos({
     { db: getDatabase() },
   );
   const lista = r?.equipamentos ?? [];
+  const base = `/adm/locais/${localId}`;
+  const atuais = { aba: "equipamentos", tipo: tipoId, inativos: mostrarInativos ? "1" : null };
+  const chips = [
+    tipoId && {
+      rotulo: `Tipo: ${r?.tipos.find((t) => t.id === tipoId)?.nome ?? "—"}`,
+      removerHref: urlCom(base, atuais, { tipo: null }),
+    },
+    mostrarInativos && {
+      rotulo: "Mostrando inativos",
+      removerHref: urlCom(base, atuais, { inativos: null }),
+    },
+  ].filter((c): c is { rotulo: string; removerHref: string } => Boolean(c));
+  const novo = (
+    <Link
+      href={`/adm/equipamentos/novo?local=${localId}`}
+      className={buttonClasses({ variant: "primary" })}
+    >
+      <Plus size={20} aria-hidden="true" />
+      Novo equipamento
+    </Link>
+  );
+
   return (
-    <div className="secao">
-      <p>
-        <Link
-          className="botao"
-          style={{ width: "auto" }}
-          href={`/adm/equipamentos/novo?local=${localId}`}
-        >
-          Novo equipamento
-        </Link>
-      </p>
-      <form className="filtros" method="get">
-        <input type="hidden" name="aba" value="equipamentos" />
-        <label>
-          Tipo{" "}
-          <select name="tipo" defaultValue={tipoId ?? ""}>
+    <section aria-label="Equipamentos" className="flex flex-col gap-4">
+      <div className="flex justify-end">{novo}</div>
+      <FilterBar
+        ocultos={{ aba: "equipamentos" }}
+        limparHref={`${base}?aba=equipamentos`}
+        chips={chips}
+        rotuloBotao="Aplicar"
+      >
+        <Field id="tipo" label="Tipo" className="md:w-64">
+          <Select name="tipo" defaultValue={tipoId ?? ""}>
             <option value="">Todos</option>
             {r?.tipos.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.nome}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="caixa">
-          <input type="checkbox" name="inativos" value="1" defaultChecked={mostrarInativos} />
-          Mostrar inativos
-        </label>
-        <button className="botao secundario" type="submit">
-          Aplicar
-        </button>
-      </form>
-      {lista.length === 0 ? (
-        <p className="vazio">Nenhum equipamento.</p>
-      ) : (
-        <div className="tabela-rolagem">
-          <table className="tabela">
-            <thead>
-              <tr>
-                <th>TAG</th>
-                <th>Tipo</th>
-                <th>Grupo</th>
-                <th>Ambiente</th>
-                <th>Marca</th>
-                <th>Modelo</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lista.map((e) => (
-                <tr key={e.id}>
-                  <td>
-                    <Link href={`/adm/equipamentos/${e.id}`}>{e.tag}</Link>
-                  </td>
-                  <td>{e.tipo}</td>
-                  <td>{e.grupo}</td>
-                  <td>{e.ambiente}</td>
-                  <td>{e.marca ?? "—"}</td>
-                  <td>{e.modelo ?? "—"}</td>
-                  <td>
-                    <span className={`etiqueta ${e.situacao === "ATIVO" ? "ok" : "neutra"}`}>
-                      {ROTULO_SITUACAO[e.situacao]}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+          </Select>
+        </Field>
+        <Checkbox
+          label="Mostrar inativos"
+          name="inativos"
+          value="1"
+          defaultChecked={mostrarInativos}
+        />
+      </FilterBar>
+      <DataTable
+        rotulo="Equipamentos do local"
+        linhas={lista}
+        chave={(e) => e.id}
+        href={(e) => `/adm/equipamentos/${e.id}`}
+        colunas={[
+          { titulo: "TAG", celula: (e) => <span className="font-mono">{e.tag}</span> },
+          { titulo: "Tipo", celula: (e) => e.tipo },
+          { titulo: "Grupo", celula: (e) => e.grupo, ocultarNoCelular: true },
+          { titulo: "Ambiente", celula: (e) => e.ambiente },
+          { titulo: "Marca", celula: (e) => e.marca ?? "—", ocultarNoCelular: true },
+          { titulo: "Modelo", celula: (e) => e.modelo ?? "—", ocultarNoCelular: true },
+        ]}
+        estado={{
+          titulo: "Estado",
+          celula: (e) => <StatusBadge tipo="situacao" valor={e.situacao} />,
+        }}
+        vazio={
+          chips.length > 0 ? (
+            <EmptyState icone={Search} titulo="Nenhum resultado para os filtros." />
+          ) : (
+            <EmptyState
+              titulo="Nenhum equipamento."
+              descricao="Cadastre os equipamentos deste local para montar o PMOC."
+            />
+          )
+        }
+      />
+    </section>
   );
 }
 
@@ -183,63 +203,60 @@ function Contratos({
   localId: string;
   contratos: Awaited<ReturnType<typeof listarContratosDoLocal>>;
 }) {
+  const lista = contratos ?? [];
+  const novo = (
+    <Link
+      href={`/adm/contratos/novo?local=${localId}`}
+      className={buttonClasses({ variant: "primary" })}
+    >
+      <Plus size={20} aria-hidden="true" />
+      Novo contrato
+    </Link>
+  );
   return (
-    <div className="secao">
-      <p>
-        <Link
-          className="botao"
-          style={{ width: "auto" }}
-          href={`/adm/contratos/novo?local=${localId}`}
-        >
-          Novo contrato
-        </Link>
-      </p>
-      {!contratos?.length ? (
-        <p className="vazio">Nenhum contrato. Cadastre o contrato para criar o PMOC.</p>
-      ) : (
-        <div className="tabela-rolagem">
-          <table className="tabela">
-            <thead>
-              <tr>
-                <th>Início</th>
-                <th>Fim</th>
-                <th>Meses</th>
-                <th>ART</th>
-                <th>TH-revisão</th>
-                <th>Contrato</th>
-                <th>PMOC</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contratos.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <Link href={`/adm/contratos/${c.id}`}>{formatarDataIso(c.inicio)}</Link>
-                  </td>
-                  <td>{formatarDataIso(c.fim)}</td>
-                  <td>{c.meses}</td>
-                  <td>{c.art}</td>
-                  <td>{[c.th, c.revisao].filter(Boolean).join("-") || "—"}</td>
-                  <td>
-                    <span className={`etiqueta ${c.situacao === "VIGENTE" ? "ok" : "neutra"}`}>
-                      {ROTULO_CONTRATO[c.situacao]}
-                    </span>
-                  </td>
-                  <td>
-                    {c.pmocId && c.estadoPmoc ? (
-                      <Link href={`/adm/pmocs/${c.pmocId}`}>
-                        {ROTULO_PMOC[c.estadoPmoc] ?? c.estadoPmoc}
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <section aria-label="Contratos e PMOC" className="flex flex-col gap-4">
+      {lista.length > 0 && <div className="flex justify-end">{novo}</div>}
+      <DataTable
+        rotulo="Contratos do local"
+        linhas={lista}
+        chave={(c) => c.id}
+        href={(c) => `/adm/contratos/${c.id}`}
+        colunas={[
+          {
+            titulo: "Vigência",
+            celula: (c) => `${formatarDataIso(c.inicio)} a ${formatarDataIso(c.fim)}`,
+            numerico: true,
+          },
+          { titulo: "Meses", celula: (c) => c.meses, numerico: true, ocultarNoCelular: true },
+          { titulo: "Nº da ART", celula: (c) => c.art },
+          {
+            titulo: "TH-revisão",
+            celula: (c) => [c.th, c.revisao].filter(Boolean).join("-") || "—",
+            ocultarNoCelular: true,
+          },
+          {
+            titulo: "Contrato",
+            celula: (c) => <StatusBadge tipo="contrato" valor={c.situacao} />,
+          },
+        ]}
+        estado={{
+          titulo: "PMOC",
+          celula: (c) =>
+            c.estadoPmoc ? (
+              <StatusBadge tipo="pmoc" valor={c.estadoPmoc} />
+            ) : (
+              <span className="text-text-muted">—</span>
+            ),
+        }}
+        vazio={
+          <EmptyState
+            icone={FileText}
+            titulo="Nenhum contrato."
+            descricao="Cadastre o contrato para criar o PMOC."
+            acao={novo}
+          />
+        }
+      />
+    </section>
   );
 }

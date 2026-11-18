@@ -1,13 +1,24 @@
 "use client";
+import { RefreshCw } from "lucide-react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
-/** UF-07: o registro mudou desde que a tela abriu; nada é sobrescrito sem recarregar. */
+/** `ConflictAlert` (doc 08 §3.15; UF-07): o registro mudou desde que a tela abriu; nada é sobrescrito. */
 export function Conflito() {
   return (
-    <div className="alerta erro" role="status">
-      Este registro foi alterado por outra pessoa. Recarregue para ver a versão atual.{" "}
-      <button type="button" className="botao secundario" onClick={() => window.location.reload()}>
-        Recarregar
-      </button>
-    </div>
+    <Alert
+      tom="warning"
+      titulo="Este registro foi alterado por outra pessoa."
+      acao={
+        <Button
+          icon={<RefreshCw size={16} aria-hidden="true" />}
+          onClick={() => window.location.reload()}
+        >
+          Recarregar
+        </Button>
+      }
+    >
+      Recarregue para ver a versão atual antes de salvar.
+    </Alert>
   );
 }

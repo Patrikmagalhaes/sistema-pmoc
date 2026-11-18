@@ -1,126 +1,98 @@
 "use client";
 import { useState } from "react";
+import { Checkbox, Field, Input, Select } from "@/components/ui/field";
 import { type Endereco, UFS } from "@/lib/endereco";
 import { mascararCep } from "@/lib/formato";
 
 /**
  * UF-04 – bloco de endereço: logradouro, nº **ou** "s/n" (desabilita o nº; CA-05.4), complemento
  * opcional (DM-14), bairro, cidade, UF (as 27) e CEP com 8 dígitos (CA-05.3). Os erros chegam com a
- * chave `endereco.<campo>` (UF-02).
+ * chave `endereco.<campo>` (UF-02). Vai dentro de um Card "Endereço" (doc 08 T-FORM).
  */
 export function EnderecoCampos({
   valor,
   erros,
   bairroObrigatorio,
   prefixo = "",
+  somenteLeitura = false,
 }: {
   valor?: Endereco;
   erros: Record<string, string | undefined>;
   bairroObrigatorio: boolean;
   /** Prefixo dos `id` quando há dois blocos na mesma página (TL-102). */
   prefixo?: string;
+  somenteLeitura?: boolean;
 }) {
   const [semNumero, setSemNumero] = useState(valor?.semNumero ?? false);
   const [cep, setCep] = useState(mascararCep(valor?.cep));
-  const erro = (k: string) =>
-    erros[`endereco.${k}`] ? <span className="erro">{erros[`endereco.${k}`]}</span> : null;
-  const invalido = (k: string) => Boolean(erros[`endereco.${k}`]);
+  const erro = (k: string) => erros[`endereco.${k}`];
 
   return (
-    <fieldset className="campo">
-      <legend>Endereço</legend>
-      <div className="campo">
-        <label htmlFor={`${prefixo}logradouro`}>Logradouro</label>
-        <input
-          id={`${prefixo}logradouro`}
-          name="logradouro"
-          defaultValue={valor?.logradouro}
-          aria-invalid={invalido("logradouro")}
-        />
-        {erro("logradouro")}
-      </div>
-      <div className="grade">
-        <div className="campo">
-          <label htmlFor={`${prefixo}numero`}>Número</label>
-          <input
-            id={`${prefixo}numero`}
-            name="numero"
-            defaultValue={valor?.numero ?? ""}
-            disabled={semNumero}
-            aria-invalid={invalido("numero")}
-          />
-          <label className="caixa">
-            <input
-              type="checkbox"
-              name="semNumero"
-              checked={semNumero}
-              onChange={(e) => setSemNumero(e.target.checked)}
+    <div className="flex flex-col gap-4">
+      <Field id={`${prefixo}logradouro`} label="Logradouro" erro={erro("logradouro")}>
+        <Input name="logradouro" defaultValue={valor?.logradouro} readOnly={somenteLeitura} />
+      </Field>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 [&>*:last-child]:sm:col-span-2">
+        <div className="flex flex-col gap-1">
+          <Field id={`${prefixo}numero`} label="Número" erro={erro("numero")}>
+            <Input
+              name="numero"
+              defaultValue={valor?.numero ?? ""}
+              disabled={semNumero}
+              readOnly={somenteLeitura}
             />
-            s/n
-          </label>
-          {erro("numero")}
+          </Field>
+          <Checkbox
+            label="s/n"
+            name="semNumero"
+            checked={semNumero}
+            disabled={somenteLeitura}
+            onChange={(e) => setSemNumero(e.target.checked)}
+          />
         </div>
-        <div className="campo">
-          <label htmlFor={`${prefixo}complemento`}>Complemento</label>
-          <input
-            id={`${prefixo}complemento`}
+        <Field id={`${prefixo}complemento`} label="Complemento" opcional>
+          <Input
             name="complemento"
             defaultValue={valor?.complemento ?? ""}
+            readOnly={somenteLeitura}
           />
-        </div>
-        <div className="campo">
-          <label htmlFor={`${prefixo}bairro`}>Bairro{bairroObrigatorio ? "" : " (opcional)"}</label>
-          <input
-            id={`${prefixo}bairro`}
-            name="bairro"
-            defaultValue={valor?.bairro ?? ""}
-            aria-invalid={invalido("bairro")}
-          />
-          {erro("bairro")}
-        </div>
+        </Field>
       </div>
-      <div className="grade">
-        <div className="campo">
-          <label htmlFor={`${prefixo}cidade`}>Cidade</label>
-          <input
-            id={`${prefixo}cidade`}
-            name="cidade"
-            defaultValue={valor?.cidade}
-            aria-invalid={invalido("cidade")}
-          />
-          {erro("cidade")}
-        </div>
-        <div className="campo">
-          <label htmlFor={`${prefixo}uf`}>UF</label>
-          <select
-            id={`${prefixo}uf`}
-            name="uf"
-            defaultValue={valor?.uf ?? ""}
-            aria-invalid={invalido("uf")}
-          >
-            <option value="">Escolha</option>
+      <Field
+        id={`${prefixo}bairro`}
+        label="Bairro"
+        opcional={!bairroObrigatorio}
+        erro={erro("bairro")}
+      >
+        <Input name="bairro" defaultValue={valor?.bairro ?? ""} readOnly={somenteLeitura} />
+      </Field>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 [&>*:first-child]:sm:col-span-2">
+        <Field id={`${prefixo}cidade`} label="Cidade" erro={erro("cidade")}>
+          <Input name="cidade" defaultValue={valor?.cidade} readOnly={somenteLeitura} />
+        </Field>
+        <Field id={`${prefixo}uf`} label="UF" erro={erro("uf")}>
+          <Select name="uf" defaultValue={valor?.uf ?? ""} disabled={somenteLeitura}>
+            <option value="">Selecione…</option>
             {UFS.map((u) => (
               <option key={u} value={u}>
                 {u}
               </option>
             ))}
-          </select>
-          {erro("uf")}
-        </div>
-        <div className="campo">
-          <label htmlFor={`${prefixo}cep`}>CEP</label>
-          <input
-            id={`${prefixo}cep`}
+          </Select>
+        </Field>
+        <Field id={`${prefixo}cep`} label="CEP" erro={erro("cep")}>
+          <Input
             name="cep"
             inputMode="numeric"
             value={cep}
+            placeholder="00000-000"
+            readOnly={somenteLeitura}
             onChange={(e) => setCep(mascararCep(e.target.value))}
-            aria-invalid={invalido("cep")}
+            className="tabular-nums"
           />
-          {erro("cep")}
-        </div>
+        </Field>
       </div>
-    </fieldset>
+    </div>
   );
 }
 

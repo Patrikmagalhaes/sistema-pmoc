@@ -1,409 +1,264 @@
-/* Padrões visuais mínimos (04 §1, propostas (UI) [A VALIDAR]). Sem biblioteca de UI definida nos docs. */
-:root {
-  --bg: #f5f6f8;
-  --surface: #ffffff;
-  --text: #1c2430;
-  --muted: #5b6676;
-  --border: #d6dbe3;
-  --primary: #0b5cad;
-  --primary-text: #ffffff;
-  --danger: #b42318;
-  --danger-bg: #fdecea;
-  --ok: #157347;
-  --ok-bg: #e8f5ee;
-  --warn: #8a5a00;
-  --warn-bg: #fff4d6;
-  --radius: 8px;
-  color-scheme: light;
-}
+/*
+ * Design tokens (doc 08 §2). Único lugar com valores de cor, tipografia, raio, sombra, z-index e
+ * duração (FE-T1, FE-T2). Componentes usam só os tokens semânticos (FE-T3).
+ */
+@import "tailwindcss";
 
-* {
-  box-sizing: border-box;
-}
+@theme {
+  /* Sem a paleta, os raios e as sombras padrão do Tailwind: só os tokens abaixo existem (FE-T1). */
+  --color-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --text-*: initial;
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font:
-    16px / 1.5 system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
+  /* ===== Primitivos (§2.1) — a marca [A VALIDAR] troca só a família brand (FE-T4) ===== */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-500: #3b82f6;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #f8fafc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1e293b;
+  --color-neutral-900: #0f172a;
+
+  --color-success-solid: #15803d;
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #86efac;
+  --color-success-text: #166534;
+  --color-warning-solid: #b45309;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fcd34d;
+  --color-warning-text: #92400e;
+  --color-danger-solid: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fca5a5;
+  --color-danger-text: #991b1b;
+  --color-info-solid: #0369a1;
+  --color-info-bg: #f0f9ff;
+  --color-info-border: #7dd3fc;
+  --color-info-text: #075985;
+
+  /* ===== Semânticos (§2.2): os únicos usados em componentes ===== */
+  --color-page: var(--color-neutral-50);
+  --color-surface: var(--color-neutral-0);
+  --color-surface-muted: var(--color-neutral-100);
+  --color-border: var(--color-neutral-300);
+  --color-border-subtle: var(--color-neutral-200);
+  --color-border-input: var(--color-neutral-500);
+  --color-text: var(--color-neutral-900);
+  --color-text-strong: var(--color-neutral-800);
+  --color-text-label: var(--color-neutral-700);
+  --color-text-muted: var(--color-neutral-600);
+  --color-text-hint: var(--color-neutral-500);
+  --color-text-disabled: var(--color-neutral-500);
+  --color-text-on-action: var(--color-neutral-0);
+  --color-icon-decorative: var(--color-neutral-400);
+  --color-action: var(--color-brand-700);
+  --color-action-hover: var(--color-brand-800);
+  --color-action-active: var(--color-brand-900);
+  --color-action-subtle: var(--color-brand-50);
+  --color-action-strong-bg: var(--color-brand-100);
+  --color-action-strong-text: var(--color-brand-800);
+  --color-action-border: var(--color-brand-200);
+  --color-link: var(--color-brand-700);
+  --color-focus-ring: var(--color-brand-700);
+  --color-overlay: rgb(15 23 42 / 0.5);
+  --color-skeleton: var(--color-neutral-100);
+  --color-disabled-bg: var(--color-neutral-100);
+  --color-disabled-border: var(--color-neutral-300);
+
+  /* ===== Tipografia (§2.4) — Inter via next/font (variável --font-inter) ===== */
+  --font-sans:
+    var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* ===== Espaçamento (§2.5): base 4 px ===== */
+  --spacing: 0.25rem;
+
+  /* ===== Raios e sombras (§2.6) ===== */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-full: 9999px;
+  --shadow-1: 0 1px 2px 0 rgb(15 23 42 / 0.08);
+  --shadow-2: 0 2px 8px -1px rgb(15 23 42 / 0.12);
+  --shadow-3: 0 8px 24px -4px rgb(15 23 42 / 0.2);
+
+  /* ===== Larguras de contêiner (§2.7) ===== */
+  --container-content-wide: 80rem;
+  --container-content-portal: 72rem;
+  --container-content-form: 48rem;
+  --container-content-pwa: 40rem;
+  --container-content-auth: 25rem;
+  --container-dialog-sm: 30rem;
+  --container-dialog-md: 40rem;
+  --container-dialog-lg: 50rem;
+
+  /* ===== Breakpoints (§2.7) ===== */
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+
+  /* ===== Duração (§2.6) ===== */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
-a {
-  color: var(--primary);
+/* ===== Z-index (§2.6): único lugar onde se declara ===== */
+:root {
+  color-scheme: light;
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-dropdown: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-offline-banner: 55;
+  --z-toast: 60;
+  /* Medidas fixas do layout (§4.1) */
+  --size-sidebar: 16rem;
+  --size-sidebar-collapsed: 4rem;
+  --size-topbar: 3.5rem;
 }
 
-.centro {
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 16px;
+@utility z-sticky {
+  z-index: var(--z-sticky);
+}
+@utility z-nav {
+  z-index: var(--z-nav);
+}
+@utility z-dropdown {
+  z-index: var(--z-dropdown);
+}
+@utility z-overlay {
+  z-index: var(--z-overlay);
+}
+@utility z-modal {
+  z-index: var(--z-modal);
+}
+@utility z-toast {
+  z-index: var(--z-toast);
 }
 
-.cartao {
-  width: 100%;
-  max-width: 420px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-}
-
-.cartao h1 {
-  font-size: 1.35rem;
-  margin: 0 0 16px;
-}
-
-.campo {
-  display: grid;
-  gap: 4px;
-  margin-bottom: 16px;
-}
-
-.campo label {
+/* ===== Escala tipográfica (§2.4): tamanho + altura de linha + peso ===== */
+@utility text-h1 {
+  font-size: 1.75rem;
+  line-height: 2.25rem;
   font-weight: 600;
-  font-size: 0.95rem;
 }
-
-.campo input {
-  font: inherit;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
+@utility text-h2 {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 600;
 }
-
-.campo input[aria-invalid="true"] {
-  border-color: var(--danger);
+@utility text-h3 {
+  font-size: 1.125rem;
+  line-height: 1.625rem;
+  font-weight: 600;
 }
-
-.campo .erro {
-  color: var(--danger);
+@utility text-h4 {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+}
+@utility text-h5 {
   font-size: 0.875rem;
-}
-
-.dica {
-  color: var(--muted);
-  font-size: 0.875rem;
-}
-
-.botao {
-  font: inherit;
-  font-weight: 600;
-  width: 100%;
-  padding: 10px 16px;
-  border-radius: var(--radius);
-  border: 1px solid var(--primary);
-  background: var(--primary);
-  color: var(--primary-text);
-  cursor: pointer;
-}
-
-.botao:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.botao.secundario {
-  background: transparent;
-  color: var(--primary);
-}
-
-.alerta {
-  padding: 10px 12px;
-  border-radius: var(--radius);
-  margin-bottom: 16px;
-  font-size: 0.95rem;
-}
-
-.alerta.erro {
-  background: var(--danger-bg);
-  color: var(--danger);
-}
-
-.alerta.aviso {
-  background: var(--warn-bg);
-  color: var(--warn);
-}
-
-.alerta.ok {
-  background: var(--ok-bg);
-  color: var(--ok);
-}
-
-.links {
-  margin-top: 16px;
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 0.95rem;
-}
-
-.codigos {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  font-family: ui-monospace, monospace;
-  background: var(--bg);
-  padding: 12px;
-  border-radius: var(--radius);
-  margin: 0 0 12px;
-  list-style: none;
-}
-
-.chave {
-  font-family: ui-monospace, monospace;
-  word-break: break-all;
-  background: var(--bg);
-  padding: 8px 10px;
-  border-radius: var(--radius);
-}
-
-.linha {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.linha .botao {
-  width: auto;
-}
-
-/* Telas do ADM (04 §1.4 padrões de lista; (UI)) */
-.pagina {
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.titulo-pagina {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.titulo-pagina .botao {
-  width: auto;
-  text-decoration: none;
-}
-
-.filtros {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px;
-  margin: 16px 0;
-}
-
-.filtros .campo {
-  margin: 0;
-  min-width: 160px;
-}
-
-.filtros .botao {
-  width: auto;
-}
-
-.campo select {
-  font: inherit;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
-}
-
-.formulario {
-  max-width: 520px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-}
-
-.tabela-rolagem {
-  overflow-x: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.tabela {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.tabela th,
-.tabela td {
-  text-align: left;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-
-.tabela th {
-  font-size: 0.875rem;
-  color: var(--muted);
-}
-
-.etiqueta {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.85rem;
+  line-height: 1.25rem;
   font-weight: 600;
 }
-
-.etiqueta.ok {
-  background: var(--ok-bg);
-  color: var(--ok);
-}
-
-.etiqueta.aviso {
-  background: var(--warn-bg);
-  color: var(--warn);
-}
-
-.etiqueta.erro {
-  background: var(--danger-bg);
-  color: var(--danger);
-}
-
-.etiqueta.neutra {
-  background: var(--bg);
-  color: var(--muted);
-  border: 1px solid var(--border);
-}
-
-.vazio {
-  background: var(--surface);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-  text-align: center;
-}
-
-.paginacao {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  margin: 16px 0;
-}
-
-.acoes {
-  max-width: 520px;
-  margin-top: 16px;
-}
-
-.confirmacao {
-  background: var(--danger-bg);
-  border-radius: var(--radius);
-  padding: 12px;
-}
-
-.botao.perigo {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
-}
-
-.botao.secundario.perigo {
-  background: transparent;
-  color: var(--danger);
-}
-
-.esqueleto {
-  background: linear-gradient(90deg, var(--bg), var(--border), var(--bg));
-  border-radius: var(--radius);
-}
-
-.menu {
-  display: flex;
-  gap: 16px;
-}
-
-.campo textarea {
-  font: inherit;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
-  resize: vertical;
-}
-
-.campo textarea[aria-invalid="true"],
-.campo select[aria-invalid="true"] {
-  border-color: var(--danger);
-}
-
-/* Caixa de seleção com o rótulo ao lado (filtro "Mostrar inativos", "Exige foto"). */
-.caixa {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+@utility text-h6 {
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+/* Corpo: 16 px no celular, 14 px a partir de md (desktop). */
+@utility text-body {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 400;
+  @media (width >= 48rem) {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+}
+@utility text-body-strong {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 500;
+  @media (width >= 48rem) {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+}
+@utility text-small {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 400;
+}
+@utility text-caption {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 400;
 }
 
-.secao {
-  margin-top: 32px;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-page font-sans text-body text-text antialiased;
+  }
+  /* FE §3.0.1: anel de foco visível em todo elemento focável. */
+  :focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+  a {
+    @apply text-link underline-offset-2;
+  }
+  a:hover {
+    @apply underline;
+  }
+  /* Campos com 16 px no celular evitam o zoom automático do iOS (§2.4 regra a). */
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+  ::placeholder {
+    color: var(--color-text-hint);
+  }
+  dialog::backdrop {
+    background: var(--color-overlay);
+  }
 }
 
-.secao h2 {
-  font-size: 1.15rem;
-  margin: 0 0 8px;
-}
-
-.tabela .acoes-linha {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.tabela .acoes-linha .botao {
-  width: auto;
-  padding: 6px 10px;
-}
-
-.grade {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0 12px;
-}
-
-.abas {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  border-bottom: 1px solid var(--border);
-  margin: 16px 0;
-}
-
-.abas a {
-  padding: 8px 14px;
-  text-decoration: none;
-  color: var(--muted);
-  border-bottom: 2px solid transparent;
-}
-
-.abas a[aria-current="page"] {
-  color: var(--text);
-  font-weight: 600;
-  border-bottom-color: currentColor;
-}
-
-fieldset.campo {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px;
+/* §2.6: sem animação com prefers-reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: precisa vencer os utilitários de transição. */
+    animation-duration: 0s !important;
+    /* biome-ignore lint/complexity/noImportantStyles: idem. */
+    transition-duration: 0s !important;
+  }
 }

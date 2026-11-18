@@ -1,12 +1,25 @@
 "use client";
+import { Ban, Mail, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { avisar } from "@/components/ui/toaster";
 import { useHidratado } from "@/lib/use-hidratado";
 import { inativarUsuarioAction, reativarUsuarioAction, reenviarLinkAction } from "../actions";
 
 type Acao = "inativar" | "reativar" | "reenviar";
 
-/** TL-107: ações sobre o usuário. Não existe "Excluir" (RN-141). */
+const FEITO: Record<Acao, string> = {
+  reenviar: "Link enviado. Ele vale por 72 horas.",
+  inativar: "Usuário inativado. As sessões dele foram encerradas.",
+  reativar: "Usuário reativado.",
+};
+
+/**
+ * TL-107: ações sobre o usuário, no PageHeader. Não existe "Excluir" (RN-141). "Inativar" pede
+ * confirmação (FE-H5.1); "Reativar" e "Reenviar link" não.
+ */
 export function AcoesUsuario({
   id,
   rowVersion,
@@ -22,13 +35,10 @@ export function AcoesUsuario({
 }) {
   const router = useRouter();
   const pronto = useHidratado();
-  const [confirmando, setConfirmando] = useState(false);
   const [enviando, setEnviando] = useState<Acao | null>(null);
-  const [msg, setMsg] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
 
-  async function executar(acao: Acao) {
-    setEnviando(acao);
-    setMsg(null);
+  /** Devolve a mensagem de erro, ou `null` em sucesso. */
+  async function executar(acao: Acao): Promise<string | null> {
     try {
       const r =
         acao === "inativar"
@@ -38,103 +48,61 @@ export function AcoesUsuario({
             : await reenviarLinkAction({ id });
       if (r?.serverError === "SESSAO_EXPIRADA") {
         window.location.assign(`/login?voltar=${encodeURIComponent(window.location.pathname)}`);
-        return;
+        return null;
       }
       const d = r?.data;
-      if (!d)
-        return setMsg({ tipo: "erro", texto: r?.serverError ?? "Não foi possível concluir." });
-      if (!d.ok) return setMsg({ tipo: "erro", texto: d.mensagem });
-      setConfirmando(false);
-      setMsg({
-        tipo: "ok",
-        texto:
-          acao === "reenviar"
-            ? "Link enviado. Ele vale por 72 horas."
-            : acao === "inativar"
-              ? "Usuário inativado. As sessões dele foram encerradas."
-              : "Usuário reativado.",
-      });
+      if (!d) return r?.serverError ?? "Não foi possível concluir.";
+      if (!d.ok) return d.mensagem;
+      avisar.sucesso(FEITO[acao]);
       router.refresh();
+      return null;
     } catch {
-      setMsg({ tipo: "erro", texto: "Sem conexão. Tente novamente." });
-    } finally {
-      setEnviando(null);
+      return "Não foi possível concluir. Verifique a conexão e tente novamente.";
     }
   }
 
-  const desabilitado = !pronto || enviando !== null;
+  async function direto(acao: Acao) {
+    setEnviando(acao);
+    const erro = await executar(acao);
+    setEnviando(null);
+    if (erro) avisar.erro(erro);
+  }
+
+  if (situacao === "INATIVO") {
+    return (
+      <Button
+        icon={<RotateCcw size={20} aria-hidden="true" />}
+        disabled={!pronto}
+        loading={enviando === "reativar"}
+        onClick={() => direto("reativar")}
+      >
+        {enviando === "reativar" ? "Reativando…" : "Reativar"}
+      </Button>
+    );
+  }
 
   return (
-    <div className="acoes">
-      {msg && (
-        <div className={`alerta ${msg.tipo}`} role="status">
-          {msg.texto}
-        </div>
-      )}
-      {confirmando ? (
-        // UF-09: confirmação que diz o efeito.
-        <div className="confirmacao" role="dialog" aria-labelledby="confirmar-inativar">
-          <p id="confirmar-inativar">
-            Inativar <strong>{nome}</strong>? O usuário perde o acesso na hora (as sessões abertas
-            são encerradas) e deixa de receber notificações. Os registros e assinaturas anteriores
-            permanecem.
-          </p>
-          <div className="linha">
-            <button
-              type="button"
-              className="botao perigo"
-              disabled={desabilitado}
-              onClick={() => executar("inativar")}
-            >
-              {enviando === "inativar" ? "Inativando…" : "Confirmar inativação"}
-            </button>
-            <button
-              type="button"
-              className="botao secundario"
-              onClick={() => setConfirmando(false)}
-            >
-              Voltar
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="linha">
-          {situacao === "ATIVO" && (
-            <button
-              type="button"
-              className="botao secundario"
-              disabled={desabilitado}
-              onClick={() => executar("reenviar")}
-            >
-              {enviando === "reenviar" ? "Enviando…" : "Reenviar link de senha"}
-            </button>
-          )}
-          {situacao === "ATIVO" && (
-            <button
-              type="button"
-              className="botao secundario perigo"
-              disabled={desabilitado || proprio}
-              title={proprio ? "Você não pode inativar o próprio usuário." : undefined}
-              onClick={() => setConfirmando(true)}
-            >
-              Inativar
-            </button>
-          )}
-          {situacao === "INATIVO" && (
-            <button
-              type="button"
-              className="botao secundario"
-              disabled={desabilitado}
-              onClick={() => executar("reativar")}
-            >
-              {enviando === "reativar" ? "Reativando…" : "Reativar"}
-            </button>
-          )}
-        </div>
-      )}
-      {proprio && situacao === "ATIVO" && (
-        <p className="dica">Você não pode inativar o próprio usuário.</p>
-      )}
-    </div>
+    <>
+      <Button
+        icon={<Mail size={20} aria-hidden="true" />}
+        disabled={!pronto || enviando !== null}
+        loading={enviando === "reenviar"}
+        onClick={() => direto("reenviar")}
+      >
+        {enviando === "reenviar" ? "Enviando…" : "Reenviar link de senha"}
+      </Button>
+      {/* UF-09: confirmação que diz o efeito. */}
+      <ConfirmDialog
+        gatilho={{
+          rotulo: "Inativar",
+          icone: <Ban size={20} aria-hidden="true" />,
+          bloqueio: proprio ? "Você não pode inativar o próprio usuário." : null,
+        }}
+        titulo={`Inativar ${nome}?`}
+        efeito="O usuário perde o acesso na hora (as sessões abertas são encerradas) e deixa de receber notificações. Os registros e assinaturas anteriores permanecem."
+        confirmar={{ rotulo: "Inativar usuário", carregando: "Inativando…" }}
+        onConfirmar={() => executar("inativar")}
+      />
+    </>
   );
 }

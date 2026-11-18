@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Page, PageHeader } from "@/components/ui/page-header";
 import { listarClientesParaSelecao } from "@/modules/clientes";
 import { getAuth } from "@/server/auth";
 import { exigirArea } from "@/server/auth/sessao";
@@ -18,16 +18,26 @@ export default async function NovoUsuarioPage({
   const cliente = typeof sp.cliente === "string" ? sp.cliente : null;
   const travado =
     cliente && clientes.some((c) => c.id === cliente) ? { clientId: cliente } : undefined;
+  const nomeCliente = travado ? clientes.find((c) => c.id === travado.clientId)?.razaoSocial : null;
   return (
-    <section className="pagina">
-      <p>
-        <Link href="/adm/usuarios">← Usuários</Link>
-      </p>
-      <h1>Novo usuário</h1>
-      <p className="dica">
-        Ao salvar, o usuário recebe por e-mail um link para definir a senha (vale 72 horas).
-      </p>
-      <UsuarioForm clientes={clientes} travado={travado} />
-    </section>
+    <Page largura="form">
+      <PageHeader
+        migalhas={
+          travado && nomeCliente
+            ? [
+                { rotulo: "Clientes", href: "/adm/clientes" },
+                { rotulo: nomeCliente, href: `/adm/clientes/${travado.clientId}?aba=usuarios` },
+                { rotulo: "Novo usuário" },
+              ]
+            : [{ rotulo: "Usuários", href: "/adm/usuarios" }, { rotulo: "Novo usuário" }]
+        }
+        titulo="Novo usuário"
+      />
+      <UsuarioForm
+        clientes={clientes}
+        travado={travado}
+        cancelarHref={travado ? `/adm/clientes/${travado.clientId}?aba=usuarios` : "/adm/usuarios"}
+      />
+    </Page>
   );
 }

@@ -1,6 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatarDataHora, ROTULO_SITUACAO } from "@/lib/formato";
+import { StatusBadge } from "@/components/status-badge";
+import { Alert } from "@/components/ui/alert";
+import { Page, PageHeader } from "@/components/ui/page-header";
+import { formatarDataHora, ROTULO_PERFIL } from "@/lib/formato";
 import { MOTIVO_MAX, obterUsuario } from "@/modules/acesso";
 import { listarClientesParaSelecao } from "@/modules/clientes";
 import { getAuth } from "@/server/auth";
@@ -11,7 +13,7 @@ import { RedefinirSegundoFator } from "./segundo-fator";
 
 export const metadata = { title: "Usuário – Sistema PMOC" };
 
-/** TL-107 – Usuário (edição, inativar, reativar, reenviar link). */
+/** TL-107 – Usuário (edição, inativar, reativar, reenviar link). Template T-FORM (doc 08 §7.4). */
 export default async function UsuarioPage({
   params,
   searchParams,
@@ -29,29 +31,45 @@ export default async function UsuarioPage({
   if (!u) notFound();
   const aviso = typeof sp.aviso === "string" ? sp.aviso : null;
   return (
-    <section className="pagina">
-      <p>
-        <Link href="/adm/usuarios">← Usuários</Link>
-      </p>
-      <div className="titulo-pagina">
-        <h1>{u.nome}</h1>
-        <span className={`etiqueta ${u.situacao === "ATIVO" ? "ok" : "neutra"}`}>
-          {ROTULO_SITUACAO[u.situacao]}
-          {u.inativadoEm ? ` desde ${formatarDataHora(u.inativadoEm)}` : ""}
-        </span>
-      </div>
+    <Page largura="form">
+      <PageHeader
+        migalhas={[{ rotulo: "Usuários", href: "/adm/usuarios" }, { rotulo: u.nome }]}
+        titulo={u.nome}
+        estado={<StatusBadge tipo="situacao" valor={u.situacao} tamanho="lg" />}
+        meta={
+          <>
+            {ROTULO_PERFIL[u.perfil]} · Último login: {formatarDataHora(u.ultimoLogin)}
+            {u.inativadoEm ? ` · Inativo desde ${formatarDataHora(u.inativadoEm)}` : ""}
+          </>
+        }
+        acoes={
+          <>
+            <AcoesUsuario
+              id={u.id}
+              rowVersion={u.rowVersion}
+              nome={u.nome}
+              situacao={u.situacao}
+              proprio={u.id === s.ctx.userId}
+            />
+            {u.perfil === "ADM" &&
+              u.situacao === "ATIVO" &&
+              u.segundoFatorAtivo &&
+              u.id !== s.ctx.userId && (
+                <RedefinirSegundoFator id={u.id} nome={u.nome} motivoMax={MOTIVO_MAX} />
+              )}
+          </>
+        }
+      />
       {aviso === "criado" && (
-        <div className="alerta ok" role="status">
-          Usuário criado. Enviamos o link para definir a senha.
-        </div>
+        <Alert tom="success">Usuário criado. Enviamos o link para definir a senha.</Alert>
       )}
       {aviso === "sem-email" && (
-        <div className="alerta erro" role="status">
+        <Alert tom="warning">
           Usuário criado, mas o e-mail não foi enviado. Use "Reenviar link de senha".
-        </div>
+        </Alert>
       )}
-      <p className="dica">Último login: {formatarDataHora(u.ultimoLogin)}</p>
       <UsuarioForm
+        key={u.rowVersion}
         clientes={clientes}
         usuario={{
           id: u.id,
@@ -63,19 +81,6 @@ export default async function UsuarioPage({
           telefone: u.telefone,
         }}
       />
-      <AcoesUsuario
-        id={u.id}
-        rowVersion={u.rowVersion}
-        nome={u.nome}
-        situacao={u.situacao}
-        proprio={u.id === s.ctx.userId}
-      />
-      {u.perfil === "ADM" &&
-        u.situacao === "ATIVO" &&
-        u.segundoFatorAtivo &&
-        u.id !== s.ctx.userId && (
-          <RedefinirSegundoFator id={u.id} nome={u.nome} motivoMax={MOTIVO_MAX} />
-        )}
-    </section>
+    </Page>
   );
 }

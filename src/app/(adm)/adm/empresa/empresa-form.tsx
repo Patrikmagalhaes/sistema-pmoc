@@ -3,6 +3,11 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Conflito } from "@/components/conflito";
 import { EnderecoCampos, lerEndereco } from "@/components/endereco-campos";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, Fieldset } from "@/components/ui/card";
+import { Field, FieldRow, FileInput, Input } from "@/components/ui/field";
+import { avisar } from "@/components/ui/toaster";
 import { chamarAcao } from "@/lib/chamar-acao";
 import { cnpjValido, normalizarCnpj } from "@/lib/cnpj";
 import type { Endereco } from "@/lib/endereco";
@@ -71,11 +76,14 @@ async function enviarLogo(f: File): Promise<{ comprovante: string } | { erro: st
     if (!put.ok) return { erro: "O logo não foi enviado. Tente de novo." };
     return { comprovante: r.comprovante };
   } catch {
-    return { erro: "Sem conexão. Tente novamente." };
+    return { erro: "Não foi possível enviar o logo. Verifique a conexão e tente novamente." };
   }
 }
 
-/** TL-102 seção Empresa (RF-04.2; FL-02 passo 2). Sem empresa, o primeiro "Salvar" cria. */
+/**
+ * TL-102 seção Empresa (RF-04.2; FL-02 passo 2). Sem empresa, o primeiro "Salvar" cria. Card com
+ * grupos Identificação, Endereço e Logo e o botão próprio da seção no rodapé (doc 08 §7.4).
+ */
 export function EmpresaForm({ empresa }: { empresa: EmpresaEditavel | null }) {
   const router = useRouter();
   const pronto = useHidratado();
@@ -86,7 +94,7 @@ export function EmpresaForm({ empresa }: { empresa: EmpresaEditavel | null }) {
     empresa ? `/api/arquivos/${empresa.logoId}` : null,
   );
   const [erros, setErros] = useState<Erros>({});
-  const [geral, setGeral] = useState<{ tipo: "erro" | "ok"; texto: string } | null>(null);
+  const [geral, setGeral] = useState<string | null>(null);
   const [conflito, setConflito] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
@@ -133,7 +141,7 @@ export function EmpresaForm({ empresa }: { empresa: EmpresaEditavel | null }) {
       if ("erro" in envio) {
         setEnviando(false);
         setErros({ logo: envio.erro });
-        return setGeral({ tipo: "erro", texto: envio.erro });
+        return setGeral(envio.erro);
       }
       comprovante = envio.comprovante;
     }
@@ -144,95 +152,92 @@ export function EmpresaForm({ empresa }: { empresa: EmpresaEditavel | null }) {
     if (r.tipo === "conflito") return setConflito(true);
     if (r.tipo === "erro") {
       if (r.campos) setErros(r.campos);
-      return setGeral({ tipo: "erro", texto: r.mensagem });
+      return setGeral(r.mensagem);
     }
     setLogo(null);
-    setGeral({ tipo: "ok", texto: "Dados da empresa salvos." });
+    avisar.sucesso("Dados da empresa salvos.");
     router.refresh();
   }
 
   if (conflito) return <Conflito />;
 
-  const erro = (k: string) => (erros[k] ? <span className="erro">{erros[k]}</span> : null);
-
   return (
-    <form onSubmit={salvar} noValidate className="formulario" style={{ maxWidth: 720 }}>
-      {geral && (
-        <div className={`alerta ${geral.tipo}`} role="status">
-          {geral.texto}
+    <form onSubmit={salvar} noValidate aria-labelledby="titulo-empresa">
+      <Card
+        titulo={<span id="titulo-empresa">Empresa executora</span>}
+        descricao="Dados que vão no cabeçalho do PMOC e dos relatórios."
+        rodape={
+          <Button type="submit" variant="primary" disabled={!pronto} loading={enviando}>
+            {enviando ? "Salvando…" : "Salvar empresa"}
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-6">
+          {geral && <Alert tom="danger">{geral}</Alert>}
+          <div className="flex flex-col gap-4">
+            <Field id="razaoSocial" label="Razão social" erro={erros.razaoSocial}>
+              <Input name="razaoSocial" defaultValue={empresa?.razaoSocial} />
+            </Field>
+            <FieldRow>
+              <Field id="cnpj" label="CNPJ" erro={erros.cnpj}>
+                <Input
+                  name="cnpj"
+                  value={cnpj}
+                  placeholder="00.000.000/0000-00"
+                  onChange={(e) => setCnpj(mascararCnpj(e.target.value))}
+                  className="tabular-nums"
+                />
+              </Field>
+              <Field id="empresa-telefone" label="Telefone" erro={erros.telefone}>
+                <Input
+                  name="telefone"
+                  inputMode="tel"
+                  value={telefone}
+                  placeholder="(00) 00000-0000"
+                  onChange={(e) => setTelefone(mascararTelefone(e.target.value))}
+                  className="tabular-nums"
+                />
+              </Field>
+              <Field id="crea" label="Registro CREA" erro={erros.crea}>
+                <Input name="crea" defaultValue={empresa?.crea} />
+              </Field>
+            </FieldRow>
+          </div>
+          <Fieldset legenda="Endereço">
+            <EnderecoCampos
+              valor={empresa?.endereco}
+              erros={erros}
+              bairroObrigatorio={true}
+              prefixo="empresa-"
+            />
+          </Fieldset>
+          <Fieldset legenda="Logo">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              {previa && (
+                // biome-ignore lint/performance/noImgElement: prévia local (blob:) ou rota protegida, sem otimização
+                <img
+                  src={previa}
+                  alt="Logo da empresa"
+                  className="max-h-20 max-w-60 rounded-md border border-border-subtle bg-surface p-2 object-contain"
+                />
+              )}
+              <Field
+                id="logo"
+                label="Logo"
+                erro={erros.logo}
+                dica="PNG ou JPEG de até 2 MB. Vai no cabeçalho dos PDFs."
+                className="flex-1"
+              >
+                <FileInput
+                  name="logo"
+                  accept="image/png,image/jpeg"
+                  onChange={(e) => escolherLogo(e.target.files?.[0] ?? null)}
+                />
+              </Field>
+            </div>
+          </Fieldset>
         </div>
-      )}
-      <div className="campo">
-        <label htmlFor="razaoSocial">Razão social</label>
-        <input
-          id="razaoSocial"
-          name="razaoSocial"
-          defaultValue={empresa?.razaoSocial}
-          aria-invalid={Boolean(erros.razaoSocial)}
-        />
-        {erro("razaoSocial")}
-      </div>
-      <div className="grade">
-        <div className="campo">
-          <label htmlFor="cnpj">CNPJ</label>
-          <input
-            id="cnpj"
-            name="cnpj"
-            value={cnpj}
-            onChange={(e) => setCnpj(mascararCnpj(e.target.value))}
-            aria-invalid={Boolean(erros.cnpj)}
-          />
-          {erro("cnpj")}
-        </div>
-        <div className="campo">
-          <label htmlFor="empresa-telefone">Telefone</label>
-          <input
-            id="empresa-telefone"
-            name="telefone"
-            inputMode="tel"
-            value={telefone}
-            onChange={(e) => setTelefone(mascararTelefone(e.target.value))}
-            aria-invalid={Boolean(erros.telefone)}
-          />
-          {erro("telefone")}
-        </div>
-        <div className="campo">
-          <label htmlFor="crea">Registro CREA</label>
-          <input
-            id="crea"
-            name="crea"
-            defaultValue={empresa?.crea}
-            aria-invalid={Boolean(erros.crea)}
-          />
-          {erro("crea")}
-        </div>
-      </div>
-      <EnderecoCampos
-        valor={empresa?.endereco}
-        erros={erros}
-        bairroObrigatorio={true}
-        prefixo="empresa-"
-      />
-      <div className="campo">
-        <label htmlFor="logo">Logo</label>
-        {previa && (
-          // biome-ignore lint/performance/noImgElement: prévia local (blob:) ou rota protegida, sem otimização
-          <img src={previa} alt="Logo da empresa" style={{ maxHeight: 80, maxWidth: 240 }} />
-        )}
-        <input
-          id="logo"
-          name="logo"
-          type="file"
-          accept="image/png,image/jpeg"
-          onChange={(e) => escolherLogo(e.target.files?.[0] ?? null)}
-          aria-invalid={Boolean(erros.logo)}
-        />
-        <span className="dica">PNG ou JPEG de até 2 MB. Vai no cabeçalho dos PDFs.</span>
-        {erro("logo")}
-      </div>
-      <button className="botao" type="submit" disabled={!pronto || enviando}>
-        {enviando ? "Salvando…" : "Salvar empresa"}
-      </button>
+      </Card>
     </form>
   );
 }
