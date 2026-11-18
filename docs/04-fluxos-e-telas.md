@@ -1241,7 +1241,7 @@ Aba Ficha histórico: grade por equipamento com os estados da ocorrência (rótu
 - **Remover / incluir atividade (RF-10.3 `[A VALIDAR]`):** "Remover" pede confirmação e grava `removed_at`/`removed_by_user_id`. "Incluir atividade" oferece, por tipo: (a) as removidas deste plano, que voltam pela **mesma linha** (RN-184); (b) as atividades `ATIVO` da biblioteca sem linha no plano, com a periodicidade padrão; (c) atividade nova só deste PMOC (`activity_template_id = NULL`), com os campos da RN-043 e a unidade da RN-042, no fim da ordem do tipo. Título repetido entre as atividades vivas do tipo é recusado, como na biblioteca (inferido).
 - **Permissões:** criar e remover/incluir atividade usam `pmoc.emitir` (fazem parte do fluxo de emissão, FL-08 passos 1–4); periodicidade usa `pmoc.periodicidade.alterar` (DEC-07). As duas são só do `ADM` (RN-168).
 - **Aba Cronograma:** grade por tipo com equipamento `ATIVO`, colunas `mm/aa`, "•"/"Ø", e o total de ocorrências previstas (`buildSchedule`, módulo `cronograma`). Nada é gravado em `occurrence` (DM-05).
-- **Ainda não:** "Emitir PMOC" (TL-121), aba Versões e Ficha (mostram o estado Vazio), alteração do plano com PMOC emitido (FL-09; mostra "Alterar o plano de PMOC emitido ainda não está disponível.") e "Excluir rascunho" (E-08.11: ver a pergunta sobre `pmoc.contract_id`).
+- **Ainda não:** a emissão em si (TL-121 só verifica; ver a implementação lá), aba Versões e Ficha (mostram o estado Vazio), alteração do plano com PMOC emitido (FL-09; mostra "Alterar o plano de PMOC emitido ainda não está disponível.") e "Excluir rascunho" (E-08.11: ver a pergunta sobre `pmoc.contract_id`).
 
 #### TL-121 – Emissão do PMOC (diálogo)
 - **Objetivo:** conferir e emitir (FL-08 passos 7–12; FL-09 nova versão).
@@ -1264,6 +1264,12 @@ Conteúdo por estado do diálogo:
 | `ERRO` | E-08.6 ou E-08.8 | "Tentar novamente", "Fechar" |
 
 Estados padrão "vazio" não se aplica (diálogo sempre tem conteúdo).
+
+**Implementação (Etapa 4, parte 2 – verificação da emissão):**
+- **Gatilho:** botão "Emitir PMOC" no cabeçalho da TL-120, só com PMOC `RASCUNHO` e perfil `ADM`; com contrato `ENCERRADO`/`CANCELADO` vem desabilitado com "Contrato encerrado não emite PMOC." (E-08.5).
+- **`VERIFICANDO` → `PENDENCIAS` | `PRONTO`:** o servidor confere RN-007 (a)–(g), RN-008 e RN-017 sem gravar nada e devolve todos os faltantes, na ordem da RN-007, cada um com link: empresa, RT e certificado → TL-102/TL-103; ART e contrato encerrado → TL-112; equipamento → aba Equipamentos do local; plano → aba Plano. RN-007 (d) é garantida pelas restrições do banco (registro vivo já tem os obrigatórios). Certificado vigente A3 entra como pendência (E-08.10).
+- **Resumo do `PRONTO`:** equipamentos `ATIVO`, atividades no plano, ocorrências previstas e visitas a criar (meses com ≥ 1 ocorrência, RN-060), calculados com o mesmo `buildSchedule` da emissão. Cliente, local e vigência já estão no cabeçalho da TL-120.
+- **Ainda não:** "Emitir" aparece desabilitado ("A emissão do PMOC ainda não está disponível."); `PROCESSANDO`, `CONCLUIDO`, `ERRO` e nova versão (FL-09) chegam com a emissão.
 
 #### TL-130 – Agenda
 - **Objetivo:** ver e filtrar visitas (RF-18.7). Visões: **Lista** (padrão) e **Calendário mensal por técnico** (formato [A VALIDAR], DFT-18).

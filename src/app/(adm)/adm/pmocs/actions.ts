@@ -9,6 +9,7 @@ import {
   incluirAtividadeNova,
   removerAtividadeDoPlano,
   restaurarAtividadeDoPlano,
+  verificarEmissao,
 } from "@/modules/pmoc";
 import { sessionAction } from "@/server/action";
 import { getDatabase } from "@/server/db";
@@ -18,12 +19,18 @@ export type Resultado<T = object> =
   | ({ ok: true } & T)
   | { ok: false; codigo: string; mensagem: string; campos?: Record<string, string> };
 
-async function executar<T extends object>(fn: () => Promise<T>): Promise<Resultado<T>> {
+/** `revalidar = false` para leituras (ex.: a verificação da TL-121, que não grava nada). */
+async function executar<T extends object>(
+  fn: () => Promise<T>,
+  revalidar = true,
+): Promise<Resultado<T>> {
   try {
     const r = await fn();
-    revalidatePath("/adm/pmocs");
-    revalidatePath("/adm/contratos");
-    revalidatePath("/adm/locais");
+    if (revalidar) {
+      revalidatePath("/adm/pmocs");
+      revalidatePath("/adm/contratos");
+      revalidatePath("/adm/locais");
+    }
     return { ok: true, ...r };
   } catch (e) {
     if (e instanceof ErroPmoc) {
@@ -47,6 +54,13 @@ const periodicidade = z.enum(["MM", "MB", "MT", "MS", "MA"]);
 export const criarPmocAction = sessionAction
   .inputSchema(z.object({ contratoId: z.uuid(), copiarDoAnterior: z.boolean() }))
   .action(async ({ parsedInput, ctx }) => executar(() => criarPmoc(ctx.req, parsedInput, deps())));
+
+/** TL-121 `VERIFICANDO`: pré-condições da emissão (RN-007, RN-008, RN-017). Não grava nada. */
+export const verificarEmissaoAction = sessionAction
+  .inputSchema(z.object({ pmocId: z.uuid() }))
+  .action(async ({ parsedInput, ctx }) =>
+    executar(() => verificarEmissao(ctx.req, parsedInput.pmocId, deps()), false),
+  );
 
 /** TL-120 aba Plano: periodicidade (RN-026). */
 export const alterarPeriodicidadeAction = sessionAction

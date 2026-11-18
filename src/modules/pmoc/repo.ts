@@ -161,6 +161,40 @@ export async function buscarPmoc(tx: Tx, id: string, paraEscrita = false): Promi
   return (r[0] as Pmoc | undefined) ?? null;
 }
 
+/** Dados lidos para as pré-condições da emissão (RN-007, RN-008). Sem dados do certificado (RN-121). */
+export interface DadosParaEmissao {
+  empresaCadastrada: boolean;
+  rtCadastrado: boolean;
+  certificado: { tipo: "A1" | "A3"; validoAte: Date } | null;
+  art: string | null;
+  atividadesNoPlano: number;
+}
+
+export async function dadosParaEmissao(tx: Tx, p: Pmoc): Promise<DadosParaEmissao> {
+  // Certificado vigente: no máximo um (`rt_certificate_current_uq`).
+  const r = await tx.execute(sql`SELECT
+      EXISTS (SELECT 1 FROM executor_company) AS "empresaCadastrada",
+      EXISTS (SELECT 1 FROM technical_responsible) AS "rtCadastrado",
+      c.certificate_type AS "certTipo", c.valid_until AS "certAte",
+      (SELECT k.art_number FROM contract k WHERE k.id = ${p.contratoId}) AS art,
+      (SELECT count(*)::int FROM pmoc_activity pa
+        WHERE pa.pmoc_id = ${p.id} AND pa.removed_at IS NULL) AS "atividadesNoPlano"
+    FROM (SELECT 1) um
+    LEFT JOIN rt_certificate c ON c.is_current AND c.deleted_at IS NULL`);
+  const x = r[0] as Omit<DadosParaEmissao, "certificado"> & {
+    certTipo: "A1" | "A3" | null;
+    certAte: Date | string | null;
+  };
+  return {
+    empresaCadastrada: x.empresaCadastrada,
+    rtCadastrado: x.rtCadastrado,
+    certificado:
+      x.certTipo && x.certAte ? { tipo: x.certTipo, validoAte: new Date(x.certAte) } : null,
+    art: x.art,
+    atividadesNoPlano: x.atividadesNoPlano,
+  };
+}
+
 export interface AtividadePlano {
   id: string;
   rowVersion: number;

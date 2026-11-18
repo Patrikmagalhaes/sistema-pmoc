@@ -7,9 +7,11 @@ import {
   mesesDoCronograma,
   mesesPrevistos,
 } from "@/modules/cronograma";
+import { diasParaVencer, estadoDoCertificado } from "@/modules/empresa";
 import type { RequestContext } from "@/server/context";
 import type { Database, Tx } from "@/server/db";
 import { restricaoViolada } from "@/server/db/errors";
+import { type VerificacaoPura, verificarPreCondicoes } from "./domain/emissao";
 import * as repo from "./repo";
 import {
   type AlterarPeriodicidadeInput,
@@ -233,6 +235,79 @@ export async function obterPmoc(
       calendario: mesesDoCronograma(p.inicio, p.meses),
       ocorrenciasPrevistas: buildSchedule(p, vivas, equipamentos).length,
       podeAlterarPlano: p.situacao === "RASCUNHO" && can(ctx, "pmoc.emitir"),
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Verificação da emissão (FL-08 passo 7; TL-121 `VERIFICANDO` → `PENDENCIAS` | `PRONTO`)
+// ---------------------------------------------------------------------------------------------
+
+export interface VerificacaoEmissao extends VerificacaoPura {
+  /** Resumo do estado `PRONTO` da TL-121. */
+  resumo: {
+    equipamentos: number;
+    atividades: number;
+    ocorrencias: number;
+    /** RN-060: uma visita `A_AGENDAR` por mês com ≥ 1 ocorrência prevista. */
+    visitas: number;
+  };
+}
+
+/**
+ * TL-121: confere **todas** as pré-condições (RN-007, RN-008, RN-017) sem gravar nada (E-08.3). Só
+ * para a 1ª emissão, a partir de `RASCUNHO`; nova versão (FL-09) chega depois. A emissão volta a
+ * conferir na própria transação, então esta leitura é só para a tela.
+ */
+export async function verificarEmissao(
+  ctx: RequestContext,
+  pmocId: string,
+  deps: PmocDeps,
+  agora = new Date(),
+): Promise<VerificacaoEmissao> {
+  exigir(ctx, "pmoc.emitir");
+  if (!ehUuid(pmocId)) throw naoEncontrado();
+  return deps.db.withTransaction(ctx, async (tx) => {
+    const p = await repo.buscarPmoc(tx, pmocId);
+    if (!p) throw naoEncontrado();
+    if (p.situacao !== "RASCUNHO") {
+      throw new ErroPmoc(
+        "NAO_DISPONIVEL",
+        "Nova versão de PMOC emitido ainda não está disponível.",
+      );
+    }
+    const [d, plano, equipamentos] = await Promise.all([
+      repo.dadosParaEmissao(tx, p),
+      repo.listarPlano(tx, p.id),
+      repo.equipamentosAtivos(tx, p.localId),
+    ]);
+    const c = d.certificado;
+    const v = verificarPreCondicoes({
+      empresaCadastrada: d.empresaCadastrada,
+      rtCadastrado: d.rtCadastrado,
+      certificado: c && {
+        tipo: c.tipo,
+        estado: estadoDoCertificado(c.validoAte, agora),
+        dias: diasParaVencer(c.validoAte, agora),
+      },
+      art: d.art,
+      situacaoContrato: p.situacaoContrato,
+      equipamentosAtivos: equipamentos.length,
+      atividadesNoPlano: d.atividadesNoPlano,
+    });
+    const ocorrencias = buildSchedule(
+      p,
+      plano.filter((a) => !a.removida),
+      equipamentos,
+    );
+    return {
+      ...v,
+      resumo: {
+        equipamentos: equipamentos.length,
+        atividades: d.atividadesNoPlano,
+        ocorrencias: ocorrencias.length,
+        visitas: new Set(ocorrencias.map((o) => o.indice)).size,
+      },
     };
   });
 }

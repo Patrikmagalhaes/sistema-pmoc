@@ -24,6 +24,7 @@ import {
   type PmocCompleto,
   removerAtividadeDoPlano,
   restaurarAtividadeDoPlano,
+  verificarEmissao,
 } from "../../src/modules/pmoc";
 import type { Database } from "../../src/server/db";
 import {
@@ -520,6 +521,115 @@ describe("equipamentos com PMOC em rascunho (FL-07 passo 5; RN-006)", () => {
       deps,
     );
     expect(tipo(await abrir(id), novo.id)?.atividades).toHaveLength(2);
+  });
+});
+
+describe("verificar a emissão (FL-08 passo 7; TL-121; RN-007, RN-008, RN-017)", () => {
+  const DIA = 24 * 60 * 60 * 1000;
+
+  /** Certificado vigente do RT (a semente não tem): troca o anterior, como a TL-103. */
+  async function certificadoVigente(validoAte: Date | null, tipo: "A1" | "A3" = "A1") {
+    await owner.begin(async (tx) => {
+      await tx`SELECT set_config('app.source', 'SISTEMA', true)`;
+      await tx`UPDATE rt_certificate SET is_current = false, deleted_at = now()
+        WHERE is_current AND deleted_at IS NULL`;
+      if (!validoAte) return;
+      await tx`INSERT INTO rt_certificate (technical_responsible_id, certificate_type,
+          encrypted_pkcs12, encrypted_password, encryption_key_ref, holder_name, serial_number,
+          valid_from, valid_until, is_current)
+        SELECT id, ${tipo}, '\\x00'::bytea, '\\x00'::bytea, 'teste', 'Rui Responsável', '01',
+          ${new Date(Date.now() - 365 * DIA)}, ${validoAte}, true
+        FROM technical_responsible`;
+    });
+  }
+
+  async function rascunhoCompleto() {
+    const t = await novoTipo();
+    const l = await novoLocal();
+    await novoEquipamento(l, t);
+    await novoEquipamento(l, t);
+    const { id } = await criarPmoc(
+      admCtx(),
+      { contratoId: await novoContrato(l, "2026-11-01", "2027-10-31"), copiarDoAnterior: false },
+      deps,
+    );
+    return id;
+  }
+
+  const codigos = async (id: string) =>
+    (await verificarEmissao(admCtx(), id, deps)).pendencias.map((p) => p.codigo);
+
+  it("CA-12.1 / E-08.3 / E-08.4 / E-08.9: lista todos os faltantes; certificado conta; nada é gravado", async () => {
+    const id = await rascunhoCompleto();
+
+    await certificadoVigente(null);
+    expect(await codigos(id)).toEqual(["CERTIFICADO_AUSENTE"]);
+
+    await certificadoVigente(new Date(Date.now() - DIA));
+    expect(await codigos(id)).toEqual(["CERTIFICADO_VENCIDO"]);
+
+    await certificadoVigente(new Date(Date.now() + 365 * DIA), "A3");
+    expect(await codigos(id)).toEqual(["CERTIFICADO_A3"]);
+
+    await certificadoVigente(new Date(Date.now() + 10 * DIA));
+    const aVencer = await verificarEmissao(admCtx(), id, deps);
+    expect(aVencer.pendencias).toEqual([]);
+    expect(aVencer.certificadoVenceEmDias).toBe(10);
+
+    await certificadoVigente(new Date(Date.now() + 365 * DIA));
+    const pronto = await verificarEmissao(admCtx(), id, deps);
+    expect(pronto).toMatchObject({ pendencias: [], certificadoVenceEmDias: null });
+    // 2 equipamentos × (Filtro MM: 12 + Tensão MS: 2); RN-060: uma visita por mês com ocorrência.
+    expect(pronto.resumo).toEqual({ equipamentos: 2, atividades: 2, ocorrencias: 28, visitas: 12 });
+
+    // Nada é gravado (E-08.3; DM-05).
+    const [o] = await owner`SELECT
+        (SELECT count(*)::int FROM occurrence WHERE pmoc_id = ${id}) AS ocorrencias,
+        (SELECT count(*)::int FROM visit WHERE pmoc_id = ${id}) AS visitas,
+        (SELECT status FROM pmoc WHERE id = ${id}) AS status`;
+    expect(o).toEqual({ ocorrencias: 0, visitas: 0, status: "RASCUNHO" });
+  });
+
+  it("RN-007 (f) e (g): sem equipamento ativo e plano vazio aparecem juntos", async () => {
+    await certificadoVigente(new Date(Date.now() + 365 * DIA));
+    const l = await novoLocal();
+    const { id } = await criarPmoc(
+      admCtx(),
+      { contratoId: await novoContrato(l), copiarDoAnterior: false },
+      deps,
+    );
+    expect(await codigos(id)).toEqual(["SEM_EQUIPAMENTO", "PLANO_VAZIO"]);
+    const v = await verificarEmissao(admCtx(), id, deps);
+    expect(v.pendencias.map((p) => p.destino)).toEqual(["EQUIPAMENTOS", "PLANO"]);
+    expect(v.resumo).toEqual({ equipamentos: 0, atividades: 0, ocorrencias: 0, visitas: 0 });
+  });
+
+  it("só RASCUNHO; só o ADM; PMOC inexistente é 404", async () => {
+    const id = await rascunhoCompleto();
+    for (const ctx of [technicianCtx(), clientCtx("A"), clientCtx("B")]) {
+      await expect(verificarEmissao(ctx, id, deps)).rejects.toMatchObject({
+        codigo: "SEM_PERMISSAO",
+      });
+    }
+    await expect(verificarEmissao(admCtx(), randomUUID(), deps)).rejects.toMatchObject({
+      codigo: "NAO_ENCONTRADO",
+    });
+    await owner.begin(async (tx) => {
+      await tx`SELECT set_config('app.source', 'SISTEMA', true)`;
+      await tx`UPDATE pmoc SET status = 'EMITIDO', current_version_number = 1, first_issued_at = now()
+        WHERE id = ${id}`;
+    });
+    await expect(verificarEmissao(admCtx(), id, deps)).rejects.toMatchObject({
+      codigo: "NAO_DISPONIVEL",
+    });
+  });
+
+  it("AF-16: a migração deixa a versão 1 de RECOMENDACOES_PMOC (texto provisório)", async () => {
+    const r =
+      await owner`SELECT version, body FROM standard_text WHERE code = 'RECOMENDACOES_PMOC'`;
+    expect(r).toHaveLength(1);
+    expect(r[0]?.version).toBe(1);
+    expect(r[0]?.body).toMatch(/^\[A VALIDAR/);
   });
 });
 
