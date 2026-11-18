@@ -4,7 +4,36 @@
  * para `HISTORICO` é usada pelo cancelamento e pela confirmação de renovação do contrato (módulo
  * `clientes`); a inclusão de tipo no plano, pela inclusão de equipamento (módulo `equipamentos`).
  */
+export {
+  blocosDeDozeMeses,
+  CAMPO_VAZIO_NO_PDF,
+  type Campo,
+  campos,
+  camposDeEndereco,
+  capacidade,
+  cnpj,
+  type EstadoDaCelula,
+  enderecoEmLinha,
+  estadoNaEmissao,
+  identificacaoContrato,
+  LEGENDA_FICHA,
+  type LinhaDaListagem,
+  listagemDeEquipamentos,
+  localEData,
+  mesCurto,
+  ROTULO_CELULA,
+  telefone,
+  telefones,
+  vigencia,
+} from "./domain/documento";
 export type { CodigoPendencia, DestinoPendencia, Pendencia } from "./domain/emissao";
+export {
+  type DadosDoDocumento,
+  montarSnapshot,
+  SNAPSHOT_SCHEMA_VERSION,
+  type SnapshotPmocV1,
+  type TipoDoSnapshot,
+} from "./domain/snapshot";
 export type {
   AtividadePlano,
   EstadoPmoc,

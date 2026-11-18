@@ -100,6 +100,19 @@ export interface EquipamentoLido {
   situacao: "ATIVO" | "INATIVO";
 }
 
+/** Texto fixo com a versão usada (para regerar igual, INT-22). */
+export interface TextoDoDocumento {
+  versao: string;
+  paragrafos: string[];
+}
+
+export interface TextosDoDocumento {
+  /** `standard_text` `RECOMENDACOES_PMOC` (DEC-19; P2). */
+  recomendacoes: TextoDoDocumento;
+  /** Anexo 1: Portaria MS 3.523/1998 (P3). */
+  anexo1: TextoDoDocumento & { titulo: string };
+}
+
 /** O que a emissão lê na transação para montar o retrato. */
 export interface DadosDoDocumento {
   empresa: EmpresaDoDocumento;
@@ -107,6 +120,7 @@ export interface DadosDoDocumento {
   cliente: ClienteDoDocumento;
   local: LocalDoDocumento;
   contrato: ContratoDoDocumento;
+  textos: TextosDoDocumento;
   tipos: readonly TipoLido[];
   atividades: readonly AtividadeLida[];
   equipamentos: readonly EquipamentoLido[];
@@ -152,6 +166,7 @@ export interface SnapshotPmocV1 {
   cliente: ClienteDoDocumento;
   local: LocalDoDocumento;
   contrato: ContratoDoDocumento;
+  textos: TextosDoDocumento;
   /** RN-021: meses 1..N com o mês de calendário. */
   calendario: MesDoContrato[];
   /** Só os tipos presentes (com equipamento `ATIVO`), por nome (RN-051: uma tabela por tipo). */
@@ -210,6 +225,7 @@ export function montarSnapshot(d: DadosDoDocumento): SnapshotPmocV1 {
     cliente: d.cliente,
     local: d.local,
     contrato: d.contrato,
+    textos: d.textos,
     calendario: mesesDoCronograma(d.contrato.inicio, meses),
     tipos,
   };

@@ -44,7 +44,7 @@ Módulos: `acesso autorizacao empresa clientes biblioteca equipamentos pmoc cron
 |---|---|---|
 | Instalar | `pnpm install --frozen-lockfile` | docs/06 SEG-80 |
 | Rodar local | `pnpm dev` (`next dev`) + Postgres em Docker ou Supabase CLI | nome do script [A VALIDAR] |
-| Testar | `pnpm test` (Vitest) · `pnpm test:e2e` (Playwright) | nomes [A VALIDAR] |
+| Testar | `pnpm test` (Vitest) · `pnpm test:integration` · `pnpm test:pdf` (snapshot de texto dos PDFs) · `pnpm test:e2e` (Playwright) | nomes [A VALIDAR] |
 | Lint/formatar | `biome check` · tipos: `tsc --noEmit` | docs/05 §7.2 |
 | Migrar | `pnpm db:migrate` (drizzle-kit + SQL à mão, em ordem) | docs/05 §3.2 |
 | Gerar migração | `drizzle-kit generate` | docs/05 §3.2 |

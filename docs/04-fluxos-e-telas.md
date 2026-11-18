@@ -1274,7 +1274,16 @@ Estados padrão "vazio" não se aplica (diálogo sempre tem conteúdo).
 **Implementação (Etapa 4, parte 3 – retrato e regras do PDF, sem tela):**
 - **Retrato (`pmoc_version.snapshot`, versão 1):** empresa, RT, cliente, local, contrato (TH/revisão, ART), calendário 1..N e, por tipo presente (com equipamento `ATIVO`, por nome), as atividades não removidas na ordem da RN-051 com os meses previstos (RN-023) e os equipamentos `ATIVO` por TAG. Tipo presente sem atividade entra com a lista vazia (a seção 5 ainda o lista).
 - **Regras de apresentação:** RN-010 (TH-revisão; revisão sem TH não é impressa), RN-011 (capa), RN-050 (quantidade por extenso no masculino, plural do tipo, "tipo {grupo}" sem repetir "Tipo", TAGs), RN-052 (capacidade pt-BR + unidade), RN-150 (rótulos da ficha), DEC-22/CA-12.3 (ficha em blocos de 12 meses). Datas `dd/mm/aaaa` e máscaras da RNF-07.
+- **Textos no retrato:** recomendações (`standard_text` `RECOMENDACOES_PMOC`) e Anexo 1 (rascunho da Portaria, `src/server/pdf/textos/anexo1.ts`, P3), com a versão de cada um, para o PDF regerado sair igual (INT-22).
 - **CA-12.2 `[A VALIDAR]`:** campo opcional vazio tem o **rótulo omitido** (constante única `CAMPO_VAZIO_NO_PDF` em `src/modules/pmoc/domain/documento.ts`; `"EM_BRANCO"` imprime o rótulo sem valor). Gênero da quantidade por extenso e a descrição de "Pendente" na legenda também ficam `[A VALIDAR]`.
+
+**Implementação (Etapa 4, parte 4 – PDF do PMOC, sem tela):** `src/server/pdf/pmoc` desenha o retrato na ordem da RF-12.2 (sem qualidade do ar, RN-013):
+- **Capa:** cliente (nome fantasia, senão razão social), título, TH-revisão, vigência, cidade e data.
+- **Seções 1 a 4:** dados da análise §2.1. A seção 4 traz a caixa "Assinado digitalmente por {RT}", com a indicação ICP-Brasil e a data (RF-13.2).
+- **Seções 5 e 6:** listagem com TAGs; cronograma com uma tabela por tipo e "X" na periodicidade. Tipo sem atividade: "Nenhuma atividade deste tipo no plano."
+- **Recomendações e anexos:** recomendações; folha de rosto e texto do Anexo 1; folha de rosto do Anexo 2 e uma ficha por equipamento e bloco de 12 meses, sem o cabeçalho da empresa (análise §1.2). Na ficha, a célula Ø fica em cinza.
+- **Cabeçalho e rodapé:** cabeçalho com logo, razão social, endereço e telefone. Rodapé (INT-25) com "Página n de N", "PMOC gerado digitalmente em {data} · {TH-revisão} · v{n}", o código de verificação com link para a TL-007 e o nome do sistema (DEC-32).
+- **Formato:** A4, Helvetica, sem hifenização automática. Mesmo retrato e mesma data → PDF idêntico (RNF-07).
 
 #### TL-130 – Agenda
 - **Objetivo:** ver e filtrar visitas (RF-18.7). Visões: **Lista** (padrão) e **Calendário mensal por técnico** (formato [A VALIDAR], DFT-18).

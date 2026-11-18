@@ -80,6 +80,10 @@ const dados = (o: Partial<DadosDoDocumento> = {}): DadosDoDocumento => ({
     th: null,
     revisao: null,
   },
+  textos: {
+    recomendacoes: { versao: "1", paragrafos: ["Recomendações."] },
+    anexo1: { versao: "rascunho-1", titulo: "Portaria", paragrafos: ["Art. 1º"] },
+  },
   tipos: [
     { id: "t-split", nome: "Split", nomePlural: "Splits", sigla: "SPL" },
     { id: "t-fan", nome: "Fancolete", nomePlural: null, sigla: "FCL" },
