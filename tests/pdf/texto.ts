@@ -15,14 +15,19 @@ const FONTES = `${join(
   "standard_fonts",
 ).replaceAll("\\", "/")}/`;
 
-export async function textoDasPaginas(pdf: Buffer): Promise<string[]> {
+/** Abre o PDF no pdf.js; `fechar` libera o documento. */
+export async function abrirPdf(pdf: Buffer) {
   const tarefa = getDocument({
     data: new Uint8Array(pdf),
     disableFontFace: true,
     standardFontDataUrl: FONTES,
     verbosity: 0,
   });
-  const doc = await tarefa.promise;
+  return { doc: await tarefa.promise, fechar: () => tarefa.destroy() };
+}
+
+export async function textoDasPaginas(pdf: Buffer): Promise<string[]> {
+  const { doc, fechar } = await abrirPdf(pdf);
   const paginas: string[] = [];
   for (let n = 1; n <= doc.numPages; n++) {
     const conteudo = await (await doc.getPage(n)).getTextContent();
@@ -40,6 +45,6 @@ export async function textoDasPaginas(pdf: Buffer): Promise<string[]> {
         .join("\n"),
     );
   }
-  await tarefa.destroy();
+  await fechar();
   return paginas;
 }

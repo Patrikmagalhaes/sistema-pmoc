@@ -1285,6 +1285,11 @@ Estados padrão "vazio" não se aplica (diálogo sempre tem conteúdo).
 - **Cabeçalho e rodapé:** cabeçalho com logo, razão social, endereço e telefone. Rodapé (INT-25) com "Página n de N", "PMOC gerado digitalmente em {data} · {TH-revisão} · v{n}", o código de verificação com link para a TL-007 e o nome do sistema (DEC-32).
 - **Formato:** A4, Helvetica, sem hifenização automática. Mesmo retrato e mesma data → PDF idêntico (RNF-07).
 
+**Implementação (Etapa 4, parte 5 – assinatura do RT, sem tela):**
+- **Assinatura:** `src/server/pdf/assinar.ts` assina o PDF em PAdES B-B com o A1 vigente (RN-120, RN-190), em update incremental. O campo de assinatura é de código próprio (`campo-assinatura.ts`): widget invisível na página 1 e motivo/local em UTF-16BE.
+- **Certificado:** o módulo `empresa` entrega o PKCS#12 e a senha decifrados só em memória, dentro da transação da emissão (`certificadoParaAssinarNaTransacao`, RN-121). Chave de cifra ausente ou diferente da usada no envio recusa (`NAO_CONFIGURADO`).
+- **Falhas (E-08.6):** erro tipado `ErroAssinatura`, sem dados do certificado na mensagem: `SENHA` (a senha guardada não abre mais o arquivo), `CERTIFICADO_INVALIDO`, `FORA_DA_VALIDADE` (vencido na hora da assinatura, RN-008) e `FALHA`.
+
 #### TL-130 – Agenda
 - **Objetivo:** ver e filtrar visitas (RF-18.7). Visões: **Lista** (padrão) e **Calendário mensal por técnico** (formato [A VALIDAR], DFT-18).
 

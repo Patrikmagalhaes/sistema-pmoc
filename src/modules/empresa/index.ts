@@ -11,7 +11,9 @@ export type { Certificado, Empresa, Rt } from "./repo";
 export type { EnviarCertificadoInput, SalvarEmpresaInput, SalvarRtInput } from "./schemas";
 export {
   type CertificadoExibido,
+  type CertificadoParaAssinar,
   type Configuracao,
+  certificadoParaAssinarNaTransacao,
   type EmpresaDeps,
   ErroEmpresa,
   enviarCertificado,

@@ -12,7 +12,9 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { runMigrations } from "../../db/migrate";
 import { type ArquivosDeps, lerArquivo, prepararEnvio } from "../../src/modules/arquivos";
 import {
+  certificadoParaAssinarNaTransacao,
   type EmpresaDeps,
+  ErroEmpresa,
   enviarCertificado,
   obterConfiguracao,
   salvarEmpresa,
@@ -351,6 +353,8 @@ describe("certificado do RT (RF-04.4; DM-11; RN-121, RN-153)", () => {
   const enviar = (p12: Buffer, senha: string, nomeArquivo = "rt.pfx", d = deps) =>
     enviarCertificado(admCtx(), { nomeArquivo, arquivo: p12.toString("base64"), senha }, d);
   const contar = async () => (await owner`SELECT count(*)::int AS n FROM rt_certificate`)[0]?.n;
+  const paraAssinar = (c: typeof chave | null) =>
+    db.withTransaction(admCtx(), (tx) => certificadoParaAssinarNaTransacao(tx, c));
 
   it("E-02.3 a E-02.5 e extensão/tamanho: nada é gravado", async () => {
     const p12 = gerarPkcs12({
@@ -376,6 +380,8 @@ describe("certificado do RT (RF-04.4; DM-11; RN-121, RN-153)", () => {
       enviar(p12, "certa", "rt.pfx", { ...deps, chaveCertificado: null }),
     ).rejects.toThrow(/chave de cifra/);
     expect(await contar()).toBe(0);
+    // RN-120: sem certificado vigente, nada para assinar.
+    expect(await paraAssinar(chave)).toBeNull();
   });
 
   it("grava cifrado (arquivo e senha), sem nada em claro, nem na auditoria; vira o atual", async () => {
@@ -431,6 +437,28 @@ describe("certificado do RT (RF-04.4; DM-11; RN-121, RN-153)", () => {
     expect(
       (await owner`SELECT count(*)::int AS n FROM rt_certificate WHERE is_current`)[0]?.n,
     ).toBe(1);
+  });
+
+  it("RN-120 / RN-121: a emissão recebe o A1 vigente decifrado só em memória", async () => {
+    const p12 = gerarPkcs12({
+      nome: "Jose da Conceicao",
+      senha: "outra-s3nha",
+      validoDe: validade(-1),
+      validoAte: validade(200),
+    });
+    const { id } = await enviar(p12, "outra-s3nha");
+    const c = await paraAssinar(chave);
+    expect(c?.id).toBe(id);
+    expect(c?.pkcs12.equals(p12)).toBe(true);
+    expect(c?.senha).toBe("outra-s3nha");
+    // Chave ausente ou outra que não a do envio (rotação sem migrar): recusa, sem expor o certificado.
+    const outra = chaveDeBase64(randomBytes(32).toString("base64"));
+    for (const k of [null, outra]) {
+      const e = await paraAssinar(k).catch((x: unknown) => x);
+      expect(e).toBeInstanceOf(ErroEmpresa);
+      expect((e as ErroEmpresa).codigo).toBe("NAO_CONFIGURADO");
+      expect(String((e as Error).message)).not.toContain("outra-s3nha");
+    }
   });
 });
 
