@@ -11,7 +11,7 @@ import { join } from "node:path";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { runMigrations } from "../../db/migrate";
-import { type ArquivosDeps, prepararEnvio } from "../../src/modules/arquivos";
+import { type ArquivosDeps, lerArquivo, prepararEnvio } from "../../src/modules/arquivos";
 import { criarTipo, incluirAtividade, obterTipo } from "../../src/modules/biblioteca";
 import { criarCliente, criarContrato, criarLocal } from "../../src/modules/clientes";
 import {
@@ -31,6 +31,7 @@ import {
   removerAtividadeDoPlano,
   verificarEmissao,
 } from "../../src/modules/pmoc";
+import { buildContext } from "../../src/server/context";
 import { chaveDeBase64 } from "../../src/server/crypto";
 import { createDatabase, type Database } from "../../src/server/db";
 import { assinarPdfComA1, ErroAssinatura } from "../../src/server/pdf/assinar";
@@ -412,6 +413,54 @@ describe("RN-009: emissão numa transação", () => {
 
     // Emitido não emite de novo pela 1ª emissão (nova versão é FL-09).
     expect((await erroDe(emitir(c.pmocId))).codigo).toBe("NAO_DISPONIVEL");
+  });
+});
+
+describe("TL-120 aba Versões e Baixar PDF (RN-016, RN-126, RN-163, RN-166, RN-171)", () => {
+  it("rascunho não tem versão; emitido lista a v1 atual com o PDF assinado pelo RT", async () => {
+    const c = await cenario(tipos);
+    expect((await obterPmoc(admCtx(), c.pmocId, deps))?.versoes).toEqual([]);
+
+    const r = await emitir(c.pmocId);
+    const p = await obterPmoc(admCtx(), c.pmocId, deps);
+    expect(p?.versoes).toEqual([
+      {
+        id: r.versaoId,
+        numero: 1,
+        situacao: "AGUARDANDO_ASSINATURA",
+        atual: true,
+        emitidaEm: AGORA,
+        emitidaPor: "ADM Teste",
+        motivo: null,
+        pdfArquivoId: r.arquivoId,
+        assinadaPor: null,
+        assinadaEm: null,
+      },
+    ]);
+  });
+
+  it("ADM e o próprio cliente baixam o PDF; outro cliente e o técnico recebem 404", async () => {
+    const c = await cenario(tipos);
+    const r = await emitir(c.pmocId);
+    const [v] = await owner`SELECT pdf_sha256 FROM pmoc_version WHERE id = ${r.versaoId}`;
+
+    const adm = await lerArquivo(admCtx(), r.arquivoId, arquivos);
+    expect(adm?.mime).toBe("application/pdf");
+    expect(sha(adm?.bytes as Buffer)).toBe(v?.pdf_sha256);
+
+    const doCliente = buildContext({
+      userId: c.usuarios[0] as string,
+      role: "CLIENTE",
+      clientId: c.clienteId,
+      requestId: randomUUID(),
+      source: "PORTAL_CLIENTE",
+    });
+    expect(sha((await lerArquivo(doCliente, r.arquivoId, arquivos))?.bytes as Buffer)).toBe(
+      v?.pdf_sha256,
+    );
+
+    expect(await lerArquivo(clientCtx("A"), r.arquivoId, arquivos)).toBeNull(); // RN-162
+    expect(await lerArquivo(technicianCtx(), r.arquivoId, arquivos)).toBeNull(); // RN-166
   });
 });
 

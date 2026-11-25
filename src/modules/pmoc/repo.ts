@@ -487,6 +487,40 @@ export interface NovaVersao {
   codigoVerificacao: string;
 }
 
+export type EstadoVersao = "AGUARDANDO_ASSINATURA" | "ASSINADO_CLIENTE" | "SUBSTITUIDA";
+
+/** Linha da aba "Versões e assinaturas" (TL-120). */
+export interface VersaoDoPmoc {
+  id: string;
+  numero: number;
+  situacao: EstadoVersao;
+  atual: boolean;
+  emitidaEm: Date;
+  emitidaPor: string | null;
+  motivo: string | null;
+  pdfArquivoId: string;
+  assinadaPor: string | null;
+  assinadaEm: Date | null;
+}
+
+/** Versões do PMOC, da mais nova para a mais antiga (RN-016, RN-126: todas continuam disponíveis). */
+export async function listarVersoes(tx: Tx, pmocId: string): Promise<VersaoDoPmoc[]> {
+  const r = await tx.execute(sql`SELECT v.id, v.version_number AS numero, v.status AS situacao,
+      v.is_current AS atual, v.issued_at AS "emitidaEm", u.name AS "emitidaPor",
+      v.issue_reason AS motivo, v.pdf_file_id AS "pdfArquivoId",
+      s.signer_name AS "assinadaPor", s.signed_at AS "assinadaEm"
+    FROM pmoc_version v
+    LEFT JOIN app_user u ON u.id = v.issued_by_user_id
+    LEFT JOIN document_signature s ON s.pmoc_version_id = v.id
+    WHERE v.pmoc_id = ${pmocId}
+    ORDER BY v.version_number DESC`);
+  return (r as unknown as VersaoDoPmoc[]).map((v) => ({
+    ...v,
+    emitidaEm: new Date(v.emitidaEm),
+    assinadaEm: v.assinadaEm && new Date(v.assinadaEm),
+  }));
+}
+
 /** VP-2: a versão nova é a atual e aguarda a assinatura do cliente. `client_id` vem por trigger. */
 export async function inserirVersao(tx: Tx, v: NovaVersao): Promise<string> {
   const em = v.emitidaEm.toISOString();

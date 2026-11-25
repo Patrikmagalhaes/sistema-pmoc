@@ -1,10 +1,10 @@
 "use client";
-import { FileSignature } from "lucide-react";
+import { Download, FileSignature } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { DescriptionList } from "@/components/ui/description-list";
 import { Dialog } from "@/components/ui/dialog";
 import { chamarAcao } from "@/lib/chamar-acao";
@@ -16,7 +16,7 @@ type Estado =
   | { tipo: "VERIFICANDO" }
   | { tipo: "VERIFICADO"; v: VerificacaoEmissao }
   | { tipo: "PROCESSANDO"; desde: number }
-  | { tipo: "CONCLUIDO"; versao: number }
+  | { tipo: "CONCLUIDO"; versao: number; arquivoId: string }
   | { tipo: "ERRO"; mensagem: string; podeTentar: boolean };
 
 /** "1 min 05 s" (E-08.7: tempo decorrido enquanto o PDF é gerado e assinado). */
@@ -91,7 +91,7 @@ export function EmitirPmoc({
     setEstado({ tipo: "PROCESSANDO", desde: Date.now() });
     const r = await chamarAcao(emitirPmocAction({ pmocId, rowVersion }));
     if (r.tipo === "ok") {
-      setEstado({ tipo: "CONCLUIDO", versao: r.dados.versao });
+      setEstado({ tipo: "CONCLUIDO", versao: r.dados.versao, arquivoId: r.dados.arquivoId });
       setRecarregar(true);
       return;
     }
@@ -131,6 +131,23 @@ export function EmitirPmoc({
           <Button variant="primary" onClick={() => void emitir()}>
             Emitir
           </Button>
+        </>
+      );
+    }
+    if (estado.tipo === "CONCLUIDO") {
+      // "Ir para agenda" chega com a TL-130 (Etapa 5).
+      return (
+        <>
+          <Button onClick={fechar}>Fechar</Button>
+          <a
+            href={`/api/arquivos/${estado.arquivoId}`}
+            target="_blank"
+            rel="noopener"
+            className={buttonClasses({ variant: "primary" })}
+          >
+            <Download size={20} aria-hidden="true" />
+            Baixar PDF
+          </a>
         </>
       );
     }

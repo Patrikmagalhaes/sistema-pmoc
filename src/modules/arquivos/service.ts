@@ -183,9 +183,20 @@ export async function confirmarEnvioNaTransacao(
 }
 
 /**
+ * Quem baixa cada `file_kind` (RN-171, respeitando RN-161 a RN-166). O dono é o `client_id` do
+ * arquivo, gravado pelo serviço que o criou (SEG-22). Tipo fora da lista não é servido.
+ * - `LOGO_EMPRESA`: quem gerencia a empresa (RF-03).
+ * - `PMOC_PDF`: ADM e o próprio cliente (RN-163); o técnico não vê o PMOC (RN-166). Só existe para PMOC
+ *   emitido (RN-009), então RN-147 já vale.
+ */
+const LEITURA: Readonly<Record<string, "empresa.gerenciar" | "pmoc.ler">> = {
+  LOGO_EMPRESA: PERMISSAO.LOGO_EMPRESA,
+  PMOC_PDF: "pmoc.ler",
+};
+
+/**
  * `/api/arquivos/:id` (05 §3.7; RN-171): confere a permissão e devolve os bytes. `null` = não existe ou
- * sem acesso (404, RN-162). Na Etapa 3 só o logo é servido; as demais finalidades entram com as etapas
- * delas, cada uma com a sua regra de acesso.
+ * sem acesso (404, RN-162). As demais finalidades entram com as etapas delas, cada uma na `LEITURA`.
  */
 export async function lerArquivo(
   ctx: RequestContext,
@@ -194,7 +205,8 @@ export async function lerArquivo(
 ): Promise<{ mime: string; bytes: Buffer } | null> {
   if (!ehUuid(id)) return null;
   const a = await deps.db.withTransaction(ctx, (tx) => repo.buscarArquivo(tx, id));
-  if (a?.kind !== "LOGO_EMPRESA" || !can(ctx, PERMISSAO.LOGO_EMPRESA)) return null;
+  const acao = a && Object.hasOwn(LEITURA, a.kind) ? LEITURA[a.kind] : undefined;
+  if (!a || !acao || !can(ctx, acao, { clientId: a.clienteId })) return null;
   const bytes = await deps.armazenamento.ler(a.chave);
   return bytes ? { mime: a.mime, bytes } : null;
 }

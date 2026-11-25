@@ -99,6 +99,7 @@ Rótulos (UI). O valor gravado é sempre o do enum (doc 03 §4).
 | `occurrence_status` | `NAO_PREVISTA` → "Ø"; `PREVISTA` → "Prevista" (célula vazia na ficha, RN-150); `PENDENTE` → "Pendente"; `OK` → "OK"; `NOK` → "NOK" |
 | `visit_status` | `A_AGENDAR` → "A agendar"; `AGENDADA` → "Agendada"; `EM_ANDAMENTO` → "Em andamento"; `REGISTRADA` → "Registrada"; `CANCELADA` → "Cancelada". Derivado: "Atrasada" quando RN-109 for verdadeira (não é estado). |
 | `pmoc_status` | `RASCUNHO` → "Rascunho"; `EMITIDO` → "Aguardando assinatura do cliente"; `ASSINADO_CLIENTE` → "Assinado"; `HISTORICO` → "Histórico" |
+| `pmoc_version_status` | `AGUARDANDO_ASSINATURA` → "Aguardando assinatura"; `ASSINADO_CLIENTE` → "Assinado"; `SUBSTITUIDA` → "Substituída" |
 | `report_status` | `RASCUNHO` → "Rascunho"; `AGUARDANDO_ASSINATURA` → "Aguardando assinatura"; `ASSINADO_CLIENTE` → "Assinado" |
 | `contract_status` | `A_INICIAR` → "A iniciar"; `VIGENTE` → "Vigente"; `ENCERRADO` → "Encerrado"; `CANCELADO` → "Cancelado" |
 | Certificado (derivado, RN-153) | `VALIDO` → "Válido"; `A_VENCER` → "Vence em {n} dias"; `VENCIDO` → "Vencido" |
@@ -1241,7 +1242,12 @@ Aba Ficha histórico: grade por equipamento com os estados da ocorrência (rótu
 - **Remover / incluir atividade (RF-10.3 `[A VALIDAR]`):** "Remover" pede confirmação e grava `removed_at`/`removed_by_user_id`. "Incluir atividade" oferece, por tipo: (a) as removidas deste plano, que voltam pela **mesma linha** (RN-184); (b) as atividades `ATIVO` da biblioteca sem linha no plano, com a periodicidade padrão; (c) atividade nova só deste PMOC (`activity_template_id = NULL`), com os campos da RN-043 e a unidade da RN-042, no fim da ordem do tipo. Título repetido entre as atividades vivas do tipo é recusado, como na biblioteca (inferido).
 - **Permissões:** criar e remover/incluir atividade usam `pmoc.emitir` (fazem parte do fluxo de emissão, FL-08 passos 1–4); periodicidade usa `pmoc.periodicidade.alterar` (DEC-07). As duas são só do `ADM` (RN-168).
 - **Aba Cronograma:** grade por tipo com equipamento `ATIVO`, colunas `mm/aa`, "•"/"Ø", e o total de ocorrências previstas (`buildSchedule`, módulo `cronograma`). Nada é gravado em `occurrence` (DM-05).
-- **Ainda não:** a emissão em si (TL-121 só verifica; ver a implementação lá), aba Versões e Ficha (mostram o estado Vazio), alteração do plano com PMOC emitido (FL-09; mostra "Alterar o plano de PMOC emitido ainda não está disponível.") e "Excluir rascunho" (E-08.11: ver a pergunta sobre `pmoc.contract_id`).
+- **Ainda não:** aba Ficha (mostra o estado Vazio), alteração do plano com PMOC emitido (FL-09; mostra "Alterar o plano de PMOC emitido ainda não está disponível.") e "Excluir rascunho" (E-08.11: ver a pergunta sobre `pmoc.contract_id`).
+
+**Implementação (Etapa 4, parte 7 – aba Versões e assinaturas):**
+- **Lista:** todas as `pmoc_version` do PMOC, da mais nova para a mais antiga (RN-016, RN-126), com versão (`v{n}` e a etiqueta "atual"), emitida em/por, motivo, estado (rótulos §1.5) e assinada pelo cliente em/por (`document_signature`; vazio até a Etapa 9). Em `RASCUNHO`: "Ainda não emitido."
+- **Baixar PDF:** abre `/api/arquivos/{pdf_file_id}` em nova aba (RN-171). O `PMOC_PDF` é servido ao `ADM` e ao `CLIENTE` dono (`pmoc.ler`, RN-163); para o `TECNICO` (RN-166), outro cliente (RN-162) ou id inexistente, 404. Não há regra própria de RN-147: o `PMOC_PDF` só existe para PMOC emitido.
+- **Depois:** "Baixar PDF assinado" (`client_signed_pdf_file_id`) e as notas de acompanhamento (RN-133), com o portal e as assinaturas (Etapa 9).
 
 #### TL-121 – Emissão do PMOC (diálogo)
 - **Objetivo:** conferir e emitir (FL-08 passos 7–12; FL-09 nova versão).
@@ -1302,7 +1308,8 @@ Estados padrão "vazio" não se aplica (diálogo sempre tem conteúdo).
 - **Falha em qualquer passo (E-08.6):** a transação é desfeita e a tela mostra a mensagem do E-08.6. O log do servidor registra só o passo e o código do erro (RN-121). O objeto do PDF, se já gravado no armazenamento, fica sem `stored_file` que o referencie, como um envio preparado e nunca confirmado: nada é apagado (RN-126).
 - **Código de verificação `[A VALIDAR]` (formato):** 128 bits aleatórios em Base32 de Crockford, 26 caracteres, gravados sem hífen e impressos em grupos de 4 (`src/modules/pmoc/domain/codigo-verificacao.ts`). O link do rodapé é `{APP_URL}/verificar/{código}`.
 - **TL-121:** `PROCESSANDO` com o tempo decorrido e o diálogo travado. `CONCLUIDO` mostra "PMOC emitido – versão {n}", e a página recarrega ao fechar. `ERRO` tem "Tentar novamente" (volta a verificar).
-- **Ainda não:** "Baixar PDF" no `CONCLUIDO` e a aba Versões (parte 7); "Ir para agenda" (TL-130 é da Etapa 5); nova versão (FL-09).
+- **Parte 7:** `CONCLUIDO` tem "Baixar PDF" (o PDF da versão emitida, como na aba Versões da TL-120).
+- **Ainda não:** "Ir para agenda" (TL-130 é da Etapa 5); nova versão (FL-09).
 
 #### TL-130 – Agenda
 - **Objetivo:** ver e filtrar visitas (RF-18.7). Visões: **Lista** (padrão) e **Calendário mensal por técnico** (formato [A VALIDAR], DFT-18).

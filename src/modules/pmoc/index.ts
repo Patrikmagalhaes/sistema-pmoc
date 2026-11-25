@@ -44,9 +44,11 @@ export { ANEXO1 } from "./domain/textos";
 export type {
   AtividadePlano,
   EstadoPmoc,
+  EstadoVersao,
   ModeloDisponivel,
   Pmoc,
   TipoDoPlano,
+  VersaoDoPmoc,
 } from "./repo";
 export type {
   AlterarPeriodicidadeInput,

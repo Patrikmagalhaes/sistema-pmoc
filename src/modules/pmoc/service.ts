@@ -211,6 +211,8 @@ export interface PmocCompleto extends repo.Pmoc {
   ocorrenciasPrevistas: number;
   /** Aba Plano editável: `RASCUNHO` e ADM. */
   podeAlterarPlano: boolean;
+  /** Aba "Versões e assinaturas", da mais nova para a mais antiga (vazia em `RASCUNHO`). */
+  versoes: repo.VersaoDoPmoc[];
 }
 
 /**
@@ -228,10 +230,11 @@ export async function obterPmoc(
     if (!p || !can(ctx, "pmoc.ler", { clientId: p.clienteId })) return null;
     if (ctx.role !== "ADM" && !p.emitidoAlgumaVez) return null;
 
-    const [plano, tipos, equipamentos] = await Promise.all([
+    const [plano, tipos, equipamentos, versoes] = await Promise.all([
       repo.listarPlano(tx, p.id),
       repo.tiposDoPlano(tx, p.id, p.localId),
       repo.equipamentosAtivos(tx, p.localId),
+      repo.listarVersoes(tx, p.id),
     ]);
     const disponiveis = await repo.modelosDisponiveis(
       tx,
@@ -253,6 +256,7 @@ export async function obterPmoc(
       calendario: mesesDoCronograma(p.inicio, p.meses),
       ocorrenciasPrevistas: buildSchedule(p, vivas, equipamentos).length,
       podeAlterarPlano: p.situacao === "RASCUNHO" && can(ctx, "pmoc.emitir"),
+      versoes,
     };
   });
 }

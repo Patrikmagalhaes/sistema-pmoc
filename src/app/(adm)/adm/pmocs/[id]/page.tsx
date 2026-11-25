@@ -1,21 +1,22 @@
-import { Fan, FileClock, History } from "lucide-react";
+import { Download, Fan, FileClock, History } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge, Tag } from "@/components/status-badge";
 import { Alert } from "@/components/ui/alert";
 import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DataTable } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Page, PageHeader } from "@/components/ui/page-header";
 import { Tabs } from "@/components/ui/tabs";
-import { formatarDataIso } from "@/lib/formato";
+import { formatarDataHora, formatarDataIso } from "@/lib/formato";
 import {
   PERIODICIDADES,
   ROTULO_NATUREZA,
   ROTULO_PERIODICIDADE,
   UNIDADE_MAX,
 } from "@/modules/biblioteca";
-import { obterPmoc, type PmocCompleto } from "@/modules/pmoc";
+import { obterPmoc, type PmocCompleto, type VersaoDoPmoc } from "@/modules/pmoc";
 import { exigirArea } from "@/server/auth/sessao";
 import { getDatabase } from "@/server/db";
 import { EmitirPmoc } from "./emitir";
@@ -41,8 +42,8 @@ const thRevisao = (th: string | null, revisao: string | null) =>
   th ? [th, revisao].filter(Boolean).join("-") : null;
 
 /**
- * TL-120 – PMOC (RF-10, RF-11; FL-08 passos 4–6). Template T-DETAIL com Tabs (doc 08 §7.3): Plano e
- * Cronograma; a emissão (TL-121), as versões e a ficha chegam com a emissão.
+ * TL-120 – PMOC (RF-10, RF-11; FL-08 passos 4–6). Template T-DETAIL com Tabs (doc 08 §7.3): Plano,
+ * Cronograma e Versões e assinaturas; a emissão abre a TL-121. A ficha chega com RF-16.
  */
 export default async function PmocPage({
   params,
@@ -147,17 +148,71 @@ export default async function PmocPage({
 
       {aba === "cronograma" && <Cronograma p={p} />}
 
-      {aba === "versoes" && (
-        <Card>
-          <EmptyState icone={FileClock} titulo="Ainda não emitido." />
-        </Card>
-      )}
+      {aba === "versoes" && <Versoes versoes={p.versoes} />}
       {aba === "ficha" && (
         <Card>
           <EmptyState icone={History} titulo="A ficha aparece após a emissão." />
         </Card>
       )}
     </Page>
+  );
+}
+
+/**
+ * Aba "Versões e assinaturas" (TL-120; RN-016, RN-126): todas as versões, da mais nova para a mais
+ * antiga, cada uma com o PDF assinado pelo RT por `/api/arquivos/{id}` (RN-171). "Baixar PDF assinado"
+ * (cliente) e as notas de acompanhamento (RN-133) chegam com o portal (Etapa 9).
+ */
+function Versoes({ versoes }: { versoes: VersaoDoPmoc[] }) {
+  return (
+    <DataTable
+      rotulo="Versões do PMOC"
+      linhas={versoes}
+      chave={(v) => v.id}
+      colunas={[
+        {
+          titulo: "Versão",
+          celula: (v) => (
+            <span className="inline-flex flex-wrap items-center gap-2 tabular-nums">
+              v{v.numero}
+              {v.atual && <Tag>atual</Tag>}
+            </span>
+          ),
+        },
+        {
+          titulo: "Emitida",
+          celula: (v) => `${formatarDataHora(v.emitidaEm)} · ${v.emitidaPor ?? "—"}`,
+          numerico: true,
+        },
+        { titulo: "Motivo", celula: (v) => v.motivo ?? "—", ocultarNoCelular: true },
+        {
+          titulo: "Assinada pelo cliente",
+          celula: (v) =>
+            v.assinadaEm ? `${formatarDataHora(v.assinadaEm)} · ${v.assinadaPor ?? "—"}` : "—",
+          numerico: true,
+          ocultarNoCelular: true,
+        },
+      ]}
+      estado={{
+        titulo: "Estado",
+        celula: (v) => <StatusBadge tipo="versaoPmoc" valor={v.situacao} />,
+      }}
+      acao={{
+        titulo: "PDF",
+        celula: (v) => (
+          <a
+            href={`/api/arquivos/${v.pdfArquivoId}`}
+            target="_blank"
+            rel="noopener"
+            className={buttonClasses({ variant: "secondary", size: "sm" })}
+          >
+            <Download size={16} aria-hidden="true" />
+            Baixar PDF<span className="sr-only"> da versão {v.numero}</span>
+          </a>
+        ),
+      }}
+      vazio={<EmptyState icone={FileClock} titulo="Ainda não emitido." />}
+    />
   );
 }
 

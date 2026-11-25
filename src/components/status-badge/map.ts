@@ -37,6 +37,11 @@ export const ESTADOS = {
     ASSINADO_CLIENTE: { rotulo: "Assinado", tom: "success", icone: FileCheck },
     HISTORICO: { rotulo: "Histórico", tom: "neutral", icone: Archive },
   },
+  versaoPmoc: {
+    AGUARDANDO_ASSINATURA: { rotulo: "Aguardando assinatura", tom: "warning", icone: FileClock },
+    ASSINADO_CLIENTE: { rotulo: "Assinado", tom: "success", icone: FileCheck },
+    SUBSTITUIDA: { rotulo: "Substituída", tom: "neutral", icone: Archive },
+  },
   certificado: {
     VALIDO: { rotulo: "Válido", tom: "success", icone: ShieldCheck },
     A_VENCER: { rotulo: "Vence em {n} dias", tom: "warning", icone: ShieldAlert },
