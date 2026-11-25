@@ -7,6 +7,7 @@ export {
   type AcessoDeps,
   atualizarMeusDados,
   atualizarUsuario,
+  consumirLimiteNaTransacao,
   criarPrimeiroAdm,
   criarUsuario,
   definirSenha,

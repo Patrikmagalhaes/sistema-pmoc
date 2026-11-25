@@ -8,7 +8,7 @@ import {
   type RequestContext,
   systemContext,
 } from "@/server/context";
-import type { Database } from "@/server/db";
+import type { Database, Tx } from "@/server/db";
 import type { EmailSender } from "@/server/email";
 import { bloqueadaAte } from "./domain/bloqueio";
 import { validarSenha } from "./domain/senha";
@@ -57,6 +57,21 @@ const sistema = (motivo: string) => systemContext(randomUUID(), motivo);
 
 /** SEG-61: 3 pedidos de link de recuperação por hora por e-mail. */
 const LIMITE_LINK_POR_EMAIL = { janelaMs: 60 * 60 * 1000, max: 3 } as const;
+
+/**
+ * Limite de uso da aplicação na transação de quem chama (03 `rate_limit_counter`; AF-18; ex.: INT-14
+ * `verificar`). O identificador (IP, e-mail) entra só em SHA-256 na chave `{limite}:{hash}`. Janela
+ * fixa. Devolve `true` se o uso cabe no limite.
+ */
+export function consumirLimiteNaTransacao(
+  tx: Tx,
+  limite: string,
+  identificador: string,
+  o: { janelaMs: number; max: number },
+): Promise<boolean> {
+  const hash = createHash("sha256").update(identificador).digest("hex");
+  return repo.consumirLimite(tx, `${limite}:${hash}`, o.janelaMs, o.max);
+}
 
 /** Janela de leitura das tentativas para o bloqueio (SEG-07) [A VALIDAR: "seguidas" sem prazo no doc]. */
 const JANELA_TENTATIVAS_MS = 24 * 60 * 60 * 1000;

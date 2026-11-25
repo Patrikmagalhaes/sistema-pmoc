@@ -4,6 +4,7 @@
  * A passagem para `HISTORICO` é usada pelo cancelamento e pela confirmação de renovação do contrato
  * (módulo `clientes`); a inclusão de tipo no plano, pela inclusão de equipamento (módulo
  * `equipamentos`). As regras de apresentação e o retrato alimentam o gerador do PDF (`src/server/pdf`).
+ * `verificarDocumento` serve a tela pública TL-007 (RN-187; INT-14).
  */
 export {
   codigoImpresso,
@@ -41,6 +42,11 @@ export {
   type TipoDoSnapshot,
 } from "./domain/snapshot";
 export { ANEXO1 } from "./domain/textos";
+export {
+  LIMITE_VERIFICACAO_POR_IP,
+  ROTULO_SITUACAO_VERIFICADA,
+  type SituacaoVerificada,
+} from "./domain/verificacao";
 export type {
   AtividadePlano,
   EstadoPmoc,
@@ -60,6 +66,7 @@ export {
   type AtividadeNoPlano,
   alterarPeriodicidade,
   criarPmoc,
+  type DocumentoVerificado,
   type EmissaoDeps,
   ErroPmoc,
   emitirPmoc,
@@ -70,11 +77,13 @@ export {
   type PmocCompleto,
   type PmocDeps,
   type ResultadoEmissao,
+  type ResultadoVerificacao,
   removerAtividadeDoPlano,
   restaurarAtividadeDoPlano,
   SEM_MUDAR_PLANO_EMITIDO,
   type TipoNoPlano,
   tornarHistoricoNaTransacao,
   type VerificacaoEmissao,
+  verificarDocumento,
   verificarEmissao,
 } from "./service";

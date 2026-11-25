@@ -29,6 +29,7 @@ import {
   emitirPmoc,
   obterPmoc,
   removerAtividadeDoPlano,
+  verificarDocumento,
   verificarEmissao,
 } from "../../src/modules/pmoc";
 import { buildContext } from "../../src/server/context";
@@ -461,6 +462,53 @@ describe("TL-120 aba Versões e Baixar PDF (RN-016, RN-126, RN-163, RN-166, RN-1
 
     expect(await lerArquivo(clientCtx("A"), r.arquivoId, arquivos)).toBeNull(); // RN-162
     expect(await lerArquivo(technicianCtx(), r.arquivoId, arquivos)).toBeNull(); // RN-166
+  });
+});
+
+describe("TL-007 Verificar documento (RN-187; INT-14; CA-26.2; AF-09)", () => {
+  it("código do rodapé, digitado com hífen e minúscula: mostra só tipo, versão, datas, hash e situação", async () => {
+    const c = await cenario(tipos);
+    const r = await emitir(c.pmocId);
+    const [v] = await owner`SELECT verification_code, pdf_sha256 FROM pmoc_version
+      WHERE id = ${r.versaoId}`;
+    const digitado = codigoImpresso(v?.verification_code).toLowerCase();
+
+    // toEqual no objeto inteiro: nenhum campo além dos da INT-14 (sem pessoa nem cliente).
+    expect(await verificarDocumento(digitado, "203.0.113.1", deps)).toEqual({
+      estado: "ENCONTRADO",
+      documento: {
+        tipo: "PMOC",
+        versao: 1,
+        emitidoEm: AGORA,
+        assinadoClienteEm: null,
+        sha256: v?.pdf_sha256,
+        sha256AssinadoCliente: null,
+        situacao: "VIGENTE",
+      },
+    });
+  });
+
+  it("código no formato mas inexistente: NAO_ENCONTRADO; fora do formato: INVALIDO sem contar", async () => {
+    const ip = "203.0.113.2";
+    const naoExiste = "0".repeat(26);
+    expect(await verificarDocumento(naoExiste, ip, deps)).toEqual({ estado: "NAO_ENCONTRADO" });
+    expect(await verificarDocumento("abc", ip, deps)).toEqual({ estado: "INVALIDO" });
+
+    const chave = `verificar:${sha(Buffer.from(ip))}`;
+    const linhas =
+      await owner`SELECT key, count FROM rate_limit_counter WHERE key LIKE 'verificar:%'`;
+    expect(linhas.find((l) => l.key === chave)?.count).toBe(1); // só a consulta no formato contou
+    expect(linhas.some((l) => String(l.key).includes(ip))).toBe(false); // IP nunca em claro
+  });
+
+  it("30 consultas por hora por IP; a 31ª recebe LIMITE e outro IP continua consultando", async () => {
+    const ip = "203.0.113.3";
+    const codigo = "1".repeat(26);
+    for (let i = 0; i < 30; i++) {
+      expect((await verificarDocumento(codigo, ip, deps)).estado).toBe("NAO_ENCONTRADO");
+    }
+    expect(await verificarDocumento(codigo, ip, deps)).toEqual({ estado: "LIMITE" });
+    expect((await verificarDocumento(codigo, "203.0.113.4", deps)).estado).toBe("NAO_ENCONTRADO");
   });
 });
 

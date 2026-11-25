@@ -521,6 +521,30 @@ export async function listarVersoes(tx: Tx, pmocId: string): Promise<VersaoDoPmo
   }));
 }
 
+/** TL-007: só o que a tela pública pode mostrar (INT-14). Nenhuma coluna de pessoa ou de cliente. */
+export interface VersaoVerificada {
+  numero: number;
+  situacao: EstadoVersao;
+  atual: boolean;
+  emitidaEm: Date;
+  sha256: string;
+  assinadaEm: Date | null;
+  sha256AssinadoCliente: string | null;
+}
+
+export async function versaoPorCodigo(tx: Tx, codigo: string): Promise<VersaoVerificada | null> {
+  const r = await tx.execute(sql`SELECT v.version_number AS numero, v.status AS situacao,
+      v.is_current AS atual, v.issued_at AS "emitidaEm", v.pdf_sha256 AS sha256,
+      s.signed_at AS "assinadaEm", v.client_signed_pdf_sha256 AS "sha256AssinadoCliente"
+    FROM pmoc_version v
+    LEFT JOIN document_signature s ON s.pmoc_version_id = v.id
+    WHERE v.verification_code = ${codigo}`);
+  const v = r[0] as VersaoVerificada | undefined;
+  return v
+    ? { ...v, emitidaEm: new Date(v.emitidaEm), assinadaEm: v.assinadaEm && new Date(v.assinadaEm) }
+    : null;
+}
+
 /** VP-2: a versão nova é a atual e aguarda a assinatura do cliente. `client_id` vem por trigger. */
 export async function inserirVersao(tx: Tx, v: NovaVersao): Promise<string> {
   const em = v.emitidaEm.toISOString();

@@ -1,6 +1,7 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { consumirLimiteNaTransacao } from "@/modules/acesso";
 import { gravarArquivoGeradoNaTransacao, lerArquivoNaTransacao } from "@/modules/arquivos";
 import { can } from "@/modules/autorizacao";
 import { ordenarAtividades, unidadeDaAtividade } from "@/modules/biblioteca";
@@ -16,17 +17,23 @@ import {
   ErroEmpresa,
   estadoDoCertificado,
 } from "@/modules/empresa";
-import type { RequestContext } from "@/server/context";
+import { type RequestContext, systemContext } from "@/server/context";
 import type { ChaveCifra } from "@/server/crypto";
 import type { Database, Tx } from "@/server/db";
 import { linhaTravada, restricaoViolada } from "@/server/db/errors";
 import type { OpcoesAssinatura } from "@/server/pdf/assinar";
 import type { EntradaPdfPmoc } from "@/server/pdf/pmoc";
 import type { Armazenamento } from "@/server/storage";
-import { codigoDeBytes, codigoImpresso } from "./domain/codigo-verificacao";
+import { codigoDeBytes, codigoImpresso, normalizarCodigo } from "./domain/codigo-verificacao";
 import { type VerificacaoPura, verificarPreCondicoes } from "./domain/emissao";
 import { montarSnapshot } from "./domain/snapshot";
 import { ANEXO1 } from "./domain/textos";
+import {
+  CHAVE_LIMITE_VERIFICACAO,
+  LIMITE_VERIFICACAO_POR_IP,
+  type SituacaoVerificada,
+  situacaoVerificada,
+} from "./domain/verificacao";
 import * as repo from "./repo";
 import {
   type AlterarPeriodicidadeInput,
@@ -675,4 +682,68 @@ export async function emitirPmoc(
     }
     throw new ErroPmoc("FALHA_EMISSAO", FALHA_EMISSAO);
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// TL-007 – Verificar documento (pública; RN-187; INT-14; AF-09)
+// ---------------------------------------------------------------------------------------------
+
+/** O que a TL-007 mostra. Sem nome de pessoa nem dado do cliente (INT-14; CA-26.2). */
+export interface DocumentoVerificado {
+  tipo: "PMOC";
+  versao: number;
+  emitidoEm: Date;
+  assinadoClienteEm: Date | null;
+  /** SHA-256 do PDF assinado pelo RT (o que tem o código no rodapé). */
+  sha256: string;
+  /** SHA-256 do PDF final com as evidências da assinatura do cliente (INT-12), quando houver. */
+  sha256AssinadoCliente: string | null;
+  situacao: SituacaoVerificada;
+}
+
+export type ResultadoVerificacao =
+  | { estado: "INVALIDO" }
+  | { estado: "LIMITE" }
+  | { estado: "NAO_ENCONTRADO" }
+  | { estado: "ENCONTRADO"; documento: DocumentoVerificado };
+
+/**
+ * TL-007: confere o código impresso no rodapé do PDF (RN-187). Pública, sem login: não há permissão a
+ * conferir, e o resultado só leva o que a INT-14 permite. Roda como `SISTEMA` (leitura).
+ *
+ * Código fora do formato não consulta nem conta. Os demais contam no limite de 30 por hora por IP
+ * (INT-14; AF-09), encontrados ou não, para ninguém varrer códigos. Sem IP conhecido, todos dividem
+ * a mesma cota (falha fechada).
+ */
+export async function verificarDocumento(
+  digitado: string,
+  ip: string | null,
+  deps: PmocDeps,
+): Promise<ResultadoVerificacao> {
+  const codigo = normalizarCodigo(digitado);
+  if (!codigo) return { estado: "INVALIDO" };
+  const ctx = systemContext(randomUUID(), "verificação pública de documento (TL-007)");
+  return deps.db.withTransaction(ctx, async (tx): Promise<ResultadoVerificacao> => {
+    const cabe = await consumirLimiteNaTransacao(
+      tx,
+      CHAVE_LIMITE_VERIFICACAO,
+      ip ?? "sem-ip",
+      LIMITE_VERIFICACAO_POR_IP,
+    );
+    if (!cabe) return { estado: "LIMITE" };
+    const v = await repo.versaoPorCodigo(tx, codigo);
+    if (!v) return { estado: "NAO_ENCONTRADO" };
+    return {
+      estado: "ENCONTRADO",
+      documento: {
+        tipo: "PMOC",
+        versao: v.numero,
+        emitidoEm: v.emitidaEm,
+        assinadoClienteEm: v.assinadaEm,
+        sha256: v.sha256,
+        sha256AssinadoCliente: v.sha256AssinadoCliente,
+        situacao: situacaoVerificada(v.situacao, v.atual),
+      },
+    };
+  });
 }

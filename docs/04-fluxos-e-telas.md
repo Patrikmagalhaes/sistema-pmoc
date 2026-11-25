@@ -1831,6 +1831,13 @@ Onde aparece depois de enviado: ADM em TL-131 (seção **Comprovante**: nome, da
 
 Sem nome de pessoa nem dado do cliente (INT-14). Upload do PDF para conferir: depois do MVP.
 
+**Implementação (Etapa 4):**
+- **Rotas:** `/verificar` (formulário GET, funciona sem JavaScript) e `/verificar/{codigo}` (resultado; é o link do rodapé). Template T-AUTH, sem login e sem indexação (`noindex`).
+- **Código:** aceito com hífen, espaço, minúscula e as trocas de Crockford (`normalizarCodigo`). Fora do formato: "Código inválido. Digite os 26 caracteres impressos no rodapé do PDF, com ou sem hífens." (UI), sem consultar o banco nem contar no limite.
+- **Limite (INT-14; AF-09):** 30 consultas por hora por IP, encontradas ou não, em `rate_limit_counter` com a chave `verificar:{sha256 do IP}` (janela fixa). IP pelo cabeçalho confiável (SEG-68); sem IP, todos dividem a mesma cota. Acima do limite: "Muitas consultas a partir desta rede. Tente novamente em até 1 hora." (UI).
+- **Resultado:** "Documento emitido por este sistema." com tipo, versão, emitido em, assinado pelo cliente em (ou "Ainda não assinado"), situação e o SHA-256 do PDF assinado pelo RT; o SHA-256 do PDF final do cliente (INT-12) aparece quando houver. Situação (UI): "Vigente"; "Substituído por versão mais nova"; "Assinado pelo cliente"; "Assinado pelo cliente e substituído por versão mais nova" (versão assinada continua `ASSINADO_CLIENTE` ao ganhar versão nova, VP-2). Não encontrado: "Nenhum documento com este código. Confira o código impresso no rodapé do PDF." (UI).
+- **Depois:** código de `visit_report_version` (relatório, Etapa 8) entra na mesma tela.
+
 | Estado | Comportamento |
 |---|---|
 | Vazio | Só o campo e o botão "Verificar". |
