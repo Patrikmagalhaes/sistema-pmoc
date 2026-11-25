@@ -1,6 +1,6 @@
 /**
  * Ambiente de demonstração local: Postgres 16 embutido (dados persistem em tmp/demo-pg) + migrações +
- * seed de desenvolvimento + os 3 usuários fictícios de `dados.ts` + `next dev` em http://localhost:3000.
+ * seed de desenvolvimento + dados de demonstração (`demo-dados.ts`: empresa, RT, certificado A1 de teste, equipamentos, contrato e PMOC em rascunho) + os 3 usuários fictícios de `dados.ts` + `next dev` em http://localhost:3000.
  * Uso: `npx tsx --conditions=react-server tests/e2e/demo.ts`. Só para ver o sistema; não é produção.
  */
 import { spawn } from "node:child_process";
@@ -10,13 +10,14 @@ import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import EmbeddedPostgres from "embedded-postgres";
 import { runMigrations } from "../../db/migrate";
-import { SEED, seedDevelopment } from "../../db/seed/data";
+import { seedDevelopment } from "../../db/seed/data";
 import { ganchosAuth } from "../../src/modules/acesso";
 import { createAuth } from "../../src/server/auth/config";
 import { systemContext } from "../../src/server/context";
 import { createDatabase } from "../../src/server/db";
 import { memoryEmailSender } from "../../src/server/email";
 import { E2E } from "./dados";
+import { popularDemo } from "./demo-dados";
 
 const PORTA_PG = 54329;
 const PORTA_WEB = 3000;
@@ -48,6 +49,12 @@ if (primeiraVez) {
   });
   const db = createDatabase(appUrl, { max: 2 });
   await seedDevelopment(db);
+  // Empresa, RT, certificado A1 de teste, biblioteca, cliente, equipamentos, contrato e PMOC em rascunho.
+  const demo = await popularDemo(db, {
+    storageDir: join(process.cwd(), "tmp", "demo-armazenamento"),
+    segredo: E2E.secret,
+    certKey: E2E.certKey,
+  });
   const auth = createAuth({
     db,
     secret: E2E.secret,
@@ -72,13 +79,16 @@ if (primeiraVez) {
     });
     await db.withTransaction(systemContext(randomUUID()), (tx) =>
       tx.execute(sql`INSERT INTO app_user (name, email, auth_user_id, role, client_id)
-        VALUES (${u.nome}, ${u.email}, ${a.id}, ${u.perfil}, ${u.perfil === "CLIENTE" ? SEED.clientAId : null})`),
+        VALUES (${u.nome}, ${u.email}, ${a.id}, ${u.perfil}, ${u.perfil === "CLIENTE" ? demo.clienteId : null})`),
     );
   }
   await db.close();
 }
 
 console.log(`\nPronto: ${base}`);
+console.log(
+  "  Para parar: Ctrl+C. Para recomeçar do zero: apague a pasta tmp/demo-pg com o servidor parado.",
+);
 for (const u of E2E.usuarios) console.log(`  ${u.perfil.padEnd(8)} ${u.email}  senha: ${u.senha}`);
 
 const next = spawn(
