@@ -9,6 +9,22 @@ const owner = postgres(inject("dbOwnerUrl"), { max: 1, onnotice: () => {} });
 const run = (q: ReturnType<typeof sql>) => db.withTransaction(admCtx(), (tx) => tx.execute(q));
 const fails = (q: ReturnType<typeof sql>) => failureText(run(q));
 
+/**
+ * Executa e desfaz: o banco do seed é compartilhado pelos arquivos de teste, que rodam em paralelo,
+ * e uma linha gravada aqui mudaria o que os outros enxergam (ex.: contratos do local A).
+ */
+const DESFAZER = Symbol("desfazer");
+async function runAndRollback(q: ReturnType<typeof sql>): Promise<void> {
+  await db
+    .withTransaction(admCtx(), async (tx) => {
+      await tx.execute(q);
+      throw DESFAZER;
+    })
+    .catch((e: unknown) => {
+      if (e !== DESFAZER) throw e;
+    });
+}
+
 beforeAll(() => ensureSeed(db));
 afterAll(async () => {
   await db.close();
@@ -84,7 +100,7 @@ describe("regras de coluna do doc 03", () => {
     expect(await fails(semMotivo)).toMatch(/check/i);
     const ok = sql`INSERT INTO contract (site_id, start_date, end_date, art_number, status, cancelled_on, cancellation_reason)
       VALUES (${SEED.siteAId}, '2026-06-01', '2027-05-31', 'ART-4', 'CANCELADO', '2026-07-01', 'Teste')`;
-    await expect(run(ok)).resolves.toBeDefined();
+    await expect(runAndRollback(ok)).resolves.toBeUndefined();
   });
 
   it("equipamento: grupo precisa pertencer ao tipo (FK composta, RN-041)", async () => {
