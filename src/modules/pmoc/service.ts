@@ -1,15 +1,22 @@
 import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { hojeEmSaoPaulo } from "@/lib/hoje";
 import { consumirLimiteNaTransacao } from "@/modules/acesso";
 import { gravarArquivoGeradoNaTransacao, lerArquivoNaTransacao } from "@/modules/arquivos";
 import { can } from "@/modules/autorizacao";
 import { ordenarAtividades, unidadeDaAtividade } from "@/modules/biblioteca";
 import {
+  type AtividadeDoPlano,
   buildSchedule,
+  type EquipamentoDoCronograma,
+  gravarRecalculoNaTransacao,
   type MesDoContrato,
   mesesDoCronograma,
   mesesPrevistos,
+  ocorrenciasDoPmocNaTransacao,
+  primeiroMesRecalculavel,
+  recalcularCronograma,
 } from "@/modules/cronograma";
 import {
   certificadoParaAssinarNaTransacao,
@@ -17,6 +24,11 @@ import {
   ErroEmpresa,
   estadoDoCertificado,
 } from "@/modules/empresa";
+import {
+  acompanharRecalculo,
+  gravarAcompanhamentoNaTransacao,
+  visitasNaoIniciadasNaTransacao,
+} from "@/modules/visitas";
 import { type RequestContext, systemContext } from "@/server/context";
 import type { ChaveCifra } from "@/server/crypto";
 import type { Database, Tx } from "@/server/db";
@@ -139,6 +151,159 @@ async function atividadeEditavel(tx: Tx, id: string) {
  */
 export function tornarHistoricoNaTransacao(tx: Tx, contratoId: string): Promise<boolean> {
   return repo.tornarHistorico(tx, contratoId);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Recálculo depois da emissão (RN-015, RN-032, RN-065 a RN-068, RN-183, RN-184; FL-07, FL-09)
+// ---------------------------------------------------------------------------------------------
+
+/** PMOC cujo cronograma acompanha o plano e os equipamentos (RN-015). `HISTORICO` não muda (RN-146). */
+const recalculavel = (p: repo.Pmoc) =>
+  p.situacao === "EMITIDO" || p.situacao === "ASSINADO_CLIENTE";
+
+/**
+ * Mudança ainda não gravada, para a prévia do impacto (FL-07 passo 4; E-07.7): o plano e os
+ * equipamentos como ficariam.
+ */
+export interface HipoteseDeRecalculo {
+  plano?: (atual: AtividadeDoPlano[]) => AtividadeDoPlano[];
+  equipamentos?: (atual: EquipamentoDoCronograma[]) => EquipamentoDoCronograma[];
+}
+
+/** O que o recálculo muda (ou mudaria, na prévia). */
+export interface ImpactoDoRecalculo {
+  /** 1º mês do contrato que o recálculo toca (RN-032: o seguinte ao corrente). */
+  aPartirDoMes: number;
+  ocorrenciasNovas: number;
+  ocorrenciasRetiradas: number;
+  visitasCriadas: number;
+  visitasExcluidas: number;
+  /** E-07.7: "A visita de {data} ficará sem itens e será cancelada." */
+  visitasCanceladas: { data: string | null }[];
+}
+
+export interface ResultadoRecalculo extends Omit<ImpactoDoRecalculo, "visitasCanceladas"> {
+  visitasCanceladas: number;
+  notificados: number;
+}
+
+const SEM_IMPACTO = (aPartirDoMes: number): ResultadoRecalculo => ({
+  aPartirDoMes,
+  ocorrenciasNovas: 0,
+  ocorrenciasRetiradas: 0,
+  visitasCriadas: 0,
+  visitasExcluidas: 0,
+  visitasCanceladas: 0,
+  notificados: 0,
+});
+
+async function planejarRecalculo(
+  tx: Tx,
+  p: repo.Pmoc,
+  agora: Date,
+  hipotese: HipoteseDeRecalculo = {},
+) {
+  const hoje = hojeEmSaoPaulo(agora);
+  const atual = (await repo.listarPlano(tx, p.id))
+    .filter((a) => !a.removida)
+    .map((a) => ({ id: a.id, tipoId: a.tipoId, periodicidade: a.periodicidade }));
+  const plano = hipotese.plano ? hipotese.plano(atual) : atual;
+  const ativos = await repo.equipamentosAtivos(tx, p.localId);
+  const equipamentos = hipotese.equipamentos ? hipotese.equipamentos(ativos) : ativos;
+  const existentes = await ocorrenciasDoPmocNaTransacao(tx, p.id);
+  const contrato = { inicio: p.inicio, meses: p.meses };
+  return {
+    aPartirDoMes: primeiroMesRecalculavel(p.inicio, hoje),
+    existentes,
+    recalculo: recalcularCronograma(contrato, plano, equipamentos, existentes, hoje),
+    visitas: await visitasNaoIniciadasNaTransacao(tx, p.id),
+  };
+}
+
+/** Chave provisória de uma célula nova na prévia (ainda sem id). */
+const chaveNova = (o: { atividadeId: string; equipamentoId: string; indice: number }) =>
+  `nova:${o.atividadeId}|${o.equipamentoId}|${o.indice}`;
+
+/**
+ * Prévia do impacto, sem gravar nada (FL-07 passo 4, FL-09; E-07.7). Recebe a transação de quem
+ * chama; a permissão é conferida por quem chama (MOD-04).
+ */
+export async function impactoDoRecalculoNaTransacao(
+  tx: Tx,
+  pmocId: string,
+  hipotese: HipoteseDeRecalculo,
+  agora: Date,
+): Promise<ImpactoDoRecalculo | null> {
+  const p = await repo.buscarPmoc(tx, pmocId);
+  if (!p || !recalculavel(p)) return null;
+  const { aPartirDoMes, existentes, recalculo, visitas } = await planejarRecalculo(
+    tx,
+    p,
+    agora,
+    hipotese,
+  );
+  const meses = new Map(existentes.map((o) => [o.id, o.indice] as const));
+  const entraram = [
+    ...recalculo.inserir.map((o) => ({
+      chave: chaveNova(o),
+      indice: o.indice,
+      referencia: o.referencia,
+    })),
+    ...recalculo.prever.map((id) => ({ chave: id, indice: meses.get(id) ?? 0, referencia: "" })),
+  ];
+  const a = acompanharRecalculo(
+    visitas,
+    recalculo.desprever.map((d) => d.id),
+    entraram,
+  );
+  return {
+    aPartirDoMes,
+    ocorrenciasNovas: entraram.length,
+    ocorrenciasRetiradas: recalculo.desprever.length,
+    visitasCriadas: a.novas.length,
+    visitasExcluidas: a.excluir.length,
+    visitasCanceladas: a.cancelar.map((c) => ({ data: c.data })),
+  };
+}
+
+/**
+ * Recalcula o cronograma do PMOC emitido a partir do plano e dos equipamentos já gravados, e leva a
+ * mudança às visitas não iniciadas (RN-065). Recebe a transação de quem mudou o plano (FL-09) ou o
+ * equipamento (FL-07), para tudo valer junto ou nada. Trava o PMOC. Sem PMOC emitido, nada muda.
+ * A permissão é conferida por quem chama (MOD-04).
+ */
+export async function recalcularCronogramaNaTransacao(
+  tx: Tx,
+  pmocId: string,
+  agora: Date,
+): Promise<ResultadoRecalculo | null> {
+  const p = await repo.buscarPmoc(tx, pmocId, true);
+  if (!p || !recalculavel(p)) return null;
+  const { aPartirDoMes, recalculo, visitas } = await planejarRecalculo(tx, p, agora);
+  if (recalculo.inserir.length + recalculo.prever.length + recalculo.desprever.length === 0) {
+    return SEM_IMPACTO(aPartirDoMes);
+  }
+  const gravado = await gravarRecalculoNaTransacao(tx, p.id, recalculo, agora);
+  const a = acompanharRecalculo(
+    visitas,
+    gravado.sairam,
+    gravado.entraram.map((o) => ({ chave: o.id, indice: o.indice, referencia: o.referencia })),
+  );
+  const v = await gravarAcompanhamentoNaTransacao(
+    tx,
+    { pmocId: p.id, localId: p.localId },
+    a,
+    agora,
+  );
+  return {
+    aPartirDoMes,
+    ocorrenciasNovas: gravado.entraram.length,
+    ocorrenciasRetiradas: gravado.sairam.length,
+    visitasCriadas: v.criadas,
+    visitasExcluidas: v.excluidas,
+    visitasCanceladas: v.canceladas,
+    notificados: v.notificados,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------

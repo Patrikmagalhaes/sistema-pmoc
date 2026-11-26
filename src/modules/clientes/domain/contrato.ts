@@ -13,10 +13,7 @@ export function dataValida(d: string): boolean {
   return x.getUTCFullYear() === a && x.getUTCMonth() === m - 1 && x.getUTCDate() === dia;
 }
 
-/** "Hoje" no fuso de negócio (America/Sao_Paulo), a partir do instante recebido (MOD-06). */
-export function hojeEmSaoPaulo(agora: Date): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(agora);
-}
+export { hojeEmSaoPaulo } from "@/lib/hoje";
 
 /** RN-142: estado derivado das datas (`CANCELADO` não sai daqui: prevalece e é gravado à parte). */
 export function estadoPorDatas(

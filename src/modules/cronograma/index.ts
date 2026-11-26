@@ -20,3 +20,8 @@ export {
   type Recalculo,
   recalcularCronograma,
 } from "./domain/cronograma";
+export {
+  gravarRecalculoNaTransacao,
+  type OcorrenciaGravada,
+  ocorrenciasDoPmocNaTransacao,
+} from "./service";
