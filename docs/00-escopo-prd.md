@@ -402,7 +402,7 @@ Formato: **Perfil** · **Fase** · **Origem**, seguido de regras e critérios de
 - Regras:
   1. Novo contrato do mesmo local → novo PMOC. O PMOC anterior vira `HISTORICO` (somente leitura, continua disponível para download) **imediatamente após o ADM acionar "Confirmar renovação"** (decisões C10 e R2 2.1 c; RN-192). As visitas restantes do contrato anterior continuam válidas, com o cronograma existente (R2 2.1 x). Salvar o contrato novo ou emitir o PMOC novo não confirma a renovação.
   1a. PMOC em `RASCUNHO` de contrato cancelado ou encerrado também vira `HISTORICO` (decisão A5); esse histórico nunca foi emitido e **não** aparece para cliente nem técnico (R2 2.4; RN-147).
-  2. O novo PMOC pode copiar plano e equipamentos do anterior como ponto de partida (inferido).
+  2. O novo PMOC pode copiar plano e periodicidades do anterior como ponto de partida (RN-004; confirmado pelo usuário em 26/11/2026: a opção precisa existir para a renovação não exigir refazer o plano). Os equipamentos não são copiados porque pertencem ao local (RF-09) e continuam nele; o cronograma do PMOC novo é gerado na emissão a partir do plano copiado.
 - Critérios de aceite:
   - CA-15.1 Dado um local com 2 contratos sucessivos, então o cliente vê os 2 PMOCs, o mais antigo marcado como histórico.
 
