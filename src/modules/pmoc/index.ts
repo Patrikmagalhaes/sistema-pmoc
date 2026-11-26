@@ -61,7 +61,9 @@ export type {
   CriarPmocInput,
   EmitirPmocInput,
   IncluirNovaAtividadeInput,
+  MudancaNoPlano,
 } from "./schemas";
+export { MOTIVO_MAX } from "./schemas";
 export {
   type AtividadeNoPlano,
   alterarPeriodicidade,
@@ -79,13 +81,13 @@ export {
   obterPmoc,
   type PmocCompleto,
   type PmocDeps,
+  previaDaMudancaNoPlano,
   type ResultadoEmissao,
   type ResultadoRecalculo,
   type ResultadoVerificacao,
   recalcularCronogramaNaTransacao,
   removerAtividadeDoPlano,
   restaurarAtividadeDoPlano,
-  SEM_MUDAR_PLANO_EMITIDO,
   type TipoNoPlano,
   tornarHistoricoNaTransacao,
   type VerificacaoEmissao,

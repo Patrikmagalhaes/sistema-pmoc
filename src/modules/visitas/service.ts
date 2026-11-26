@@ -1,6 +1,7 @@
 import "server-only";
 import type { Tx } from "@/server/db";
 import type { AcompanhamentoDasVisitas, VisitaDoPmoc } from "./domain/recalculo";
+import type { VisitaIniciada } from "./repo";
 import * as repo from "./repo";
 
 /**
@@ -37,4 +38,20 @@ export async function gravarAcompanhamentoNaTransacao(
     canceladas: r.canceladas.length,
     notificados,
   };
+}
+
+/** E-09.2: visitas iniciadas que o recálculo não altera (RN-066), para o diálogo de impacto. */
+export function visitasIniciadasComOcorrenciasNaTransacao(
+  tx: Tx,
+  ocorrenciaIds: readonly string[],
+): Promise<VisitaIniciada[]> {
+  return repo.visitasIniciadasComOcorrencias(tx, ocorrenciaIds);
+}
+
+/** RN-183 (decisão R2 2.3 b): visita em andamento que impede remover a atividade do plano. */
+export function visitaEmAndamentoDaAtividadeNaTransacao(
+  tx: Tx,
+  atividadeId: string,
+): Promise<VisitaIniciada | null> {
+  return repo.visitaEmAndamentoDaAtividade(tx, atividadeId);
 }

@@ -22,6 +22,7 @@ import {
   incluirAtividadeNova,
   obterPmoc,
   type PmocCompleto,
+  previaDaMudancaNoPlano,
   removerAtividadeDoPlano,
   restaurarAtividadeDoPlano,
   verificarEmissao,
@@ -439,7 +440,8 @@ describe("plano (RF-10; TL-120 aba Plano)", () => {
     ).rejects.toMatchObject({ codigo: "VALIDACAO", campo: "tipoId" });
   });
 
-  it("RN-146: histórico é somente leitura; emitido espera o recálculo pós-emissão (FL-09)", async () => {
+  // O plano de PMOC emitido muda com recálculo (FL-09): recalculo.test.ts, com emissão de verdade.
+  it("RN-146 e E-09.1: histórico é somente leitura, inclusive na prévia do impacto", async () => {
     const t = await novoTipo();
     const l = await novoLocal();
     await novoEquipamento(l, t);
@@ -458,22 +460,36 @@ describe("plano (RF-10; TL-120 aba Plano)", () => {
         deps,
       );
 
-    await owner.begin(async (tx) => {
-      await tx`SELECT set_config('app.source', 'SISTEMA', true)`;
-      await tx`UPDATE pmoc SET status = 'EMITIDO', current_version_number = 1, first_issued_at = now()
-        WHERE id = ${id}`;
-    });
-    await expect(mudar()).rejects.toMatchObject({ codigo: "NAO_DISPONIVEL" });
-    expect((await abrir(id)).podeAlterarPlano).toBe(false);
+    expect(
+      await previaDaMudancaNoPlano(
+        admCtx(),
+        { acao: "PERIODICIDADE", id: a.id, periodicidade: "MT" },
+        deps,
+      ),
+    ).toBeNull(); // RASCUNHO: vale na hora, sem diálogo (RN-006)
 
     await owner.begin(async (tx) => {
       await tx`SELECT set_config('app.source', 'SISTEMA', true)`;
-      await tx`UPDATE pmoc SET status = 'HISTORICO', historic_since = now() WHERE id = ${id}`;
+      await tx`UPDATE pmoc SET status = 'HISTORICO', historic_since = now(),
+          current_version_number = 1, first_issued_at = now()
+        WHERE id = ${id}`;
     });
-    await expect(mudar()).rejects.toMatchObject({
-      codigo: "ESTADO",
-      message: "PMOC histórico: somente leitura.",
-    });
+    const historico = { codigo: "ESTADO", message: "PMOC histórico: somente leitura." };
+    await expect(mudar()).rejects.toMatchObject(historico);
+    await expect(
+      previaDaMudancaNoPlano(
+        admCtx(),
+        { acao: "PERIODICIDADE", id: a.id, periodicidade: "MT" },
+        deps,
+      ),
+    ).rejects.toMatchObject(historico);
+    const p = await abrir(id);
+    expect([p.podeAlterarPlano, p.podeEmitir, p.emitido, p.planoAlterado]).toEqual([
+      false,
+      false,
+      false,
+      false,
+    ]);
   });
 });
 

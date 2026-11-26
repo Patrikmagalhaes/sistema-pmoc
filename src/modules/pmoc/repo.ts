@@ -521,6 +521,25 @@ export async function listarVersoes(tx: Tx, pmocId: string): Promise<VersaoDoPmo
   }));
 }
 
+/**
+ * FL-09 passo 4: o plano como está no retrato da versão atual (`{atividade}:{periodicidade}` e os
+ * equipamentos), para comparar com o de hoje. `null` sem versão emitida.
+ */
+export async function planoDaVersaoAtual(
+  tx: Tx,
+  pmocId: string,
+): Promise<{ atividades: string[]; equipamentos: string[] } | null> {
+  const r = await tx.execute(sql`SELECT
+      coalesce((SELECT jsonb_agg((a->>'id') || ':' || (a->>'periodicidade'))
+        FROM jsonb_array_elements(v.snapshot->'tipos') t, jsonb_array_elements(t->'atividades') a),
+        '[]'::jsonb) AS atividades,
+      coalesce((SELECT jsonb_agg(e->>'id')
+        FROM jsonb_array_elements(v.snapshot->'tipos') t, jsonb_array_elements(t->'equipamentos') e),
+        '[]'::jsonb) AS equipamentos
+    FROM pmoc_version v WHERE v.pmoc_id = ${pmocId} AND v.is_current`);
+  return (r[0] as { atividades: string[]; equipamentos: string[] } | undefined) ?? null;
+}
+
 /** TL-007: só o que a tela pública pode mostrar (INT-14). Nenhuma coluna de pessoa ou de cliente. */
 export interface VersaoVerificada {
   numero: number;

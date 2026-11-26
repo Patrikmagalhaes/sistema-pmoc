@@ -10,8 +10,11 @@ export {
   type OcorrenciaQueEntra,
   type VisitaDoPmoc,
 } from "./domain/recalculo";
+export type { VisitaIniciada } from "./repo";
 export {
   gravarAcompanhamentoNaTransacao,
   type ResultadoAcompanhamento,
+  visitaEmAndamentoDaAtividadeNaTransacao,
+  visitasIniciadasComOcorrenciasNaTransacao,
   visitasNaoIniciadasNaTransacao,
 } from "./service";

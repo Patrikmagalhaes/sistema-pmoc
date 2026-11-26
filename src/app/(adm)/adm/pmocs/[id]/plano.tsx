@@ -10,14 +10,16 @@ import { avisar } from "@/components/ui/toaster";
 import { chamarAcao, type Desfecho } from "@/lib/chamar-acao";
 import { cn } from "@/lib/cn";
 import { useHidratado } from "@/lib/use-hidratado";
-import type { TipoNoPlano } from "@/modules/pmoc";
+import type { ResultadoRecalculo, TipoNoPlano } from "@/modules/pmoc";
 import {
   alterarPeriodicidadeAction,
   incluirDaBibliotecaAction,
   incluirNovaAction,
+  previaDaMudancaAction,
   removerAtividadeAction,
   restaurarAtividadeAction,
 } from "../actions";
+import { CONFLITO, resumoDoRecalculo, useMudancaComImpacto } from "./impacto";
 
 type Periodicidade = "MM" | "MB" | "MT" | "MS" | "MA";
 type Natureza = "VERIFICACAO" | "MEDICAO";
@@ -28,65 +30,62 @@ export interface RotulosPlano {
   periodicidade: Record<Periodicidade, string>;
   natureza: Record<Natureza, string>;
   unidadeMax: number;
+  motivoMax: number;
 }
 
-const CONFLITO = "Este registro foi alterado por outra pessoa. Recarregue a página.";
+type Gravacao = Desfecho<
+  | { ok: true; recalculo?: ResultadoRecalculo | null }
+  | { ok: false; codigo: string; mensagem: string }
+>;
 
 /** Mensagem da tela para o desfecho da action (UF-02, UF-07); `null` = deu certo. */
-const falha = (r: Desfecho<{ ok: true } | { ok: false; codigo: string; mensagem: string }>) =>
+const falha = (r: Gravacao) =>
   r.tipo === "conflito" ? CONFLITO : r.tipo === "erro" ? r.mensagem : null;
+
+/** Toast de sucesso, com o que o recálculo mudou quando o PMOC está emitido (FL-09 passo 3). */
+const sucesso = (texto: string, r: Gravacao) =>
+  avisar.sucesso(
+    [texto, r.tipo === "ok" ? resumoDoRecalculo(r.dados.recalculo) : null]
+      .filter(Boolean)
+      .join(" "),
+  );
 
 const th = "border-b border-border px-4 py-3 text-left text-h5 text-text-label";
 const td = "px-4 align-middle md:h-12 md:py-2";
 
+/** O que cada linha e o "Incluir" precisam saber do PMOC. */
+interface Contexto {
+  pmocId: string;
+  podeAlterar: boolean;
+  /** FL-09: PMOC emitido; toda mudança passa pelo diálogo de impacto. */
+  emitido: boolean;
+  rotulos: RotulosPlano;
+}
+
 /**
  * TL-120 aba Plano: uma tabela por tipo (doc 08 §7.3), atividades na ordem da RN-051. Periodicidade
  * em `Select` vale para todos os equipamentos do tipo neste PMOC (RN-026); remover e incluir
- * atividade (RF-10.3). Remover é reversível ("Voltar ao plano"), por isso não pede confirmação
- * (FE-P6).
+ * atividade (RF-10.3). Em `RASCUNHO`, remover é reversível ("Voltar ao plano") e não pede confirmação
+ * (FE-P6). Emitido, toda mudança mostra antes o impacto no cronograma e nas visitas (FL-09).
  */
-export function Plano({
-  pmocId,
-  tipos,
-  podeAlterar,
-  rotulos,
-}: {
-  pmocId: string;
-  tipos: TipoNoPlano[];
-  podeAlterar: boolean;
-  rotulos: RotulosPlano;
-}) {
+export function Plano({ tipos, ...c }: Contexto & { tipos: TipoNoPlano[] }) {
   return (
     <div className="flex flex-col gap-6">
-      {podeAlterar && (
+      {c.podeAlterar && (
         <Alert tom="info">
           A periodicidade vale para todos os equipamentos do tipo neste PMOC. A biblioteca não muda.
+          {c.emitido && " Com o PMOC emitido, o cronograma muda só nos meses após o corrente."}
         </Alert>
       )}
       {tipos.map((t) => (
-        <BlocoTipo
-          key={t.id}
-          pmocId={pmocId}
-          tipo={t}
-          podeAlterar={podeAlterar}
-          rotulos={rotulos}
-        />
+        <BlocoTipo key={t.id} tipo={t} c={c} />
       ))}
     </div>
   );
 }
 
-function BlocoTipo({
-  pmocId,
-  tipo,
-  podeAlterar,
-  rotulos,
-}: {
-  pmocId: string;
-  tipo: TipoNoPlano;
-  podeAlterar: boolean;
-  rotulos: RotulosPlano;
-}) {
+function BlocoTipo({ tipo, c }: { tipo: TipoNoPlano; c: Contexto }) {
+  const { podeAlterar } = c;
   const [incluindo, setIncluindo] = useState(false);
   return (
     <Card
@@ -132,24 +131,14 @@ function BlocoTipo({
               </thead>
               <tbody className="max-md:block">
                 {tipo.atividades.map((a) => (
-                  <LinhaAtividade
-                    key={`${a.id}-${a.rowVersion}`}
-                    atividade={a}
-                    podeAlterar={podeAlterar}
-                    rotulos={rotulos}
-                  />
+                  <LinhaAtividade key={`${a.id}-${a.rowVersion}`} atividade={a} c={c} />
                 ))}
               </tbody>
             </table>
           </div>
         )}
         {podeAlterar && incluindo && (
-          <Incluir
-            pmocId={pmocId}
-            tipo={tipo}
-            rotulos={rotulos}
-            fechar={() => setIncluindo(false)}
-          />
+          <Incluir tipo={tipo} c={c} fechar={() => setIncluindo(false)} />
         )}
       </div>
     </Card>
@@ -158,38 +147,87 @@ function BlocoTipo({
 
 function LinhaAtividade({
   atividade: a,
-  podeAlterar,
-  rotulos,
+  c: { podeAlterar, emitido, rotulos },
 }: {
   atividade: TipoNoPlano["atividades"][number];
-  podeAlterar: boolean;
-  rotulos: RotulosPlano;
+  c: Contexto;
 }) {
   const router = useRouter();
   const pronto = useHidratado();
   const [enviando, setEnviando] = useState<"periodicidade" | "remover" | null>(null);
+  /** Controlada: "Voltar" no diálogo de impacto devolve a periodicidade gravada. */
+  const [periodicidade, setPeriodicidade] = useState<Periodicidade>(a.periodicidade);
+  const impacto = useMudancaComImpacto(rotulos.motivoMax);
 
-  async function mudar(periodicidade: Periodicidade) {
-    setEnviando("periodicidade");
-    const r = await chamarAcao(
-      alterarPeriodicidadeAction({ id: a.id, rowVersion: a.rowVersion, periodicidade }),
-    );
+  /** Grava e avisa; devolve a mensagem de erro ou `null`. */
+  async function gravar(
+    qual: "periodicidade" | "remover",
+    p: Promise<Gravacao>,
+    texto: string,
+  ): Promise<string | null> {
+    setEnviando(qual);
+    const r = await p;
     setEnviando(null);
     const erro = falha(r);
-    if (erro) return avisar.erro(erro);
-    avisar.sucesso(`"${a.titulo}" passou a ${rotulos.periodicidade[periodicidade]}.`);
-    router.refresh(); // RN-006: o cronograma de pré-visualização é recalculado na leitura
+    if (erro) return erro;
+    sucesso(texto, r);
+    router.refresh(); // RN-006 (rascunho) e FL-09 (emitido): a TL-120 relê plano e cronograma
+    return null;
+  }
+
+  async function mudar(nova: Periodicidade) {
+    setPeriodicidade(nova);
+    const voltar = () => setPeriodicidade(a.periodicidade);
+    const salvar = (motivo: string | null) =>
+      gravar(
+        "periodicidade",
+        chamarAcao(
+          alterarPeriodicidadeAction({
+            id: a.id,
+            rowVersion: a.rowVersion,
+            periodicidade: nova,
+            motivo,
+          }),
+        ),
+        `"${a.titulo}" passou a ${rotulos.periodicidade[nova]}.`,
+      );
+    const erro = emitido
+      ? await impacto.pedir({
+          titulo: `Alterar a periodicidade de "${a.titulo}" para ${rotulos.periodicidade[nova]}?`,
+          confirmar: { rotulo: "Alterar periodicidade", carregando: "Alterando…" },
+          previa: chamarAcao(
+            previaDaMudancaAction({ acao: "PERIODICIDADE", id: a.id, periodicidade: nova }),
+          ),
+          gravar: salvar,
+          aoVoltar: voltar,
+        })
+      : await salvar(null);
+    if (erro) {
+      voltar();
+      avisar.erro(erro);
+    }
   }
 
   async function remover() {
-    setEnviando("remover");
-    const r = await chamarAcao(removerAtividadeAction({ id: a.id, rowVersion: a.rowVersion }));
-    setEnviando(null);
-    const erro = falha(r);
-    if (erro) return avisar.erro(erro);
-    avisar.sucesso(`"${a.titulo}" saiu do plano. Para voltar, use "Incluir atividade".`);
-    router.refresh();
+    const texto = `"${a.titulo}" saiu do plano. Para voltar, use "Incluir atividade".`;
+    const salvar = (motivo: string | null) =>
+      gravar(
+        "remover",
+        chamarAcao(removerAtividadeAction({ id: a.id, rowVersion: a.rowVersion, motivo })),
+        texto,
+      );
+    const erro = emitido
+      ? await impacto.pedir({
+          titulo: `Remover "${a.titulo}" do plano?`,
+          confirmar: { rotulo: "Remover", carregando: "Removendo…" },
+          previa: chamarAcao(previaDaMudancaAction({ acao: "REMOVER", id: a.id })),
+          gravar: salvar,
+        })
+      : await salvar(null);
+    if (erro) avisar.erro(erro);
   }
+
+  const ocupado = !pronto || enviando !== null || impacto.ocupado;
 
   return (
     <tr
@@ -214,8 +252,8 @@ function LinhaAtividade({
         {podeAlterar ? (
           <Select
             aria-label={`Periodicidade de ${a.titulo}`}
-            defaultValue={a.periodicidade}
-            disabled={!pronto || enviando !== null}
+            value={periodicidade}
+            disabled={ocupado}
             onChange={(e) => mudar(e.target.value as Periodicidade)}
             className="md:w-48"
           >
@@ -235,12 +273,13 @@ function LinhaAtividade({
             size="sm"
             variant="tertiary"
             icon={<X size={16} aria-hidden="true" />}
-            disabled={!pronto || enviando !== null}
+            disabled={ocupado}
             loading={enviando === "remover"}
             onClick={remover}
           >
             {enviando === "remover" ? "Removendo…" : "Remover"}
           </Button>
+          {impacto.dialogo}
         </td>
       )}
     </tr>
@@ -252,14 +291,12 @@ function LinhaAtividade({
  * da biblioteca com a periodicidade padrão, ou cria uma nova só deste PMOC.
  */
 function Incluir({
-  pmocId,
   tipo,
-  rotulos,
+  c: { pmocId, emitido, rotulos },
   fechar,
 }: {
-  pmocId: string;
   tipo: TipoNoPlano;
-  rotulos: RotulosPlano;
+  c: Contexto;
   fechar: () => void;
 }) {
   const router = useRouter();
@@ -268,24 +305,42 @@ function Incluir({
   const [natureza, setNatureza] = useState<Natureza | "">("");
   const [erros, setErros] = useState<Record<string, string | undefined>>({});
   const [geral, setGeral] = useState<string | null>(null);
+  const impacto = useMudancaComImpacto(rotulos.motivoMax);
 
+  /**
+   * Inclui (emitido: depois do diálogo de impacto, FL-09). Erro da prévia fica no topo do bloco;
+   * erro ao gravar, no diálogo (ou no topo, em rascunho).
+   */
   async function feito(
     chave: string,
-    p: Promise<Desfecho<{ ok: true } | { ok: false; codigo: string; mensagem: string }>>,
+    previa: Parameters<typeof previaDaMudancaAction>[0],
+    incluir: (motivo: string | null) => Promise<Gravacao>,
     titulo: string,
   ) {
-    setEnviando(chave);
     setGeral(null);
-    const r = await p;
-    setEnviando(null);
-    const erro = falha(r);
-    if (erro) {
-      if (r.tipo === "erro" && r.campos) setErros(r.campos);
-      return setGeral(erro);
-    }
-    avisar.sucesso(`"${titulo}" entrou no plano.`);
-    fechar();
-    router.refresh();
+    const salvar = async (motivo: string | null) => {
+      setEnviando(chave);
+      const r = await incluir(motivo);
+      setEnviando(null);
+      const erro = falha(r);
+      if (erro) {
+        if (r.tipo === "erro" && r.campos) setErros(r.campos);
+        return erro;
+      }
+      sucesso(`"${titulo}" entrou no plano.`, r);
+      fechar();
+      router.refresh();
+      return null;
+    };
+    const erro = emitido
+      ? await impacto.pedir({
+          titulo: `Incluir "${titulo}" no plano?`,
+          confirmar: { rotulo: "Incluir", carregando: "Incluindo…" },
+          previa: chamarAcao(previaDaMudancaAction(previa)),
+          gravar: salvar,
+        })
+      : await salvar(null);
+    if (erro) setGeral(erro);
   }
 
   async function criar(ev: FormEvent<HTMLFormElement>) {
@@ -307,11 +362,21 @@ function Incluir({
     setErros(e);
     const primeiro = Object.keys(e)[0];
     if (primeiro) return (form.elements.namedItem(primeiro) as HTMLElement | null)?.focus();
-    await feito("nova", chamarAcao(incluirNovaAction({ pmocId, tipoId: tipo.id, ...d })), d.titulo);
+    await feito(
+      "nova",
+      {
+        acao: "INCLUIR_NOVA",
+        pmocId,
+        tipoId: tipo.id,
+        periodicidade: d.periodicidade as Periodicidade,
+      },
+      (motivo) => chamarAcao(incluirNovaAction({ pmocId, tipoId: tipo.id, ...d, motivo })),
+      d.titulo,
+    );
   }
 
   const pre = `nova-${tipo.id}`;
-  const ocupado = !pronto || enviando !== null;
+  const ocupado = !pronto || enviando !== null || impacto.ocupado;
 
   return (
     <section
@@ -341,7 +406,11 @@ function Incluir({
                 onClick={() =>
                   feito(
                     a.id,
-                    chamarAcao(restaurarAtividadeAction({ id: a.id, rowVersion: a.rowVersion })),
+                    { acao: "RESTAURAR", id: a.id },
+                    (motivo) =>
+                      chamarAcao(
+                        restaurarAtividadeAction({ id: a.id, rowVersion: a.rowVersion, motivo }),
+                      ),
                     a.titulo,
                   )
                 }
@@ -368,7 +437,9 @@ function Incluir({
                 onClick={() =>
                   feito(
                     m.id,
-                    chamarAcao(incluirDaBibliotecaAction({ pmocId, modeloId: m.id })),
+                    { acao: "INCLUIR_MODELO", pmocId, modeloId: m.id },
+                    (motivo) =>
+                      chamarAcao(incluirDaBibliotecaAction({ pmocId, modeloId: m.id, motivo })),
                     m.titulo,
                   )
                 }
@@ -434,6 +505,7 @@ function Incluir({
           </Button>
         </div>
       </form>
+      {impacto.dialogo}
     </section>
   );
 }

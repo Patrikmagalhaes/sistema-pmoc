@@ -96,3 +96,57 @@ export async function notificarCancelamento(tx: Tx, visitaIds: readonly string[]
   // Sem RETURNING: a RLS de `notification` só deixa o destinatário ler a linha (05 §4.2).
   return (r as unknown as { count: number }).count;
 }
+
+/** Visita `EM_ANDAMENTO` ou `REGISTRADA`, como o diálogo de impacto e o bloqueio a mostram. */
+export interface VisitaIniciada {
+  id: string;
+  estado: "EM_ANDAMENTO" | "REGISTRADA";
+  /** Agendada ou, sem agenda, o dia em que começou (`America/Sao_Paulo`). `YYYY-MM-DD`. */
+  data: string | null;
+  tecnico: string | null;
+}
+
+const visitaIniciada = sql.raw(`v.id, v.status AS estado,
+  to_char(coalesce(v.scheduled_date, (v.started_at AT TIME ZONE 'America/Sao_Paulo')::date),
+    'YYYY-MM-DD') AS data,
+  u.name AS tecnico`);
+
+/** E-09.2: visitas iniciadas que têm alguma das ocorrências dadas (vínculo ativo), por data. */
+export async function visitasIniciadasComOcorrencias(
+  tx: Tx,
+  ocorrenciaIds: readonly string[],
+): Promise<VisitaIniciada[]> {
+  if (ocorrenciaIds.length === 0) return [];
+  const r = await tx.execute(sql`SELECT DISTINCT ${visitaIniciada}, v.scheduled_date, v.started_at
+    FROM visit v
+    JOIN visit_occurrence vo ON vo.visit_id = v.id AND vo.removed_at IS NULL
+    LEFT JOIN app_user u ON u.id = v.technician_user_id
+    WHERE v.deleted_at IS NULL AND v.status IN ('EM_ANDAMENTO', 'REGISTRADA')
+      AND vo.occurrence_id IN (SELECT jsonb_array_elements_text(${JSON.stringify(ocorrenciaIds)}::jsonb)::uuid)
+    ORDER BY v.scheduled_date NULLS LAST, v.started_at, v.id`);
+  return (r as unknown as (VisitaIniciada & Record<string, unknown>)[]).map((v) => ({
+    id: v.id,
+    estado: v.estado,
+    data: v.data,
+    tecnico: v.tecnico,
+  }));
+}
+
+/**
+ * RN-183 (decisão R2 2.3 b): visita `EM_ANDAMENTO` com ocorrência da atividade do plano (vínculo
+ * ativo). A mais antiga, se houver mais de uma.
+ */
+export async function visitaEmAndamentoDaAtividade(
+  tx: Tx,
+  atividadeId: string,
+): Promise<VisitaIniciada | null> {
+  const r = await tx.execute(sql`SELECT ${visitaIniciada}
+    FROM visit v
+    LEFT JOIN app_user u ON u.id = v.technician_user_id
+    WHERE v.deleted_at IS NULL AND v.status = 'EM_ANDAMENTO'
+      AND EXISTS (SELECT 1 FROM visit_occurrence vo JOIN occurrence o ON o.id = vo.occurrence_id
+        WHERE vo.visit_id = v.id AND vo.removed_at IS NULL AND o.pmoc_activity_id = ${atividadeId})
+    ORDER BY v.started_at, v.id
+    LIMIT 1`);
+  return (r[0] as VisitaIniciada | undefined) ?? null;
+}

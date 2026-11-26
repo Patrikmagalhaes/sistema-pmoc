@@ -86,11 +86,13 @@ describe("RN-032 e RN-065: mudança de periodicidade depois da emissão", () => 
     });
     expect(previa).toEqual({
       aPartirDoMes: 2,
+      mesCorrente: "2026-11",
       ocorrenciasNovas: 0,
       ocorrenciasRetiradas: 4,
       visitasCriadas: 0,
       visitasExcluidas: 1,
       visitasCanceladas: [{ data: "2027-08-10" }],
+      visitasNaoAlteradas: [],
     });
     expect(await celulas(c.pmocId)).toEqual(antes);
 
@@ -98,6 +100,7 @@ describe("RN-032 e RN-065: mudança de periodicidade depois da emissão", () => 
     const r = await recalcular(c.pmocId);
     expect(r).toEqual({
       aPartirDoMes: 2,
+      mesCorrente: "2026-11",
       ocorrenciasNovas: 0,
       ocorrenciasRetiradas: 4,
       visitasCriadas: 0,

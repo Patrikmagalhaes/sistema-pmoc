@@ -16,7 +16,7 @@ import {
   ROTULO_PERIODICIDADE,
   UNIDADE_MAX,
 } from "@/modules/biblioteca";
-import { obterPmoc, type PmocCompleto, type VersaoDoPmoc } from "@/modules/pmoc";
+import { MOTIVO_MAX, obterPmoc, type PmocCompleto, type VersaoDoPmoc } from "@/modules/pmoc";
 import { exigirArea } from "@/server/auth/sessao";
 import { getDatabase } from "@/server/db";
 import { EmitirPmoc } from "./emitir";
@@ -74,7 +74,7 @@ export default async function PmocPage({
         titulo={`PMOC${th ? ` ${th}` : ""}`}
         estado={<StatusBadge tipo="pmoc" valor={p.situacao} tamanho="lg" />}
         acoes={
-          p.podeAlterarPlano && (
+          p.podeEmitir && (
             <EmitirPmoc
               pmocId={p.id}
               rowVersion={p.rowVersion}
@@ -110,6 +110,12 @@ export default async function PmocPage({
         <Alert tom="success">PMOC criado em rascunho. Confira o plano e o cronograma.</Alert>
       )}
       {p.situacao === "HISTORICO" && <Alert tom="info">PMOC histórico: somente leitura.</Alert>}
+      {p.planoAlterado && (
+        // FL-09 passo 4 (D-07 a). "Emitir nova versão" chega com a nova versão do PMOC (RN-016).
+        <Alert tom="warning">
+          Plano alterado após a emissão da versão {p.versaoAtual}. O PDF assinado não muda.
+        </Alert>
+      )}
       <Tabs base={`/adm/pmocs/${p.id}`} ativa={aba} abas={ABAS} />
 
       {aba === "plano" &&
@@ -134,7 +140,9 @@ export default async function PmocPage({
             pmocId={p.id}
             tipos={p.tipos}
             podeAlterar={p.podeAlterarPlano}
+            emitido={p.emitido}
             rotulos={{
+              motivoMax: MOTIVO_MAX,
               periodicidades: PERIODICIDADES.map((v) => ({
                 valor: v,
                 rotulo: ROTULO_PERIODICIDADE[v],
@@ -246,8 +254,13 @@ function Cronograma({ p }: { p: PmocCompleto }) {
           </div>
         </dl>
       </div>
-      {p.situacao === "RASCUNHO" && (
+      {p.situacao === "RASCUNHO" ? (
         <Alert tom="info">Pré-visualização: nada é gravado até a emissão.</Alert>
+      ) : (
+        <p className="text-small text-text-muted">
+          Cronograma gravado na emissão e atualizado pelas mudanças no plano e nos equipamentos
+          (RN-015). Um mês fica "•" se a atividade está prevista para algum equipamento.
+        </p>
       )}
       {tipos.length === 0 && (
         <Card>

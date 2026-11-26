@@ -8,6 +8,9 @@ import {
   emitirPmoc,
   incluirAtividadeDaBiblioteca,
   incluirAtividadeNova,
+  type MudancaNoPlano,
+  previaDaMudancaNoPlano,
+  type ResultadoRecalculo,
   removerAtividadeDoPlano,
   restaurarAtividadeDoPlano,
   verificarEmissao,
@@ -49,8 +52,41 @@ async function executar<T extends object>(
 }
 
 const deps = () => ({ db: getDatabase() });
-const comVersao = { id: z.uuid(), rowVersion: z.number().int() };
+/** UF-10, FL-09 passo 1: motivo opcional; o limite e o corte de espaços ficam no módulo. */
+const motivo = z.string().nullish();
+const comVersao = { id: z.uuid(), rowVersion: z.number().int(), motivo };
 const periodicidade = z.enum(["MM", "MB", "MT", "MS", "MA"]);
+
+/** O que a tela mostra depois de gravar: o recálculo do PMOC emitido (`null` em rascunho). */
+const comRecalculo = (recalculo: ResultadoRecalculo | null) => ({ recalculo });
+
+/**
+ * FL-09 passo 2: prévia do impacto da mudança no plano de PMOC emitido (E-07.7, E-09.2). Não grava;
+ * `impacto: null` em rascunho (a mudança vale na hora).
+ */
+export const previaDaMudancaAction = sessionAction
+  .inputSchema(
+    z.discriminatedUnion("acao", [
+      z.object({ acao: z.literal("PERIODICIDADE"), id: z.uuid(), periodicidade }),
+      z.object({ acao: z.literal("REMOVER"), id: z.uuid() }),
+      z.object({ acao: z.literal("RESTAURAR"), id: z.uuid() }),
+      z.object({ acao: z.literal("INCLUIR_MODELO"), pmocId: z.uuid(), modeloId: z.uuid() }),
+      z.object({
+        acao: z.literal("INCLUIR_NOVA"),
+        pmocId: z.uuid(),
+        tipoId: z.uuid(),
+        periodicidade,
+      }),
+    ]),
+  )
+  .action(async ({ parsedInput, ctx }) =>
+    executar(
+      async () => ({
+        impacto: await previaDaMudancaNoPlano(ctx.req, parsedInput as MudancaNoPlano, deps()),
+      }),
+      false,
+    ),
+  );
 
 /** TL-112 "Criar PMOC" (FL-08 passos 1–3); `copiarDoAnterior` responde à pergunta do passo 2. */
 export const criarPmocAction = sessionAction
@@ -74,39 +110,32 @@ export const emitirPmocAction = sessionAction
     executar(() => emitirPmoc(ctx.req, parsedInput, emissaoDeps())),
   );
 
-/** TL-120 aba Plano: periodicidade (RN-026). */
+/** TL-120 aba Plano: periodicidade (RN-026); emitido, com recálculo (RN-032). */
 export const alterarPeriodicidadeAction = sessionAction
   .inputSchema(z.object({ ...comVersao, periodicidade }))
   .action(async ({ parsedInput, ctx }) =>
-    executar(async () => {
-      await alterarPeriodicidade(ctx.req, parsedInput, deps());
-      return {};
-    }),
+    executar(async () => comRecalculo(await alterarPeriodicidade(ctx.req, parsedInput, deps()))),
   );
 
-/** TL-120 "Remover" (RF-10.3). */
+/** TL-120 "Remover" (RF-10.3); emitido, com recálculo (RN-183). */
 export const removerAtividadeAction = sessionAction
   .inputSchema(z.object(comVersao))
   .action(async ({ parsedInput, ctx }) =>
-    executar(async () => {
-      await removerAtividadeDoPlano(ctx.req, parsedInput, deps());
-      return {};
-    }),
+    executar(async () => comRecalculo(await removerAtividadeDoPlano(ctx.req, parsedInput, deps()))),
   );
 
 /** TL-120 "Incluir" de atividade removida (RN-184). */
 export const restaurarAtividadeAction = sessionAction
   .inputSchema(z.object(comVersao))
   .action(async ({ parsedInput, ctx }) =>
-    executar(async () => {
-      await restaurarAtividadeDoPlano(ctx.req, parsedInput, deps());
-      return {};
-    }),
+    executar(async () =>
+      comRecalculo(await restaurarAtividadeDoPlano(ctx.req, parsedInput, deps())),
+    ),
   );
 
 /** TL-120 "Incluir" da biblioteca (RF-10.3). */
 export const incluirDaBibliotecaAction = sessionAction
-  .inputSchema(z.object({ pmocId: z.uuid(), modeloId: z.uuid() }))
+  .inputSchema(z.object({ pmocId: z.uuid(), modeloId: z.uuid(), motivo }))
   .action(async ({ parsedInput, ctx }) =>
     executar(() => incluirAtividadeDaBiblioteca(ctx.req, parsedInput, deps())),
   );
@@ -122,6 +151,7 @@ export const incluirNovaAction = sessionAction
       natureza: z.string(),
       unidade: z.string().nullish(),
       exigeFoto: z.boolean(),
+      motivo,
     }),
   )
   .action(async ({ parsedInput, ctx }) =>

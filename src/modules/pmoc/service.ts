@@ -27,6 +27,9 @@ import {
 import {
   acompanharRecalculo,
   gravarAcompanhamentoNaTransacao,
+  type VisitaIniciada,
+  visitaEmAndamentoDaAtividadeNaTransacao,
+  visitasIniciadasComOcorrenciasNaTransacao,
   visitasNaoIniciadasNaTransacao,
 } from "@/modules/visitas";
 import { type RequestContext, systemContext } from "@/server/context";
@@ -38,6 +41,7 @@ import type { EntradaPdfPmoc } from "@/server/pdf/pmoc";
 import type { Armazenamento } from "@/server/storage";
 import { codigoDeBytes, codigoImpresso, normalizarCodigo } from "./domain/codigo-verificacao";
 import { type VerificacaoPura, verificarPreCondicoes } from "./domain/emissao";
+import { planoAlteradoDesdeAVersao, planoComparavel } from "./domain/plano-alterado";
 import { montarSnapshot } from "./domain/snapshot";
 import { ANEXO1 } from "./domain/textos";
 import {
@@ -57,6 +61,8 @@ import {
   type IncluirNovaAtividadeInput,
   incluirDaBibliotecaSchema,
   incluirNovaSchema,
+  type MudancaNoPlano,
+  mudancaNoPlanoSchema,
 } from "./schemas";
 
 /** Erro de regra do módulo; `codigo` é estável e `campo` leva a mensagem ao campo (UF-02). */
@@ -93,9 +99,6 @@ const conflito = () =>
   );
 const jaExiste = () => new ErroPmoc("JA_EXISTE", "Este contrato já tem PMOC."); // E-08.1
 
-/** Mensagem única para o que depende do recálculo pós-emissão (FL-09; RN-032, RN-065, RN-183). */
-export const SEM_MUDAR_PLANO_EMITIDO = "Alterar o plano de PMOC emitido ainda não está disponível.";
-
 /**
  * Montar o plano faz parte do fluxo de emissão (FL-08 passos 1–4): `pmoc.emitir`. Periodicidade tem
  * linha própria na matriz (DEC-07): `pmoc.periodicidade.alterar`. As duas são só do ADM (RN-168).
@@ -104,14 +107,18 @@ function exigir(ctx: RequestContext, acao: "pmoc.emitir" | "pmoc.periodicidade.a
   if (!can(ctx, acao)) throw new ErroPmoc("SEM_PERMISSAO", "Sem permissão para alterar o PMOC.");
 }
 
-/** Escrita com tradução das restrições do banco (a transação já foi desfeita aqui). */
+/**
+ * Escrita com tradução das restrições do banco (a transação já foi desfeita aqui). `motivo` (UF-10,
+ * FL-09 passo 1) vai para `audit_log.reason` pela transação.
+ */
 async function escrever<T>(
   ctx: RequestContext,
   deps: PmocDeps,
   fn: (tx: Tx) => Promise<T>,
+  motivo: string | null = null,
 ): Promise<T> {
   try {
-    return await deps.db.withTransaction(ctx, fn);
+    return await deps.db.withTransaction(motivo ? { ...ctx, reason: motivo } : ctx, fn);
   } catch (e) {
     const r = restricaoViolada(e);
     if (r === "pmoc_contract_id_key") throw jaExiste();
@@ -122,19 +129,40 @@ async function escrever<T>(
   }
 }
 
+/** E-09.1 e RN-146: `HISTORICO` é somente leitura. */
+function exigirEditavel(p: repo.Pmoc): repo.Pmoc {
+  if (p.situacao === "HISTORICO") {
+    throw new ErroPmoc("ESTADO", "PMOC histórico: somente leitura.");
+  }
+  return p;
+}
+
 /**
- * Trava o PMOC e confere que o plano pode mudar: só em `RASCUNHO` por enquanto (RN-006). `HISTORICO`
- * é somente leitura (RN-146); emitido espera o recálculo pós-emissão (FL-09).
+ * Trava o PMOC e confere que o plano pode mudar: `RASCUNHO` (o cronograma é calculado na leitura,
+ * RN-006) ou emitido (recálculo na mesma transação, FL-09; RN-015, RN-032). `HISTORICO` não muda.
  */
 async function pmocEditavel(tx: Tx, pmocId: string): Promise<repo.Pmoc> {
   const p = await repo.buscarPmoc(tx, pmocId, true);
   if (!p) throw naoEncontrado();
-  if (p.situacao === "HISTORICO") {
-    throw new ErroPmoc("ESTADO", "PMOC histórico: somente leitura.");
-  }
-  if (p.situacao !== "RASCUNHO") throw new ErroPmoc("NAO_DISPONIVEL", SEM_MUDAR_PLANO_EMITIDO);
-  return p;
+  return exigirEditavel(p);
 }
+
+/**
+ * RN-183 (decisão R2 2.3 b): com visita `EM_ANDAMENTO` que tem ocorrência da atividade, a remoção
+ * espera. Mesmo assim o recálculo nunca toca ocorrência de visita iniciada (RN-066).
+ */
+async function exigirSemVisitaEmAndamento(tx: Tx, atividadeId: string): Promise<void> {
+  const v = await visitaEmAndamentoDaAtividadeNaTransacao(tx, atividadeId);
+  if (!v) return;
+  const data = v.data ? formatarDia(v.data) : "sem data";
+  throw new ErroPmoc(
+    "ESTADO",
+    `Há visita em andamento com esta atividade: ${v.tecnico ?? "sem técnico"}, ${data}.`,
+  );
+}
+
+/** `YYYY-MM-DD` → `DD/MM/AAAA` (mensagens do servidor). */
+const formatarDia = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 
 /** Atividade do plano com o PMOC dela já travado e editável. */
 async function atividadeEditavel(tx: Tx, id: string) {
@@ -174,21 +202,27 @@ export interface HipoteseDeRecalculo {
 export interface ImpactoDoRecalculo {
   /** 1º mês do contrato que o recálculo toca (RN-032: o seguinte ao corrente). */
   aPartirDoMes: number;
+  /** FL-09 passo 2: "Recalcula só meses após {mês corrente}" (`YYYY-MM`, `America/Sao_Paulo`). */
+  mesCorrente: string;
   ocorrenciasNovas: number;
   ocorrenciasRetiradas: number;
   visitasCriadas: number;
   visitasExcluidas: number;
   /** E-07.7: "A visita de {data} ficará sem itens e será cancelada." */
   visitasCanceladas: { data: string | null }[];
+  /** E-09.2: "não alteradas: visita de {data} (em andamento)" (RN-066). */
+  visitasNaoAlteradas: Pick<VisitaIniciada, "data" | "estado">[];
 }
 
-export interface ResultadoRecalculo extends Omit<ImpactoDoRecalculo, "visitasCanceladas"> {
+export interface ResultadoRecalculo
+  extends Omit<ImpactoDoRecalculo, "visitasCanceladas" | "visitasNaoAlteradas"> {
   visitasCanceladas: number;
   notificados: number;
 }
 
-const SEM_IMPACTO = (aPartirDoMes: number): ResultadoRecalculo => ({
+const SEM_IMPACTO = (aPartirDoMes: number, mesCorrente: string): ResultadoRecalculo => ({
   aPartirDoMes,
+  mesCorrente,
   ocorrenciasNovas: 0,
   ocorrenciasRetiradas: 0,
   visitasCriadas: 0,
@@ -204,6 +238,9 @@ async function planejarRecalculo(
   hipotese: HipoteseDeRecalculo = {},
 ) {
   const hoje = hojeEmSaoPaulo(agora);
+  // As visitas não iniciadas primeiro: travadas, nenhuma começa até o fim da transação, então o
+  // `emVisitaIniciada` lido depois não fica velho (RN-066).
+  const visitas = await visitasNaoIniciadasNaTransacao(tx, p.id);
   const atual = (await repo.listarPlano(tx, p.id))
     .filter((a) => !a.removida)
     .map((a) => ({ id: a.id, tipoId: a.tipoId, periodicidade: a.periodicidade }));
@@ -214,9 +251,19 @@ async function planejarRecalculo(
   const contrato = { inicio: p.inicio, meses: p.meses };
   return {
     aPartirDoMes: primeiroMesRecalculavel(p.inicio, hoje),
+    mesCorrente: hoje.slice(0, 7),
     existentes,
+    /** Como o recálculo ficaria se nenhuma visita tivesse começado (E-09.2). */
+    semProtecao: () =>
+      recalcularCronograma(
+        contrato,
+        plano,
+        equipamentos,
+        existentes.map((o) => ({ ...o, emVisitaIniciada: false })),
+        hoje,
+      ),
     recalculo: recalcularCronograma(contrato, plano, equipamentos, existentes, hoje),
-    visitas: await visitasNaoIniciadasNaTransacao(tx, p.id),
+    visitas,
   };
 }
 
@@ -236,13 +283,13 @@ export async function impactoDoRecalculoNaTransacao(
 ): Promise<ImpactoDoRecalculo | null> {
   const p = await repo.buscarPmoc(tx, pmocId);
   if (!p || !recalculavel(p)) return null;
-  const { aPartirDoMes, existentes, recalculo, visitas } = await planejarRecalculo(
-    tx,
-    p,
-    agora,
-    hipotese,
-  );
+  const { aPartirDoMes, mesCorrente, existentes, semProtecao, recalculo, visitas } =
+    await planejarRecalculo(tx, p, agora, hipotese);
   const meses = new Map(existentes.map((o) => [o.id, o.indice] as const));
+  const sairiam = new Set(recalculo.desprever.map((d) => d.id));
+  const protegidas = semProtecao()
+    .desprever.map((d) => d.id)
+    .filter((id) => !sairiam.has(id));
   const entraram = [
     ...recalculo.inserir.map((o) => ({
       chave: chaveNova(o),
@@ -256,13 +303,16 @@ export async function impactoDoRecalculoNaTransacao(
     recalculo.desprever.map((d) => d.id),
     entraram,
   );
+  const naoAlteradas = await visitasIniciadasComOcorrenciasNaTransacao(tx, protegidas);
   return {
     aPartirDoMes,
+    mesCorrente,
     ocorrenciasNovas: entraram.length,
     ocorrenciasRetiradas: recalculo.desprever.length,
     visitasCriadas: a.novas.length,
     visitasExcluidas: a.excluir.length,
     visitasCanceladas: a.cancelar.map((c) => ({ data: c.data })),
+    visitasNaoAlteradas: naoAlteradas.map((v) => ({ data: v.data, estado: v.estado })),
   };
 }
 
@@ -279,9 +329,9 @@ export async function recalcularCronogramaNaTransacao(
 ): Promise<ResultadoRecalculo | null> {
   const p = await repo.buscarPmoc(tx, pmocId, true);
   if (!p || !recalculavel(p)) return null;
-  const { aPartirDoMes, recalculo, visitas } = await planejarRecalculo(tx, p, agora);
+  const { aPartirDoMes, mesCorrente, recalculo, visitas } = await planejarRecalculo(tx, p, agora);
   if (recalculo.inserir.length + recalculo.prever.length + recalculo.desprever.length === 0) {
-    return SEM_IMPACTO(aPartirDoMes);
+    return SEM_IMPACTO(aPartirDoMes, mesCorrente);
   }
   const gravado = await gravarRecalculoNaTransacao(tx, p.id, recalculo, agora);
   const a = acompanharRecalculo(
@@ -297,6 +347,7 @@ export async function recalcularCronogramaNaTransacao(
   );
   return {
     aPartirDoMes,
+    mesCorrente,
     ocorrenciasNovas: gravado.entraram.length,
     ocorrenciasRetiradas: gravado.sairam.length,
     visitasCriadas: v.criadas,
@@ -362,7 +413,10 @@ export async function incluirTipoNoPlanoNaTransacao(
 // ---------------------------------------------------------------------------------------------
 
 export interface AtividadeNoPlano extends repo.AtividadePlano {
-  /** RN-023: meses previstos no contrato (aba Cronograma). */
+  /**
+   * Aba Cronograma: meses com ocorrência prevista. Em `RASCUNHO`, da periodicidade (RN-023, DM-05);
+   * emitido, das ocorrências gravadas (HM-1): o recálculo só muda os meses futuros (RN-032).
+   */
   previstos: number[];
 }
 
@@ -379,10 +433,16 @@ export interface PmocCompleto extends repo.Pmoc {
   tipos: TipoNoPlano[];
   /** Colunas do cronograma: meses 1..N com mês/ano (RN-021). */
   calendario: MesDoContrato[];
-  /** Células previstas do cronograma (equipamento × atividade × mês, DM-04). */
+  /** Células previstas do cronograma (equipamento × atividade × mês, DM-04); emitido: as não `Ø`. */
   ocorrenciasPrevistas: number;
-  /** Aba Plano editável: `RASCUNHO` e ADM. */
+  /** Aba Plano editável: ADM, PMOC não `HISTORICO` (RN-146). */
   podeAlterarPlano: boolean;
+  /** Emitido (`EMITIDO`/`ASSINADO_CLIENTE`): mudança no plano passa pelo diálogo de impacto (FL-09). */
+  emitido: boolean;
+  /** "Emitir PMOC" (TL-121): `RASCUNHO` e ADM. */
+  podeEmitir: boolean;
+  /** FL-09 passo 4 (D-07 a): o plano difere do retrato da versão atual. */
+  planoAlterado: boolean;
   /** Aba "Versões e assinaturas", da mais nova para a mais antiga (vazia em `RASCUNHO`). */
   versoes: repo.VersaoDoPmoc[];
 }
@@ -402,11 +462,14 @@ export async function obterPmoc(
     if (!p || !can(ctx, "pmoc.ler", { clientId: p.clienteId })) return null;
     if (ctx.role !== "ADM" && !p.emitidoAlgumaVez) return null;
 
-    const [plano, tipos, equipamentos, versoes] = await Promise.all([
+    const rascunho = p.situacao === "RASCUNHO";
+    const [plano, tipos, equipamentos, versoes, gravadas, retrato] = await Promise.all([
       repo.listarPlano(tx, p.id),
       repo.tiposDoPlano(tx, p.id, p.localId),
       repo.equipamentosAtivos(tx, p.localId),
       repo.listarVersoes(tx, p.id),
+      rascunho ? Promise.resolve([]) : ocorrenciasDoPmocNaTransacao(tx, p.id),
+      rascunho ? Promise.resolve(null) : repo.planoDaVersaoAtual(tx, p.id),
     ]);
     const disponiveis = await repo.modelosDisponiveis(
       tx,
@@ -414,20 +477,34 @@ export async function obterPmoc(
       tipos.map((t) => t.id),
     );
     const vivas = plano.filter((a) => !a.removida);
+    const previstas = gravadas.filter((o) => o.estado !== "NAO_PREVISTA");
+    const mesesGravados = (atividadeId: string) =>
+      [
+        ...new Set(previstas.filter((o) => o.atividadeId === atividadeId).map((o) => o.indice)),
+      ].sort((a, b) => a - b);
+    const emitido = recalculavel(p);
     return {
       ...p,
       tipos: tipos.map((t) => ({
         ...t,
         atividades: ordenarAtividades(vivas.filter((a) => a.tipoId === t.id)).map((a) => ({
           ...a,
-          previstos: mesesPrevistos(a.periodicidade, p.meses),
+          previstos: rascunho ? mesesPrevistos(a.periodicidade, p.meses) : mesesGravados(a.id),
         })),
         removidas: plano.filter((a) => a.removida && a.tipoId === t.id),
         disponiveis: disponiveis.filter((d) => d.tipoId === t.id),
       })),
       calendario: mesesDoCronograma(p.inicio, p.meses),
-      ocorrenciasPrevistas: buildSchedule(p, vivas, equipamentos).length,
-      podeAlterarPlano: p.situacao === "RASCUNHO" && can(ctx, "pmoc.emitir"),
+      ocorrenciasPrevistas: rascunho
+        ? buildSchedule(p, vivas, equipamentos).length
+        : previstas.length,
+      podeAlterarPlano: p.situacao !== "HISTORICO" && can(ctx, "pmoc.emitir"),
+      emitido,
+      podeEmitir: rascunho && can(ctx, "pmoc.emitir"),
+      planoAlterado:
+        emitido &&
+        retrato !== null &&
+        planoAlteradoDesdeAVersao(retrato, planoComparavel(plano, equipamentos)),
       versoes,
     };
   });
@@ -507,58 +584,91 @@ export async function verificarEmissao(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Plano (RF-10; FL-08 passos 4–5)
+// Plano (RF-10; FL-08 passos 4–5; FL-09)
 // ---------------------------------------------------------------------------------------------
 
 /**
+ * Depois de mudar o plano: com PMOC emitido, recalcula o cronograma e as visitas na mesma transação
+ * (FL-09 passo 3; RN-032, RN-065, RN-183). Em `RASCUNHO` devolve `null`: o cronograma é calculado na
+ * leitura (RN-006).
+ */
+const recalcularSeEmitido = (tx: Tx, p: repo.Pmoc, agora: Date) =>
+  recalculavel(p) ? recalcularCronogramaNaTransacao(tx, p.id, agora) : Promise.resolve(null);
+
+/**
  * TL-120 "Periodicidade": vale para todos os equipamentos do tipo neste PMOC (RN-026; CA-10.1) e não
- * toca a biblioteca (RN-003). Em `RASCUNHO`, o cronograma é recalculado na leitura (RN-006, DM-05).
- * A auditoria guarda quem, quando e os valores anterior e novo (CA-10.2), por trigger.
+ * toca a biblioteca (RN-003). A auditoria guarda quem, quando, os valores anterior e novo e o motivo
+ * (CA-10.2), por trigger. Emitido: recalcula só os meses após o corrente (RN-032).
  */
 export async function alterarPeriodicidade(
   ctx: RequestContext,
   input: AlterarPeriodicidadeInput,
   deps: PmocDeps,
-): Promise<void> {
+  agora = new Date(),
+): Promise<ResultadoRecalculo | null> {
   exigir(ctx, "pmoc.periodicidade.alterar");
   const v = alterarPeriodicidadeSchema.parse(input);
-  await escrever(ctx, deps, async (tx) => {
-    const { a } = await atividadeEditavel(tx, v.id);
-    if (a.removida) throw new ErroPmoc("ESTADO", "A atividade não está no plano.");
-    if (!(await repo.alterarPeriodicidade(tx, v.id, v.periodicidade, v.rowVersion))) {
-      throw conflito();
-    }
-  });
+  return escrever(
+    ctx,
+    deps,
+    async (tx) => {
+      const { a, p } = await atividadeEditavel(tx, v.id);
+      if (a.removida) throw new ErroPmoc("ESTADO", "A atividade não está no plano.");
+      if (!(await repo.alterarPeriodicidade(tx, v.id, v.periodicidade, v.rowVersion))) {
+        throw conflito();
+      }
+      return recalcularSeEmitido(tx, p, agora);
+    },
+    v.motivo,
+  );
 }
 
-/** TL-120 "Remover" (RF-10.3 [A VALIDAR]): a linha fica com `removed_at` (EL-8). */
+/**
+ * TL-120 "Remover" (RF-10.3 [A VALIDAR]): a linha fica com `removed_at` (EL-8). Emitido: as
+ * ocorrências futuras sem registro viram Ø (RN-183); bloqueado com visita em andamento da atividade.
+ */
 export async function removerAtividadeDoPlano(
   ctx: RequestContext,
-  input: { id: string; rowVersion: number },
+  input: { id: string; rowVersion: number; motivo?: string | null },
   deps: PmocDeps,
-): Promise<void> {
+  agora = new Date(),
+): Promise<ResultadoRecalculo | null> {
   exigir(ctx, "pmoc.emitir");
   const v = comVersaoSchema.parse(input);
-  await escrever(ctx, deps, async (tx) => {
-    const { a } = await atividadeEditavel(tx, v.id);
-    if (a.removida) throw new ErroPmoc("ESTADO", "A atividade já foi removida do plano.");
-    if (!(await repo.removerAtividade(tx, v.id, ctx.userId, v.rowVersion))) throw conflito();
-  });
+  return escrever(
+    ctx,
+    deps,
+    async (tx) => {
+      const { a, p } = await atividadeEditavel(tx, v.id);
+      if (a.removida) throw new ErroPmoc("ESTADO", "A atividade já foi removida do plano.");
+      if (recalculavel(p)) await exigirSemVisitaEmAndamento(tx, a.id);
+      if (!(await repo.removerAtividade(tx, v.id, ctx.userId, v.rowVersion))) throw conflito();
+      return recalcularSeEmitido(tx, p, agora);
+    },
+    v.motivo,
+  );
 }
 
 /** TL-120 "Incluir" de uma atividade removida: volta pela mesma linha (RN-184; RF-10.3). */
 export async function restaurarAtividadeDoPlano(
   ctx: RequestContext,
-  input: { id: string; rowVersion: number },
+  input: { id: string; rowVersion: number; motivo?: string | null },
   deps: PmocDeps,
-): Promise<void> {
+  agora = new Date(),
+): Promise<ResultadoRecalculo | null> {
   exigir(ctx, "pmoc.emitir");
   const v = comVersaoSchema.parse(input);
-  await escrever(ctx, deps, async (tx) => {
-    const { a } = await atividadeEditavel(tx, v.id);
-    if (!a.removida) throw new ErroPmoc("ESTADO", "A atividade já está no plano.");
-    if (!(await repo.restaurarAtividade(tx, v.id, v.rowVersion))) throw conflito();
-  });
+  return escrever(
+    ctx,
+    deps,
+    async (tx) => {
+      const { a, p } = await atividadeEditavel(tx, v.id);
+      if (!a.removida) throw new ErroPmoc("ESTADO", "A atividade já está no plano.");
+      if (!(await repo.restaurarAtividade(tx, v.id, v.rowVersion))) throw conflito();
+      return recalcularSeEmitido(tx, p, agora);
+    },
+    v.motivo,
+  );
 }
 
 /** Tipos em que o plano aceita atividade: os do plano e os presentes no local (aba Plano). */
@@ -569,32 +679,46 @@ async function tipoDoPlano(tx: Tx, p: repo.Pmoc, tipoId: string): Promise<void> 
   }
 }
 
+const naoIncluivel = () =>
+  new ErroPmoc("VALIDACAO", "Esta atividade não pode ser incluída neste plano.");
+
+/** Atividade `ATIVO` da biblioteca, de um tipo do PMOC, ainda sem linha no plano (RF-10.3). */
+async function modeloDisponivel(tx: Tx, p: repo.Pmoc, modeloId: string) {
+  const tipos = await repo.tiposDoPlano(tx, p.id, p.localId);
+  const disponiveis = await repo.modelosDisponiveis(
+    tx,
+    p.id,
+    tipos.map((t) => t.id),
+  );
+  const m = disponiveis.find((d) => d.id === modeloId);
+  if (!m) throw naoIncluivel();
+  return m;
+}
+
 /**
  * TL-120 "Incluir" da biblioteca (RF-10.3 [A VALIDAR]): atividade `ATIVO` (RN-152) de um tipo do
  * PMOC, ainda sem linha no plano, com a periodicidade padrão (RN-002).
  */
 export async function incluirAtividadeDaBiblioteca(
   ctx: RequestContext,
-  input: { pmocId: string; modeloId: string },
+  input: { pmocId: string; modeloId: string; motivo?: string | null },
   deps: PmocDeps,
-): Promise<{ id: string }> {
+  agora = new Date(),
+): Promise<{ id: string; recalculo: ResultadoRecalculo | null }> {
   exigir(ctx, "pmoc.emitir");
   const v = incluirDaBibliotecaSchema.parse(input);
-  return escrever(ctx, deps, async (tx) => {
-    const p = await pmocEditavel(tx, v.pmocId);
-    const tipos = await repo.tiposDoPlano(tx, p.id, p.localId);
-    const disponiveis = await repo.modelosDisponiveis(
-      tx,
-      p.id,
-      tipos.map((t) => t.id),
-    );
-    if (!disponiveis.some((d) => d.id === v.modeloId)) {
-      throw new ErroPmoc("VALIDACAO", "Esta atividade não pode ser incluída neste plano.");
-    }
-    const id = await repo.incluirModelo(tx, p.id, v.modeloId);
-    if (!id) throw new ErroPmoc("VALIDACAO", "Esta atividade não pode ser incluída neste plano.");
-    return { id };
-  });
+  return escrever(
+    ctx,
+    deps,
+    async (tx) => {
+      const p = await pmocEditavel(tx, v.pmocId);
+      await modeloDisponivel(tx, p, v.modeloId);
+      const id = await repo.incluirModelo(tx, p.id, v.modeloId);
+      if (!id) throw naoIncluivel();
+      return { id, recalculo: await recalcularSeEmitido(tx, p, agora) };
+    },
+    v.motivo,
+  );
 }
 
 /**
@@ -606,29 +730,108 @@ export async function incluirAtividadeNova(
   ctx: RequestContext,
   input: IncluirNovaAtividadeInput,
   deps: PmocDeps,
-): Promise<{ id: string }> {
+  agora = new Date(),
+): Promise<{ id: string; recalculo: ResultadoRecalculo | null }> {
   exigir(ctx, "pmoc.emitir");
   const v = incluirNovaSchema.parse(input);
   const u = unidadeDaAtividade(v.natureza, v.unidade);
   if (!u.ok) throw new ErroPmoc("VALIDACAO", u.problema.mensagem, u.problema.campo);
-  return escrever(ctx, deps, async (tx) => {
-    const p = await pmocEditavel(tx, v.pmocId);
-    await tipoDoPlano(tx, p, v.tipoId);
-    const titulo = v.titulo.toLocaleLowerCase("pt-BR");
-    const repetida = (await repo.listarPlano(tx, p.id)).some(
-      (a) => !a.removida && a.tipoId === v.tipoId && a.titulo.toLocaleLowerCase("pt-BR") === titulo,
-    );
-    if (repetida) {
-      throw new ErroPmoc("VALIDACAO", "Já existe atividade com este título no tipo.", "titulo");
+  return escrever(
+    ctx,
+    deps,
+    async (tx) => {
+      const p = await pmocEditavel(tx, v.pmocId);
+      await tipoDoPlano(tx, p, v.tipoId);
+      const titulo = v.titulo.toLocaleLowerCase("pt-BR");
+      const repetida = (await repo.listarPlano(tx, p.id)).some(
+        (a) =>
+          !a.removida && a.tipoId === v.tipoId && a.titulo.toLocaleLowerCase("pt-BR") === titulo,
+      );
+      if (repetida) {
+        throw new ErroPmoc("VALIDACAO", "Já existe atividade com este título no tipo.", "titulo");
+      }
+      const id = await repo.incluirNova(tx, p.id, v.tipoId, {
+        titulo: v.titulo,
+        periodicidade: v.periodicidade,
+        natureza: v.natureza,
+        unidade: u.unidade,
+        exigeFoto: v.exigeFoto,
+      });
+      return { id, recalculo: await recalcularSeEmitido(tx, p, agora) };
+    },
+    v.motivo,
+  );
+}
+
+/** Id provisório da atividade que ainda não existe, só para a prévia (nunca é gravado). */
+const ATIVIDADE_NA_PREVIA = "atividade-na-previa";
+
+/** A atividade do plano e como o plano ficaria com a mudança (prévia). */
+async function hipoteseDaMudanca(
+  tx: Tx,
+  m: ReturnType<typeof mudancaNoPlanoSchema.parse>,
+): Promise<{ pmocId: string; hipotese: HipoteseDeRecalculo }> {
+  if (m.acao === "INCLUIR_MODELO" || m.acao === "INCLUIR_NOVA") {
+    const p = await repo.buscarPmoc(tx, m.pmocId);
+    if (!p) throw naoEncontrado();
+    let nova: AtividadeDoPlano;
+    if (m.acao === "INCLUIR_MODELO") {
+      const modelo = await modeloDisponivel(tx, p, m.modeloId);
+      nova = {
+        id: ATIVIDADE_NA_PREVIA,
+        tipoId: modelo.tipoId,
+        periodicidade: modelo.periodicidade,
+      };
+    } else {
+      await tipoDoPlano(tx, p, m.tipoId);
+      nova = { id: ATIVIDADE_NA_PREVIA, tipoId: m.tipoId, periodicidade: m.periodicidade };
     }
-    const id = await repo.incluirNova(tx, p.id, v.tipoId, {
-      titulo: v.titulo,
-      periodicidade: v.periodicidade,
-      natureza: v.natureza,
-      unidade: u.unidade,
-      exigeFoto: v.exigeFoto,
-    });
-    return { id };
+    return { pmocId: p.id, hipotese: { plano: (atual) => [...atual, nova] } };
+  }
+  const a = await repo.buscarAtividade(tx, m.id);
+  if (!a) throw naoEncontrado("Atividade");
+  if (m.acao === "RESTAURAR") {
+    if (!a.removida) throw new ErroPmoc("ESTADO", "A atividade já está no plano.");
+    const volta = { id: a.id, tipoId: a.tipoId, periodicidade: a.periodicidade };
+    return { pmocId: a.pmocId, hipotese: { plano: (atual) => [...atual, volta] } };
+  }
+  if (a.removida) throw new ErroPmoc("ESTADO", "A atividade não está no plano.");
+  if (m.acao === "REMOVER") {
+    return {
+      pmocId: a.pmocId,
+      hipotese: { plano: (atual) => atual.filter((x) => x.id !== a.id) },
+    };
+  }
+  const periodicidade = m.periodicidade;
+  return {
+    pmocId: a.pmocId,
+    hipotese: {
+      plano: (atual) => atual.map((x) => (x.id === a.id ? { ...x, periodicidade } : x)),
+    },
+  };
+}
+
+/**
+ * FL-09 passo 2 (E-07.7, E-09.2): o impacto da mudança no plano de PMOC emitido, sem gravar nada.
+ * `null` em `RASCUNHO`: a mudança vale na hora, sem diálogo (RN-006). Confere o mesmo que a ação
+ * (estado, atividade no plano, bloqueio da RN-183), para o diálogo não oferecer o que vai falhar.
+ */
+export async function previaDaMudancaNoPlano(
+  ctx: RequestContext,
+  input: MudancaNoPlano,
+  deps: PmocDeps,
+  agora = new Date(),
+): Promise<ImpactoDoRecalculo | null> {
+  const m = mudancaNoPlanoSchema.parse(input);
+  exigir(ctx, m.acao === "PERIODICIDADE" ? "pmoc.periodicidade.alterar" : "pmoc.emitir");
+  return deps.db.withTransaction(ctx, async (tx) => {
+    const { pmocId, hipotese } = await hipoteseDaMudanca(tx, m);
+    const p = await repo.buscarPmoc(tx, pmocId);
+    if (!p) throw naoEncontrado();
+    exigirEditavel(p);
+    if (!recalculavel(p)) return null;
+    if (m.acao === "REMOVER") await exigirSemVisitaEmAndamento(tx, m.id);
+    return impactoDoRecalculoNaTransacao(tx, p.id, hipotese, agora);
   });
 }
 
