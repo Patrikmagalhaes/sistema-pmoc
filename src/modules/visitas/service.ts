@@ -9,8 +9,12 @@ import * as repo from "./repo";
  * chama (módulo `pmoc`) já conferiu e abriu a transação.
  */
 
-export function visitasNaoIniciadasNaTransacao(tx: Tx, pmocId: string): Promise<VisitaDoPmoc[]> {
-  return repo.visitasNaoIniciadas(tx, pmocId);
+export function visitasNaoIniciadasNaTransacao(
+  tx: Tx,
+  pmocId: string,
+  travar = true,
+): Promise<VisitaDoPmoc[]> {
+  return repo.visitasNaoIniciadas(tx, pmocId, travar);
 }
 
 export interface ResultadoAcompanhamento {

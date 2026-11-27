@@ -86,8 +86,12 @@ async function escrever<T>(
 /**
  * FL-07 passo 4: com PMOC emitido, ocorrências e visitas mudariam (RN-065, RN-067, RN-068). Com PMOC
  * em `RASCUNHO`, nada é gravado no cronograma: a pré-visualização recalcula na leitura (RN-006, DM-05).
+ *
+ * Trava o local antes de conferir: uma emissão em andamento trava o local (RN-009), então esta escrita
+ * espera ela terminar e vê o PMOC já emitido, em vez de passar com o estado de antes.
  */
 async function exigirSemPmocEmitido(tx: Tx, localId: string) {
+  await repo.travarLocal(tx, localId);
   if (await repo.temPmocEmitido(tx, localId)) {
     throw new ErroEquipamentos("NAO_DISPONIVEL", SEM_MUDAR_COM_PMOC);
   }

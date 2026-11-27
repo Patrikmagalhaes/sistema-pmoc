@@ -13,7 +13,12 @@ import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { runMigrations } from "../../db/migrate";
 import { type ArquivosDeps, lerArquivo, prepararEnvio } from "../../src/modules/arquivos";
 import { criarTipo, incluirAtividade, obterTipo } from "../../src/modules/biblioteca";
-import { criarCliente, criarContrato, criarLocal } from "../../src/modules/clientes";
+import {
+  cancelarContrato,
+  criarCliente,
+  criarContrato,
+  criarLocal,
+} from "../../src/modules/clientes";
 import {
   type EmpresaDeps,
   enviarCertificado,
@@ -634,6 +639,121 @@ describe("E-08.8 e UF-07: concorrência", () => {
       emitirPmoc(admCtx(), { pmocId, rowVersion: (await rowVersion(pmocId)) + 1 }, emissao, AGORA),
     );
     expect(e.codigo).toBe("ALTERADO_POR_OUTRO");
+    expect((await rastro(pmocId)).versoes).toBe(0);
+  });
+
+  /** Emissão parada dentro do `gerarPdf` (com as travas já tomadas) até `liberar()`. */
+  async function emissaoPresa(pmocId: string) {
+    let liberar: () => void = () => {};
+    let entrou: () => void = () => {};
+    const dentro = new Promise<void>((r) => {
+      entrou = r;
+    });
+    const lenta = emitirPmoc(
+      admCtx(),
+      { pmocId, rowVersion: await rowVersion(pmocId) },
+      {
+        ...emissao,
+        gerarPdf: async (e) => {
+          entrou();
+          await new Promise<void>((r) => {
+            liberar = r;
+          });
+          return gerarPdfPmoc(e);
+        },
+      },
+      AGORA,
+    );
+    await dentro;
+    return { lenta, liberar: () => liberar() };
+  }
+
+  /** Espera alguma transação deste banco ficar bloqueada numa trava de linha. */
+  /**
+   * Espera `outra` ficar bloqueada numa trava de linha (`pg_locks` não concedido; o `pg_stat_activity`
+   * esconde a espera de sessões de outro papel). Se `outra` terminar antes, ela não esperou a emissão.
+   */
+  async function esperarBloqueio(outra: Promise<unknown>) {
+    let terminou = false;
+    void outra.then(() => {
+      terminou = true;
+    });
+    for (let i = 0; i < 200; i++) {
+      const [r] = await owner`SELECT count(*)::int AS n FROM pg_locks WHERE NOT granted`;
+      if ((r?.n ?? 0) > 0) return;
+      if (terminou) {
+        throw new Error(`terminou sem esperar a emissão: ${String(await outra)}`);
+      }
+      await new Promise((x) => setTimeout(x, 50));
+    }
+    throw new Error("nenhuma transação ficou esperando a emissão");
+  }
+
+  /** Resolve com o erro (ou `null` se deu certo), para inspecionar sem rejeitar. */
+  const falhaDe = (p: Promise<unknown>) =>
+    p.then(
+      () => null,
+      (e: unknown) => e,
+    );
+
+  it("cancelar o contrato durante a emissão espera por ela e recusa; o PMOC emitido não vira histórico", async () => {
+    const { pmocId, contratoId } = await cenario(tipos);
+    const [k] = await owner`SELECT row_version FROM contract WHERE id = ${contratoId}`;
+    const presa = await emissaoPresa(pmocId);
+    const cancelar = falhaDe(
+      cancelarContrato(
+        admCtx(),
+        {
+          id: contratoId,
+          data: "2026-12-15",
+          motivo: "Imóvel vendido",
+          rowVersion: k?.row_version,
+        },
+        deps,
+      ),
+    );
+    try {
+      await esperarBloqueio(cancelar);
+    } finally {
+      presa.liberar();
+    }
+    expect((await presa.lenta).versao).toBe(1);
+    expect(await cancelar).toMatchObject({ codigo: "NAO_DISPONIVEL" });
+    expect((await rastro(pmocId)).status).toBe("EMITIDO");
+    const [d] = await owner`SELECT status FROM contract WHERE id = ${contratoId}`;
+    expect(d?.status).toBe("VIGENTE");
+  });
+
+  it("incluir equipamento no local durante a emissão espera por ela e recusa (PMOC emitido)", async () => {
+    const { pmocId, localId } = await cenario(tipos);
+    const presa = await emissaoPresa(pmocId);
+    const incluir = falhaDe(
+      criarEquipamento(
+        admCtx(),
+        { localId, tipoId: tipos.a.id, grupoId: tipos.a.grupoId, ambiente: "Sala 2" },
+        deps,
+      ),
+    );
+    try {
+      await esperarBloqueio(incluir);
+    } finally {
+      presa.liberar();
+    }
+    expect((await presa.lenta).versao).toBe(1);
+    expect(await incluir).toMatchObject({ codigo: "NAO_DISPONIVEL" });
+    const [n] = await owner`SELECT count(*)::int AS n FROM equipment
+      WHERE site_id = ${localId} AND deleted_at IS NULL`;
+    expect(n?.n).toBe(4); // os 4 do cenário; nenhum entrou sem ocorrências no PMOC emitido
+  });
+
+  it("emitir enquanto um equipamento é incluído no local: recusa na hora, sem esperar (E-08.8)", async () => {
+    const { pmocId, localId } = await cenario(tipos);
+    const versao = await rowVersion(pmocId);
+    await owner.begin(async (tx) => {
+      await tx`SELECT id FROM site WHERE id = ${localId} FOR UPDATE`; // como a TL-111 ao salvar
+      const e = await erroDe(emitirPmoc(admCtx(), { pmocId, rowVersion: versao }, emissao, AGORA));
+      expect(e.codigo).toBe("ALTERADO_POR_OUTRO");
+    });
     expect((await rastro(pmocId)).versoes).toBe(0);
   });
 });

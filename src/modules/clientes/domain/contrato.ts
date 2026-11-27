@@ -1,6 +1,12 @@
 /** Regras puras do contrato (RF-07; doc 02 §7.2). Datas de negócio em `YYYY-MM-DD` (sem fuso). */
 
-export type EstadoContrato = "A_INICIAR" | "VIGENTE" | "ENCERRADO" | "CANCELADO";
+import type { EstadoContrato } from "@/lib/estado-contrato";
+
+export {
+  type EstadoContrato,
+  estadoDoContrato,
+  estadoPorDatas,
+} from "@/lib/estado-contrato";
 
 /** Formato da data de negócio que vem da tela e do banco. */
 export const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -14,17 +20,6 @@ export function dataValida(d: string): boolean {
 }
 
 export { hojeEmSaoPaulo } from "@/lib/hoje";
-
-/** RN-142: estado derivado das datas (`CANCELADO` não sai daqui: prevalece e é gravado à parte). */
-export function estadoPorDatas(
-  inicio: string,
-  fim: string,
-  hoje: string,
-): Exclude<EstadoContrato, "CANCELADO"> {
-  if (hoje < inicio) return "A_INICIAR";
-  if (hoje > fim) return "ENCERRADO";
-  return "VIGENTE";
-}
 
 /** RN-022: `N = (anoFim − anoIni) × 12 + (mêsFim − mêsIni) + 1` (mês de início e de fim contam). */
 export function mesesDoContrato(inicio: string, fim: string): number {

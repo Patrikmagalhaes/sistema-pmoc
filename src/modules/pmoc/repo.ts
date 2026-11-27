@@ -28,7 +28,10 @@ export interface ContratoParaPmoc {
   id: string;
   localId: string;
   clienteId: string;
+  /** Estado gravado (RN-142: o processamento diário o atualiza; para decidir, vale `estadoDoContrato`). */
   situacao: "A_INICIAR" | "VIGENTE" | "ENCERRADO" | "CANCELADO";
+  inicio: string;
+  fim: string;
   /** PMOC vivo do contrato (RN-001). */
   pmocId: string | null;
   /** PMOC vivo do contrato anterior (RN-004). */
@@ -38,7 +41,8 @@ export interface ContratoParaPmoc {
 /** Contrato vivo, com a linha travada: duas criações do mesmo PMOC não correm juntas (RN-001). */
 export async function travarContrato(tx: Tx, id: string): Promise<ContratoParaPmoc | null> {
   const r = await tx.execute(sql`SELECT k.id, k.site_id AS "localId", s.client_id AS "clienteId",
-      k.status AS situacao,
+      k.status AS situacao, to_char(k.start_date, 'YYYY-MM-DD') AS inicio,
+      to_char(k.end_date, 'YYYY-MM-DD') AS fim,
       (SELECT p.id FROM pmoc p WHERE p.contract_id = k.id AND p.deleted_at IS NULL) AS "pmocId",
       (SELECT p.id FROM pmoc p WHERE p.contract_id = k.previous_contract_id AND p.deleted_at IS NULL)
         AS "anteriorPmocId"
@@ -143,6 +147,20 @@ export interface Pmoc {
   localCodigo: string;
   clienteId: string;
   clienteRazaoSocial: string;
+}
+
+/**
+ * Emissão (RN-009): trava o contrato e o local do PMOC sem esperar, **antes** do PMOC (ordem contrato →
+ * local → pmoc, a mesma do cancelamento do contrato e da TL-111). Assim, cancelar o contrato ou mexer
+ * nos equipamentos do local espera a emissão terminar e então vê o PMOC emitido; e a emissão não
+ * começa com um deles em andamento (`55P03`, E-08.8).
+ */
+export async function travarContratoELocalDoPmoc(tx: Tx, pmocId: string): Promise<void> {
+  await tx.execute(sql`SELECT k.id FROM pmoc p
+    JOIN contract k ON k.id = p.contract_id
+    JOIN site s ON s.id = k.site_id
+    WHERE p.id = ${pmocId}
+    FOR UPDATE OF k, s NOWAIT`);
 }
 
 /**

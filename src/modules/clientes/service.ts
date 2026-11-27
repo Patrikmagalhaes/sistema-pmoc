@@ -7,6 +7,7 @@ import type { Database, Tx } from "@/server/db";
 import { restricaoViolada } from "@/server/db/errors";
 import {
   diaSeguinte,
+  estadoDoContrato,
   estadoPorDatas,
   hojeEmSaoPaulo,
   podeCancelar,
@@ -356,10 +357,13 @@ export async function obterContrato(
   ctx: RequestContext,
   id: string,
   deps: ClientesDeps,
+  agora = new Date(),
 ): Promise<ContratoCompleto | null> {
   if (!ehUuid(id)) return null;
   const c = await deps.db.withTransaction(ctx, (tx) => repo.buscarContrato(tx, id));
   if (!c || !podeLer(ctx, c.clienteId)) return null;
+  // RN-017: pelas datas, sem esperar o processamento diário atualizar o estado gravado (RN-142).
+  const estadoHoje = estadoDoContrato(c.situacao, c.inicio, c.fim, hojeEmSaoPaulo(agora));
   return {
     ...c,
     podeCancelar: podeCancelar(c.situacao),
@@ -367,7 +371,7 @@ export async function obterContrato(
     podeConfirmarRenovacao:
       c.anteriorId !== null && c.situacao !== "CANCELADO" && c.renovacaoConfirmadaEm === null,
     podeExcluir: !c.temPmoc && c.situacao !== "CANCELADO",
-    podeCriarPmoc: !c.temPmoc && c.situacao !== "ENCERRADO" && c.situacao !== "CANCELADO",
+    podeCriarPmoc: !c.temPmoc && estadoHoje !== "ENCERRADO" && estadoHoje !== "CANCELADO",
   };
 }
 
@@ -444,6 +448,9 @@ export async function cancelarContrato(
   exigirEscrita(ctx);
   const v = cancelarContratoSchema.parse(input);
   await escrever(ctx, deps, async (tx) => {
+    // Trava antes de ler: uma emissão em andamento trava o contrato (RN-009); esperar por ela faz a
+    // checagem abaixo ver o PMOC já emitido (ordem contrato → pmoc, a mesma da emissão).
+    await repo.travarContrato(tx, v.id);
     const c = await repo.buscarContrato(tx, v.id);
     if (!c) throw naoEncontrado("Contrato");
     if (!podeCancelar(c.situacao)) {

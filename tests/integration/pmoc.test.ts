@@ -13,11 +13,12 @@ import {
   incluirAtividade,
   obterTipo,
 } from "../../src/modules/biblioteca";
-import { criarCliente, criarContrato, criarLocal } from "../../src/modules/clientes";
+import { criarCliente, criarContrato, criarLocal, obterContrato } from "../../src/modules/clientes";
 import { alterarSituacaoEquipamento, criarEquipamento } from "../../src/modules/equipamentos";
 import {
   alterarPeriodicidade,
   criarPmoc,
+  emitirPmoc,
   incluirAtividadeDaBiblioteca,
   incluirAtividadeNova,
   obterPmoc,
@@ -213,6 +214,16 @@ describe("criar o rascunho (FL-08 passos 1–3)", () => {
     ).rejects.toMatchObject({ codigo: "VALIDACAO" });
   });
 
+  it("RN-017 / RN-142: fim já passou e o estado gravado ainda é VIGENTE (sem o J-02): não cria PMOC", async () => {
+    const k = await novoContrato(await novoLocal(), "2026-11-01", "2027-10-31");
+    const depois = new Date("2027-11-15T12:00:00Z");
+    expect((await obterContrato(admCtx(), k, deps))?.situacao).toBe("VIGENTE"); // gravado
+    expect((await obterContrato(admCtx(), k, deps, depois))?.podeCriarPmoc).toBe(false);
+    await expect(
+      criarPmoc(admCtx(), { contratoId: k, copiarDoAnterior: false }, deps, depois),
+    ).rejects.toMatchObject({ codigo: "ESTADO", message: "Contrato encerrado não emite PMOC." });
+  });
+
   it("RN-004: copia plano e periodicidades do PMOC anterior, sem as removidas; tipo novo vem da biblioteca", async () => {
     const l = await novoLocal();
     const split = await novoTipo();
@@ -354,6 +365,38 @@ describe("plano (RF-10; TL-120 aba Plano)", () => {
       deps,
     );
     expect(atividade(await abrir(id), "Filtro")?.periodicidade).toBe("MM");
+  });
+
+  it("RF-10.3: restaurar atividade cujo título outra já usa no tipo é recusado (sem duplicar)", async () => {
+    const t = await novoTipo();
+    const l = await novoLocal();
+    await novoEquipamento(l, t);
+    const { id } = await criarPmoc(
+      admCtx(),
+      { contratoId: await novoContrato(l), copiarDoAnterior: false },
+      deps,
+    );
+    const filtro = atividade(await abrir(id), "Filtro") as NonNullable<
+      ReturnType<typeof atividade>
+    >;
+    await removerAtividadeDoPlano(admCtx(), { id: filtro.id, rowVersion: filtro.rowVersion }, deps);
+    // Com a antiga removida, o título fica livre e uma nova "Filtro" entra no tipo.
+    await incluirAtividadeNova(
+      admCtx(),
+      { pmocId: id, tipoId: t.id, periodicidade: "MS", titulo: "Filtro", natureza: "VERIFICACAO" },
+      deps,
+    );
+    const removida = tipo(await abrir(id), t.id)?.removidas[0];
+    await expect(
+      restaurarAtividadeDoPlano(
+        admCtx(),
+        { id: filtro.id, rowVersion: removida?.rowVersion ?? 0 },
+        deps,
+      ),
+    ).rejects.toMatchObject({ codigo: "VALIDACAO", campo: "titulo" });
+    const p = await abrir(id);
+    expect(tipo(p, t.id)?.atividades.filter((a) => a.titulo === "Filtro")).toHaveLength(1);
+    expect(tipo(p, t.id)?.removidas.map((a) => a.id)).toEqual([filtro.id]);
   });
 
   it("RF-10.3: remover e voltar pela mesma linha (RN-184); incluir da biblioteca e nova", async () => {
@@ -574,6 +617,21 @@ describe("verificar a emissão (FL-08 passo 7; TL-121; RN-007, RN-008, RN-017)",
 
   const codigos = async (id: string) =>
     (await verificarEmissao(admCtx(), id, deps)).pendencias.map((p) => p.codigo);
+
+  it("RN-017 / RN-142: fim já passou e o estado gravado ainda é VIGENTE: CONTRATO_ENCERRADO e não emite", async () => {
+    const id = await rascunhoCompleto();
+    await certificadoVigente(new Date(Date.now() + 365 * DIA));
+    const depois = new Date("2027-11-15T12:00:00Z");
+    const [g] =
+      await owner`SELECT k.status, p.row_version FROM pmoc p JOIN contract k ON k.id = p.contract_id
+      WHERE p.id = ${id}`;
+    expect(g?.status).toBe("VIGENTE");
+    const v = await verificarEmissao(admCtx(), id, deps, depois);
+    expect(v.pendencias.map((p) => p.codigo)).toContain("CONTRATO_ENCERRADO");
+    await expect(
+      emitirPmoc(admCtx(), { pmocId: id, rowVersion: g?.row_version }, deps as never, depois),
+    ).rejects.toMatchObject({ codigo: "PENDENCIAS" });
+  });
 
   it("CA-12.1 / E-08.3 / E-08.4 / E-08.9: lista todos os faltantes; certificado conta; nada é gravado", async () => {
     const id = await rascunhoCompleto();

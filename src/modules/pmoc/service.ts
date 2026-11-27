@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { estadoDoContrato } from "@/lib/estado-contrato";
 import { hojeEmSaoPaulo } from "@/lib/hoje";
 import { consumirLimiteNaTransacao } from "@/modules/acesso";
 import { gravarArquivoGeradoNaTransacao, lerArquivoNaTransacao } from "@/modules/arquivos";
@@ -236,11 +237,12 @@ async function planejarRecalculo(
   p: repo.Pmoc,
   agora: Date,
   hipotese: HipoteseDeRecalculo = {},
+  travar = true,
 ) {
   const hoje = hojeEmSaoPaulo(agora);
   // As visitas não iniciadas primeiro: travadas, nenhuma começa até o fim da transação, então o
-  // `emVisitaIniciada` lido depois não fica velho (RN-066).
-  const visitas = await visitasNaoIniciadasNaTransacao(tx, p.id);
+  // `emVisitaIniciada` lido depois não fica velho (RN-066). A prévia não grava e não trava.
+  const visitas = await visitasNaoIniciadasNaTransacao(tx, p.id, travar);
   const atual = (await repo.listarPlano(tx, p.id))
     .filter((a) => !a.removida)
     .map((a) => ({ id: a.id, tipoId: a.tipoId, periodicidade: a.periodicidade }));
@@ -284,7 +286,7 @@ export async function impactoDoRecalculoNaTransacao(
   const p = await repo.buscarPmoc(tx, pmocId);
   if (!p || !recalculavel(p)) return null;
   const { aPartirDoMes, mesCorrente, existentes, semProtecao, recalculo, visitas } =
-    await planejarRecalculo(tx, p, agora, hipotese);
+    await planejarRecalculo(tx, p, agora, hipotese, false);
   const meses = new Map(existentes.map((o) => [o.id, o.indice] as const));
   const sairiam = new Set(recalculo.desprever.map((d) => d.id));
   const protegidas = semProtecao()
@@ -371,13 +373,15 @@ export async function criarPmoc(
   ctx: RequestContext,
   input: CriarPmocInput,
   deps: PmocDeps,
+  agora = new Date(),
 ): Promise<{ id: string }> {
   exigir(ctx, "pmoc.emitir");
   const v = criarPmocSchema.parse(input);
   return escrever(ctx, deps, async (tx) => {
     const k = await repo.travarContrato(tx, v.contratoId);
     if (!k) throw naoEncontrado("Contrato");
-    if (k.situacao === "ENCERRADO" || k.situacao === "CANCELADO") {
+    const estado = estadoDoContrato(k.situacao, k.inicio, k.fim, hojeEmSaoPaulo(agora));
+    if (estado === "ENCERRADO" || estado === "CANCELADO") {
       throw new ErroPmoc("ESTADO", "Contrato encerrado não emite PMOC."); // RN-017, E-08.5
     }
     if (k.pmocId) throw jaExiste();
@@ -562,7 +566,12 @@ export async function verificarEmissao(
         dias: diasParaVencer(c.validoAte, agora),
       },
       art: d.art,
-      situacaoContrato: p.situacaoContrato,
+      situacaoContrato: estadoDoContrato(
+        p.situacaoContrato,
+        p.inicio,
+        p.fim,
+        hojeEmSaoPaulo(agora),
+      ),
       equipamentosAtivos: equipamentos.length,
       atividadesNoPlano: d.atividadesNoPlano,
     });
@@ -664,11 +673,24 @@ export async function restaurarAtividadeDoPlano(
     async (tx) => {
       const { a, p } = await atividadeEditavel(tx, v.id);
       if (!a.removida) throw new ErroPmoc("ESTADO", "A atividade já está no plano.");
+      // Enquanto estava removida, outra com o mesmo título pode ter entrado no tipo.
+      await exigirTituloLivre(tx, p.id, a.tipoId, a.titulo);
       if (!(await repo.restaurarAtividade(tx, v.id, v.rowVersion))) throw conflito();
       return recalcularSeEmitido(tx, p, agora);
     },
     v.motivo,
   );
+}
+
+/** Título único por tipo entre as atividades no plano (as removidas não contam), sem caixa. */
+async function exigirTituloLivre(tx: Tx, pmocId: string, tipoId: string, titulo: string) {
+  const t = titulo.toLocaleLowerCase("pt-BR");
+  const repetida = (await repo.listarPlano(tx, pmocId)).some(
+    (a) => !a.removida && a.tipoId === tipoId && a.titulo.toLocaleLowerCase("pt-BR") === t,
+  );
+  if (repetida) {
+    throw new ErroPmoc("VALIDACAO", "Já existe atividade com este título no tipo.", "titulo");
+  }
 }
 
 /** Tipos em que o plano aceita atividade: os do plano e os presentes no local (aba Plano). */
@@ -742,14 +764,7 @@ export async function incluirAtividadeNova(
     async (tx) => {
       const p = await pmocEditavel(tx, v.pmocId);
       await tipoDoPlano(tx, p, v.tipoId);
-      const titulo = v.titulo.toLocaleLowerCase("pt-BR");
-      const repetida = (await repo.listarPlano(tx, p.id)).some(
-        (a) =>
-          !a.removida && a.tipoId === v.tipoId && a.titulo.toLocaleLowerCase("pt-BR") === titulo,
-      );
-      if (repetida) {
-        throw new ErroPmoc("VALIDACAO", "Já existe atividade com este título no tipo.", "titulo");
-      }
+      await exigirTituloLivre(tx, p.id, v.tipoId, v.titulo);
       const id = await repo.incluirNova(tx, p.id, v.tipoId, {
         titulo: v.titulo,
         periodicidade: v.periodicidade,
@@ -912,6 +927,7 @@ export async function emitirPmoc(
   let passo: PassoEmissao = "VERIFICAR";
   try {
     return await deps.db.withTransaction(ctx, async (tx) => {
+      await repo.travarContratoELocalDoPmoc(tx, v.pmocId);
       const p = await repo.buscarPmoc(tx, v.pmocId, "SEM_ESPERAR");
       if (!p) throw naoEncontrado();
       if (p.rowVersion !== v.rowVersion) throw conflito();
@@ -933,7 +949,12 @@ export async function emitirPmoc(
           dias: diasParaVencer(c.validoAte, agora),
         },
         art: d.art,
-        situacaoContrato: p.situacaoContrato,
+        situacaoContrato: estadoDoContrato(
+          p.situacaoContrato,
+          p.inicio,
+          p.fim,
+          hojeEmSaoPaulo(agora),
+        ),
         equipamentosAtivos: ativos.length,
         atividadesNoPlano: d.atividadesNoPlano,
       });

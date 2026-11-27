@@ -8,8 +8,13 @@ import type { AcompanhamentoDasVisitas, VisitaDoPmoc } from "./domain/recalculo"
 /**
  * Visitas vivas não iniciadas do PMOC, na ordem de criação, com as linhas travadas: agendar ou
  * cancelar ao mesmo tempo espera o recálculo terminar. Só elas mudam no recálculo (RN-065, RN-066).
+ * `travar = false` na prévia do impacto (E-07.7), que só lê.
  */
-export async function visitasNaoIniciadas(tx: Tx, pmocId: string): Promise<VisitaDoPmoc[]> {
+export async function visitasNaoIniciadas(
+  tx: Tx,
+  pmocId: string,
+  travar = true,
+): Promise<VisitaDoPmoc[]> {
   const r = await tx.execute(sql`SELECT v.id, v.reference_month_index AS indice, v.status AS estado,
       to_char(v.scheduled_date, 'YYYY-MM-DD') AS data,
       ARRAY(SELECT vo.occurrence_id::text FROM visit_occurrence vo
@@ -17,7 +22,7 @@ export async function visitasNaoIniciadas(tx: Tx, pmocId: string): Promise<Visit
     FROM visit v
     WHERE v.pmoc_id = ${pmocId} AND v.deleted_at IS NULL AND v.status IN ('A_AGENDAR', 'AGENDADA')
     ORDER BY v.created_at, v.id
-    FOR UPDATE OF v`);
+    ${travar ? sql`FOR UPDATE OF v` : sql``}`);
   return r as unknown as VisitaDoPmoc[];
 }
 

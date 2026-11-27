@@ -429,6 +429,11 @@ export async function confirmarRenovacao(
   return r.length === 1;
 }
 
+/** Trava a linha do contrato (espera uma emissão do PMOC dele em andamento terminar). */
+export async function travarContrato(tx: Tx, id: string): Promise<void> {
+  await tx.execute(sql`SELECT id FROM contract WHERE id = ${id} FOR UPDATE`);
+}
+
 /** Trava a linha do local: dois contratos novos no mesmo local não passam juntos pela checagem. */
 export async function travarLocal(tx: Tx, id: string): Promise<void> {
   await tx.execute(sql`SELECT id FROM site WHERE id = ${id} FOR UPDATE`);

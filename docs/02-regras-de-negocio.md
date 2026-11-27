@@ -57,7 +57,7 @@
 | RN-014 | SE a data de fim do contrato passou OU o contrato foi `CANCELADO` ENTÃO o PMOC → `HISTORICO` (somente leitura; download continua disponível para ADM e cliente). | Requisito do cliente — DEC-06; RF-12.7, CA-15.1 | Renovação (C10, 21/10/2026; decisão R2 2.1): o PMOC anterior vira `HISTORICO` **imediatamente após o ADM acionar "Confirmar renovação"** (RN-192), sem esperar a data de fim. PMOC em `RASCUNHO` também vira `HISTORICO` (A5); esse histórico, por nunca ter sido emitido, **não** aparece para cliente nem técnico (RN-147; decisão R2 2.4). |
 | RN-015 | SE, após a emissão, mudam periodicidades ou equipamentos ENTÃO o PDF assinado não muda; o plano, o cronograma e a ficha são atualizados (RN-032, RN-065); o ADM decide se emite **nova versão**. | Requisito do cliente — RNF-15; PRD Q5 [A VALIDAR] (ver D-07) | — |
 | RN-016 | SE o ADM emite nova versão ENTÃO o sistema cria a versão `n+1` com novo PDF, nova assinatura do RT, estado `EMITIDO` (volta a aguardar assinatura do cliente) e mantém as versões anteriores para download. O campo revisão `R{n}` do contrato **não** é incrementado automaticamente. | Requisito do cliente — DEC-21, RNF-15 | — |
-| RN-017 | SE o contrato está `ENCERRADO` ou `CANCELADO` ENTÃO o ADM não pode emitir PMOC nem nova versão. | [A VALIDAR] | Download da "ficha atualizada" (RN-131) continua permitido. |
+| RN-017 | SE o contrato está `ENCERRADO` ou `CANCELADO` ENTÃO o ADM não pode emitir PMOC nem nova versão. | [A VALIDAR] | Download da "ficha atualizada" (RN-131) continua permitido. O estado é conferido pelas datas na hora (RN-142; `CANCELADO` gravado prevalece), sem esperar o processamento diário atualizar `contract.status`. |
 
 ---
 
