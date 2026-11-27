@@ -103,11 +103,15 @@ export const verificarEmissaoAction = sessionAction
 /**
  * TL-121 "Emitir" (RN-009): PDF, assinatura do RT, versão 1, cronograma, visitas e notificação, numa
  * transação. Síncrona (RN-188): o `maxDuration` da página TL-120 cobre o tempo (S-01).
+ *
+ * Sem `revalidatePath`: a página atualizada viria na mesma resposta e, já sem o botão "Emitir PMOC"
+ * (só existe em `RASCUNHO`), desmontaria o diálogo antes de mostrar `CONCLUIDO` (FL-08 passo 12:
+ * versão e "Baixar PDF"). A TL-121 recarrega a página ao fechar o diálogo (`router.refresh`).
  */
 export const emitirPmocAction = sessionAction
   .inputSchema(z.object({ pmocId: z.uuid(), rowVersion: z.number().int() }))
   .action(async ({ parsedInput, ctx }) =>
-    executar(() => emitirPmoc(ctx.req, parsedInput, emissaoDeps())),
+    executar(() => emitirPmoc(ctx.req, parsedInput, emissaoDeps()), false),
   );
 
 /** TL-120 aba Plano: periodicidade (RN-026); emitido, com recálculo (RN-032). */
