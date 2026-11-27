@@ -7,8 +7,21 @@ const alias = {
   "server-only": fileURLToPath(new URL("./tests/stubs/server-only.ts", import.meta.url)),
 };
 
+// Meta de cobertura (05 §3.11): 90% em `domain/` e `autorizacao`. O doc não diz a métrica; vale
+// para as quatro [A VALIDAR]. Sem meta numérica no resto, por isso só esses arquivos entram.
+const META_COBERTURA = { lines: 90, statements: 90, functions: 90, branches: 90 };
+const ALVO_COBERTURA = ["src/modules/*/domain/**/*.ts", "src/modules/autorizacao/**/*.ts"];
+
 export default defineConfig({
   test: {
+    coverage: {
+      provider: "v8",
+      include: ALVO_COBERTURA,
+      exclude: ["**/*.test.ts"],
+      reporter: ["text", "html", "json-summary"],
+      reportsDirectory: "coverage",
+      thresholds: Object.fromEntries(ALVO_COBERTURA.map((g) => [g, META_COBERTURA])),
+    },
     projects: [
       {
         resolve: { alias },
