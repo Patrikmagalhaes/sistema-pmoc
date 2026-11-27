@@ -11,6 +11,7 @@ import {
   atualizarMeusDados,
   atualizarUsuario,
   criarUsuario,
+  definirSenha,
   ErroAcesso,
   encerrarMinhasSessoes,
   ganchosAuth,
@@ -295,6 +296,29 @@ describe("criar usuário (RF-02; 03 §2.1 regra 5; SEG-15)", () => {
     expect(
       (await call("/reset-password", { newPassword: "chuva de verão em março", token })).status,
     ).toBe(200);
+  });
+
+  it("TL-003 sem sessão: link inventado ou já usado devolve LINK_INVALIDO e não troca a senha", async () => {
+    expect(await definirSenha("inventado-0123456789abcdef", "frase longa qualquer", deps)).toEqual({
+      ok: false,
+      erro: "LINK_INVALIDO",
+    });
+    await criarUsuario(
+      admCtx,
+      { nome: "Dora", email: "dora.ramos@empresa.test", perfil: "TECNICO" },
+      adm1Login.jar.headers(),
+      deps,
+    );
+    const token = tokenDoEmail("dora.ramos@empresa.test");
+    expect(await definirSenha(token, "vento norte na serra", deps)).toEqual({ ok: true });
+    expect(await definirSenha(token, "mar calmo de inverno", deps)).toEqual({
+      ok: false,
+      erro: "LINK_INVALIDO",
+    });
+    const entra = (senha: string) =>
+      call("/sign-in/email", { email: "dora.ramos@empresa.test", password: senha }, new Jar());
+    expect((await entra("mar calmo de inverno")).status).toBe(401);
+    expect((await entra("vento norte na serra")).status).toBe(200);
   });
 });
 
