@@ -28,8 +28,22 @@ export const E2E = {
       senha: "frase longa do tecnico",
       perfil: "TECNICO",
     },
+    {
+      // ADM próprio do spec da emissão: ativa o segundo fator sozinho, sem depender do acesso.spec.
+      nome: "Bruno Administrador da Emissão E2E",
+      email: "adm.emissao.e2e@exemplo.test",
+      senha: "frase longa da emissao",
+      perfil: "ADM",
+    },
   ],
+  /** Dados de demonstração criados pelo servidor (`popularDemo`), lidos pelos specs. */
+  demoFile: join(process.cwd(), "tmp", "e2e-demo.json"),
 } as const;
+
+/** O primeiro usuário de cada perfil (o ADM da emissão vem depois e é lido por `usuarioPorEmail`). */
 
 export const usuario = (perfil: "ADM" | "CLIENTE" | "TECNICO") =>
   E2E.usuarios.find((u) => u.perfil === perfil) as (typeof E2E.usuarios)[number];
+
+export const usuarioPorEmail = (email: string) =>
+  E2E.usuarios.find((u) => u.email === email) as (typeof E2E.usuarios)[number];

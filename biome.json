@@ -10,6 +10,7 @@
       "!test-results",
       "!playwright-report",
       "!coverage",
+      "!tmp",
       "!tests/.tmp-mod02"
     ]
   },

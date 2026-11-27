@@ -2,26 +2,12 @@
  * Etapa 2 – FL-01 no navegador: TL-001 a TL-004 (04 §4.1, §4.5), estados SEM_ACESSO e SESSAO_EXPIRADA
  * (04 §1.2), RN-194 (ADM só acessa TL-004 até ativar o segundo fator) e SEG-16 (token fora da URL).
  */
-import { createHmac } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { gerarPkcs12 } from "../fixtures/certificado";
 import { E2E, usuario } from "./dados";
-
-function totp(base32: string): string {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let bits = "";
-  for (const ch of base32.replace(/=+$/, "").toUpperCase()) {
-    bits += alphabet.indexOf(ch).toString(2).padStart(5, "0");
-  }
-  const key = Buffer.from((bits.match(/.{8}/g) ?? []).map((b) => Number.parseInt(b, 2)));
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
-  const h = createHmac("sha1", key).update(counter).digest();
-  const o = (h[19] as number) & 0xf;
-  return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, "0");
-}
+import { totp } from "./totp";
 
 /**
  * Cada login sai de um IP próprio (`x-real-ip`, o cabeçalho que o servidor de E2E confia). O limite
@@ -29,11 +15,33 @@ function totp(base32: string): string {
  */
 let ipDoTeste = 0;
 
+/**
+ * Abre o menu do usuário (doc 08 §3.9) até `item` aparecer: o clique logo após a navegação pode chegar
+ * antes da hidratação e não abrir o menu.
+ */
+async function abrirMenuDoUsuario(page: Page, item: ReturnType<Page["getByRole"]>) {
+  const menu = page.getByRole("button", { name: /^Menu do usuário/ });
+  await expect(async () => {
+    if ((await menu.getAttribute("aria-expanded")) !== "true") await menu.click();
+    await expect(item).toBeVisible({ timeout: 1_000 });
+  }).toPass();
+}
+
+/** Valor de um item da DescriptionList (`dt` = rótulo, primeiro `dd` = valor). */
+const valorDoTermo = (page: Page, rotulo: string) =>
+  page
+    .locator("dl > div")
+    .filter({ has: page.locator("dt", { hasText: new RegExp(`^${rotulo}$`) }) })
+    .locator("dd")
+    .first();
+
 /** "Sair" fica no menu do usuário (doc 08 §3.9); na TL-004 é um botão direto. */
 async function sair(page: Page) {
+  const botao = page.getByRole("button", { name: "Sair" });
   const menu = page.getByRole("button", { name: /^Menu do usuário/ });
-  if (await menu.count()) await menu.click();
-  await page.getByRole("button", { name: "Sair" }).click();
+  await expect(menu.or(botao).first()).toBeVisible(); // a página pode ainda estar carregando
+  if (await menu.count()) await abrirMenuDoUsuario(page, botao);
+  await botao.click();
 }
 
 async function entrar(page: Page, email: string, senha: string) {
@@ -72,7 +80,7 @@ test("CLIENTE entra no portal e não acessa a administração (CA-01.3)", async 
   const u = usuario("CLIENTE");
   await entrar(page, u.email, u.senha);
   await expect(page).toHaveURL(/\/cliente$/);
-  await expect(page.getByText(u.nome)).toBeVisible();
+  await expect(page.getByRole("button", { name: `Menu do usuário: ${u.nome}` })).toBeVisible();
   const r = await page.goto("/adm");
   expect(r?.status()).toBe(403);
   await expect(page.getByText("Você não tem acesso a esta página.")).toBeVisible();
@@ -120,7 +128,7 @@ test("RN-194: ADM sem segundo fator só acessa TL-004; ativa e recebe 10 código
   await page.getByLabel("Guardei os códigos em local seguro").check();
   await concluir.click();
   await expect(page).toHaveURL(/\/adm$/);
-  await expect(page.getByText(u.nome)).toBeVisible();
+  await expect(page.getByRole("button", { name: `Menu do usuário: ${u.nome}` })).toBeVisible();
 });
 
 test("ADM com segundo fator: login pede o código do aplicativo", async ({ page }) => {
@@ -231,7 +239,9 @@ test("ADM cria técnico; o link inicial define a senha e o técnico entra (FL-05
   await expect(
     page.getByText("Usuário criado. Enviamos o link para definir a senha."),
   ).toBeVisible();
-  await expect(page.getByLabel("Perfil")).toBeDisabled(); // RN-179
+  // RN-179: depois de criado, o perfil é só leitura (sem campo editável)
+  await expect(page.getByLabel("Perfil")).toHaveCount(0);
+  await expect(valorDoTermo(page, "Perfil")).toHaveText("Técnico");
 
   // E-mail repetido (E-05.1)
   await page.goto("/adm/usuarios/novo");
@@ -316,10 +326,14 @@ test("TL-005: técnico corrige os dados, vê as sessões e troca a senha (LG-21,
   const page = await (await browser.newContext()).newPage();
   await entrar(page, u.email, u.senha);
   await expect(page).toHaveURL(/\/tecnico$/);
-  await page.getByRole("link", { name: u.nome }).click();
+  const minhaConta = page.getByRole("link", { name: "Minha conta" });
+  await abrirMenuDoUsuario(page, minhaConta);
+  await minhaConta.click();
   await expect(page).toHaveURL(/\/conta$/);
 
-  await expect(page.getByLabel("E-mail")).toHaveAttribute("readonly", "");
+  // SEG-12: o e-mail aparece, mas só o administrador o troca (não há campo de e-mail)
+  await expect(page.getByText(u.email)).toBeVisible();
+  await expect(page.getByLabel("E-mail")).toHaveCount(0);
   await page.getByLabel("Nome").fill("Tiago Técnico Corrigido");
   await page.getByRole("button", { name: "Salvar dados" }).click();
   await expect(page.getByText("Dados salvos.")).toBeVisible();
@@ -427,7 +441,7 @@ test("FL-04: ADM cria cliente e local; código gerado; exclusão bloqueada com m
 }) => {
   test.skip(!segredoAdm, "depende do segundo fator do ADM");
   await entrarAdm(page);
-  await page.getByRole("link", { name: "Clientes" }).click();
+  await page.getByRole("link", { name: "Clientes", exact: true }).click();
   await page.getByRole("link", { name: "Novo cliente" }).first().click();
 
   await page.getByLabel("Razão social").fill("Clínica E2E Ltda");
@@ -470,7 +484,7 @@ test("FL-04: ADM cria cliente e local; código gerado; exclusão bloqueada com m
   await page.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText(/Local criado com o código L\d{3,}\./)).toBeVisible();
   const codigo =
-    (await page.getByText(/Local criado com o código/).textContent())?.match(/Ld{3,}/)?.[0] ?? "";
+    (await page.getByText(/Local criado com o código/).textContent())?.match(/L\d{3,}/)?.[0] ?? "";
   expect(codigo).toMatch(/^L\d{3,}$/);
 
   // E-04.7: cliente com local vivo não pode ser excluído
@@ -496,8 +510,8 @@ test("FL-04: ADM cria cliente e local; código gerado; exclusão bloqueada com m
   await page.getByRole("link", { name: "Usuários" }).last().click();
   await expect(page.getByText("O cliente não terá acesso ao portal")).toBeVisible();
   await page.getByRole("link", { name: "Novo usuário" }).click();
-  await expect(page.getByLabel("Perfil")).toBeDisabled();
-  await expect(page.getByLabel("Perfil")).toHaveValue("CLIENTE");
+  await expect(page.getByLabel("Perfil")).toHaveCount(0);
+  await expect(valorDoTermo(page, "Perfil")).toHaveText("Cliente");
 });
 
 // ---- Etapa 3 – TL-112 – contratos (FL-06; RF-07, RF-15; RN-143, RN-144, RN-192) ---------------
@@ -562,7 +576,9 @@ test("FL-06: sobreposição, renovar, confirmar renovação e cancelar (CA-07.1,
   await page.getByRole("dialog").getByRole("button", { name: "Cancelar contrato" }).click();
   await expect(page.getByText("Contrato cancelado em 15/03/2027: Imóvel vendido")).toBeVisible();
   await expect(page.getByRole("button", { name: "Salvar" })).toHaveCount(0);
-  await expect(page.getByLabel("Nº da ART")).toHaveAttribute("readonly", "");
+  // Contrato cancelado: só leitura (a ART aparece, sem campo editável)
+  await expect(page.getByLabel("Nº da ART")).toHaveCount(0);
+  await expect(valorDoTermo(page, "Nº da ART")).toHaveText("ART-E2E-2");
 });
 
 // ---- Etapa 3 – TL-111 – equipamentos (FL-07; RF-09; RN-046, RN-048) ---------------------------
@@ -576,10 +592,11 @@ test("FL-07: TAG gerada e não reaproveitada; ambiente obrigatório; inativar e 
   test.skip(!segredoAdm, "depende do segundo fator do ADM");
   await entrarAdm(page);
 
-  // Local com PMOC aberto: incluir equipamento espera a Etapa 4 (FL-07 passos 4–5)
+  // Local com PMOC em rascunho: incluir equipamento é permitido e recalcula o plano (FL-07 passo 5)
   await page.goto(`/adm/locais/${LOCAL_SEED_B}?aba=equipamentos`);
   await page.getByRole("link", { name: "Novo equipamento" }).click();
-  await expect(page.getByText(/ainda não está disponível/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Novo equipamento" })).toBeVisible();
+  await expect(page.getByText(/ainda não está disponível/)).toHaveCount(0);
 
   // L001: depois do FL-06, o PMOC do seed é histórico; já existe L001-SPL-001
   await page.goto(`/adm/locais/${LOCAL_SEED_A}?aba=equipamentos`);
@@ -588,7 +605,7 @@ test("FL-07: TAG gerada e não reaproveitada; ambiente obrigatório; inativar e 
   // a aba do local também tem um "Tipo" (filtro): espera a TL-111
   await expect(page.getByRole("heading", { name: "Novo equipamento" })).toBeVisible();
   await page.getByLabel("Tipo").selectOption({ label: "Split" });
-  await expect(page.getByLabel("TAG")).toHaveValue("será gerada ao salvar: L001-SPL-NNN");
+  await expect(valorDoTermo(page, "TAG")).toHaveText("Será gerada ao salvar: L001-SPL-NNN");
   await page.getByLabel("Grupo").selectOption({ label: "Hi-Wall" });
   await page.getByLabel("Capacidade (opcional)").fill("0");
   await page.getByRole("button", { name: "Salvar" }).click();
@@ -599,7 +616,9 @@ test("FL-07: TAG gerada e não reaproveitada; ambiente obrigatório; inativar e 
   await expect(page.getByLabel("Unidade da capacidade")).toHaveValue("BTU/h"); // RN-052
   await page.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText("Equipamento criado com a TAG L001-SPL-002.")).toBeVisible(); // CA-09.1
-  await expect(page.getByLabel("Tipo")).toHaveAttribute("readonly", ""); // RN-049
+  // RN-049: o tipo fica travado desde a criação (aparece, sem campo editável)
+  await expect(page.getByLabel("Tipo")).toHaveCount(0);
+  await expect(valorDoTermo(page, "Tipo")).toHaveText("Split");
   await expect(page.getByLabel("Capacidade (opcional)")).toHaveValue("12000");
 
   // Inativar (UF-09): some da lista; aparece com "Mostrar inativos" (UL-03)
@@ -643,7 +662,10 @@ test("FL-02: logo enviado e servido, RT salvo e certificado A1 enviado (E-02.2, 
 }) => {
   test.skip(!segredoAdm, "depende do segundo fator do ADM");
   await entrarAdm(page);
-  await page.getByRole("link", { name: "Empresa e RT" }).click();
+  await page
+    .getByRole("navigation", { name: "Menu principal" })
+    .getByRole("link", { name: "Empresa e RT" })
+    .click();
   await expect(page.getByRole("heading", { name: "Empresa executora e RT" })).toBeVisible();
 
   // E-02.2: formato não aceito

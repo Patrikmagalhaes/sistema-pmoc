@@ -1,13 +1,14 @@
 /**
- * Ambiente dos testes E2E: Postgres 16 embutido + migrações + usuários fictícios com senha + `next dev`.
+ * Ambiente dos testes E2E: Postgres 16 embutido + migrações + usuários fictícios com senha + dados de demonstração
+ * (`popularDemo`, PMOC em rascunho para o emissao.spec) + `next dev`.
  * Rodado pelo `webServer` do Playwright com `tsx --conditions=react-server` (módulos `server-only`).
  */
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { sql } from "drizzle-orm";
 import EmbeddedPostgres from "embedded-postgres";
 import { runMigrations } from "../../db/migrate";
@@ -18,6 +19,7 @@ import { systemContext } from "../../src/server/context";
 import { createDatabase } from "../../src/server/db";
 import { memoryEmailSender } from "../../src/server/email";
 import { E2E } from "./dados";
+import { popularDemo } from "./demo-dados";
 
 const freePort = () =>
   new Promise<number>((resolve, reject) => {
@@ -83,10 +85,20 @@ for (const u of E2E.usuarios) {
       VALUES (${u.nome}, ${u.email}, ${a.id}, ${u.perfil}, ${u.perfil === "CLIENTE" ? SEED.clientAId : null})`),
   );
 }
-await db.close();
 
+// Dados para a emissão (emissao.spec): certificado A1 de teste, cliente, equipamentos, contrato e PMOC
+// em rascunho. O armazenamento é limpo antes, porque o certificado e o logo são gravados nele.
 rmSync(E2E.emailDir, { recursive: true, force: true });
 rmSync(E2E.storageDir, { recursive: true, force: true });
+const demo = await popularDemo(db, {
+  storageDir: E2E.storageDir,
+  segredo: E2E.secret,
+  certKey: E2E.certKey,
+});
+mkdirSync(dirname(E2E.demoFile), { recursive: true });
+writeFileSync(E2E.demoFile, JSON.stringify(demo));
+await db.close();
+
 const next = spawn(
   process.execPath,
   ["node_modules/next/dist/bin/next", "dev", "-p", String(E2E.port)],

@@ -356,6 +356,8 @@ Pendência: confirmar o pg-boss em modo "buscar sob demanda" (sem worker permane
 | PDF | Vitest | Snapshot de texto extraído do PDF (não de imagem) para PMOC de 1, 30 e 200 equipamentos | Cada PR (o de 500, só no noturno) |
 | Carga | k6 ou Playwright em lote [A VALIDAR] | 200 usuários simultâneos (§1.2) | Antes do go-live e a cada mudança grande |
 
+E2E até existir o deploy de preview: o job `e2e` do CI roda o Playwright contra `next dev` no próprio runner, com Postgres embutido, migrações e dados fictícios (`tests/e2e/server.ts`). Não usa `next start` porque, com `NODE_ENV=production`, armazenamento e e-mail recusam por desenho. Quando a Vercel existir, o alvo passa a ser o preview (`E2E_BASE_URL`) [A VALIDAR].
+
 Meta de cobertura: 90% em `domain/` e `autorizacao`; sem meta numérica no resto [A VALIDAR]. Medida pelos testes unitários (`pnpm test:coverage`, provedor v8), em linhas, instruções, funções e ramos; abaixo disso o CI falha. A métrica fica numa constante única em `vitest.config.ts` [A VALIDAR].
 
 ### 3.12 IA do relatório

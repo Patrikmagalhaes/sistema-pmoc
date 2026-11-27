@@ -4,7 +4,7 @@
  * 12 meses a partir do mês atual e o PMOC em `RASCUNHO`, pronto para "Emitir PMOC". Tudo pelos
  * serviços dos módulos, como a tela faria. Só para ver o sistema; nunca use dados reais aqui.
  */
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { SEED } from "../../db/seed/data";
 import { type ArquivosDeps, prepararEnvio } from "../../src/modules/arquivos";
@@ -81,7 +81,11 @@ export async function popularDemo(
       (SELECT row_version FROM technical_responsible LIMIT 1) AS rt`),
   )) as unknown as { empresa: number; rt: number }[];
 
-  const logo = Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), randomBytes(32)]);
+  // PNG 1×1 válido: só a assinatura com bytes aleatórios passa no SEG-53, mas o PDF não desenha o logo.
+  const logo = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+    "base64",
+  );
   const envio = await prepararEnvio(
     adm(),
     {
