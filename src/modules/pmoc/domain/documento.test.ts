@@ -16,6 +16,7 @@ import {
   mesCurto,
   porExtenso,
   ROTULO_CELULA,
+  telefone,
   telefones,
   vigencia,
 } from "./documento";
@@ -85,6 +86,18 @@ describe("CA-12.2: campo opcional vazio", () => {
     expect(telefones("4832594000", "48999990000")).toBe("(48) 3259-4000 / (48) 99999-0000");
     expect(telefones(null, null)).toBeNull();
   });
+
+  it("RNF-07: telefone com máscara; vazio continua vazio", () => {
+    expect(telefone("4832594000")).toBe("(48) 3259-4000");
+    expect(telefone("  ")).toBeNull();
+    expect(telefone(null)).toBeNull();
+  });
+
+  it("endereço sem número e sem s/n: o Nº fica fora", () => {
+    const e = { ...endereco, numero: null, semNumero: false };
+    expect(camposDeEndereco(e).map((c) => c.rotulo)).not.toContain("Nº");
+    expect(enderecoEmLinha(e)).toBe("Rua São Ludgéro, Barreiros, São José/SC");
+  });
 });
 
 describe("RN-050: listagem de equipamentos", () => {
@@ -106,6 +119,10 @@ describe("RN-050: listagem de equipamentos", () => {
       "duzentos",
       "novecentos e noventa e nove",
     ]);
+  });
+
+  it("fora de 1 a 999 (ou não inteiro), só o número", () => {
+    expect([0, 1000, 1.5, -2].map((n) => porExtenso(n))).toEqual(["0", "1000", "1.5", "-2"]);
   });
 
   const eq = (tag: string, grupo: string) => ({
@@ -154,6 +171,12 @@ describe("RN-052: capacidade", () => {
     expect(capacidade("18000.00", "BTU/h")).toBe("18.000 BTU/h");
     expect(capacidade("1.50", "TR")).toBe("1,5 TR");
     expect(capacidade(null, "BTU/h")).toBeNull();
+  });
+
+  it("sem unidade, só o número; valor que não é número fica fora", () => {
+    expect(capacidade("9000.00", null)).toBe("9.000");
+    expect(capacidade("9000.00", " ")).toBe("9.000");
+    expect(capacidade("abc", "BTU/h")).toBeNull();
   });
 });
 

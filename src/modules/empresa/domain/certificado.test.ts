@@ -1,6 +1,6 @@
 /** RF-04.4; RN-153; E-02.3, E-02.4, E-02.6. Certificados fictícios gerados no teste. */
 import { describe, expect, it } from "vitest";
-import { gerarPkcs12 } from "../../../../tests/fixtures/certificado";
+import { gerarCertificadoSolto, gerarPkcs12 } from "../../../../tests/fixtures/certificado";
 import {
   diasParaVencer,
   ErroPkcs12,
@@ -57,6 +57,38 @@ describe("leitura do PKCS#12 (FL-02 passo 5)", () => {
     );
     const semChave = gerarPkcs12({ nome: "Rui", senha: "x", validoDe, validoAte, semChave: true });
     expect(() => lerPkcs12(semChave, "x")).toThrow(new ErroPkcs12("INVALIDO"));
+  });
+
+  it("E-02.4: DER válido que não é PKCS#12 não vira erro de senha", () => {
+    expect(() => lerPkcs12(gerarCertificadoSolto(), "x")).toThrow(new ErroPkcs12("INVALIDO"));
+  });
+
+  it("E-02.4: chave privada de outro par não assina pelo certificado (RF-13)", () => {
+    const p12 = gerarPkcs12({
+      nome: "Rui",
+      senha: "x",
+      validoDe,
+      validoAte,
+      chaveDeOutroPar: true,
+    });
+    expect(() => lerPkcs12(p12, "x")).toThrow(new ErroPkcs12("INVALIDO"));
+  });
+
+  it("E-02.4: CN sem nome antes do CPF", () => {
+    const p12 = gerarPkcs12({ nome: "", senha: "x", validoDe, validoAte, cnBruto: ":00000000000" });
+    expect(() => lerPkcs12(p12, "x")).toThrow(new ErroPkcs12("INVALIDO"));
+  });
+
+  it('CN sem o ":CPF" vira o titular inteiro; CN em latin1 (não UTF-8) é lido como está', () => {
+    const semCpf = gerarPkcs12({ nome: "", senha: "x", validoDe, validoAte, cnBruto: "Ana Lima" });
+    expect(lerPkcs12(semCpf, "x").titular).toBe("Ana Lima");
+    const latin1 = gerarPkcs12({ nome: "", senha: "x", validoDe, validoAte, cnBruto: "Jos\xe9:1" });
+    expect(lerPkcs12(latin1, "x").titular).toBe("José");
+  });
+
+  it("emissor sem CN fica nulo", () => {
+    const p12 = gerarPkcs12({ nome: "Rui", senha: "x", validoDe, validoAte, semEmissor: true });
+    expect(lerPkcs12(p12, "x").emissor).toBeNull();
   });
 
   it("extensões aceitas (SEG-51)", () => {

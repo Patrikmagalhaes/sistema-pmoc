@@ -138,6 +138,20 @@ describe("montarSnapshot", () => {
     expect(s.tipos[1]?.equipamentos.map((e) => e.tag)).toEqual(["L001-SPL-001", "L001-SPL-002"]);
   });
 
+  it("RNF-07: tipos com o mesmo nome saem na mesma ordem, qualquer que seja a de entrada", () => {
+    const gemeos = [
+      { id: "t-b", nome: "Split", nomePlural: null, sigla: "SPB" },
+      { id: "t-a", nome: "Split", nomePlural: null, sigla: "SPA" },
+    ];
+    const equipamentos = [equip("L001-SPB-001", "t-b"), equip("L001-SPA-001", "t-a")];
+    const ida = montarSnapshot(dados({ tipos: gemeos, atividades: [], equipamentos }));
+    const volta = montarSnapshot(
+      dados({ tipos: [...gemeos].reverse(), atividades: [], equipamentos }),
+    );
+    expect(ida.tipos.map((t) => t.id)).toEqual(["t-a", "t-b"]);
+    expect(volta.tipos.map((t) => t.id)).toEqual(["t-a", "t-b"]);
+  });
+
   it("serializável e determinístico (RNF-07)", () => {
     const json = JSON.stringify(s);
     expect(JSON.parse(json)).toEqual(s);

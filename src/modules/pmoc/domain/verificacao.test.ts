@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { LIMITE_VERIFICACAO_POR_IP, situacaoVerificada } from "./verificacao";
+import {
+  LIMITE_VERIFICACAO_POR_IP,
+  ROTULO_SITUACAO_VERIFICADA,
+  situacaoVerificada,
+} from "./verificacao";
 
 describe("TL-007: situação da versão verificada (INT-14; VP-2)", () => {
   it("versão atual aguardando assinatura é vigente", () => {
@@ -13,6 +17,16 @@ describe("TL-007: situação da versão verificada (INT-14; VP-2)", () => {
   it("assinada e atual; assinada e depois trocada por versão mais nova", () => {
     expect(situacaoVerificada("ASSINADO_CLIENTE", true)).toBe("ASSINADO");
     expect(situacaoVerificada("ASSINADO_CLIENTE", false)).toBe("ASSINADO_SUBSTITUIDO");
+  });
+
+  it("SUBSTITUIDA é substituída mesmo marcada como atual", () => {
+    expect(situacaoVerificada("SUBSTITUIDA", true)).toBe("SUBSTITUIDO");
+  });
+
+  it("toda situação tem rótulo na TL-007, sem nome de pessoa nem dado do cliente", () => {
+    expect(Object.keys(ROTULO_SITUACAO_VERIFICADA).sort()).toEqual(
+      ["ASSINADO", "ASSINADO_SUBSTITUIDO", "SUBSTITUIDO", "VIGENTE"].sort(),
+    );
   });
 
   it("aguardando assinatura mas não atual (estado que o trigger não deixa existir) conta como substituída", () => {
